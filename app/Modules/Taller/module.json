@@ -1,0 +1,11 @@
+{
+    "name": "Taller",
+    "alias": "taller",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Taller\\Providers\\TallerServiceProvider"
+    ],
+    "files": []
+}

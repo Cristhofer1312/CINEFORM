@@ -1,0 +1,52 @@
+php artisan module:make <module-name> # Crea un nuevo módulo
+php artisan module:make-controller <controller-name> Invoice
+php artisan module:make-model <model-name> Invoice -m # crea el modelo y una migración
+php artisan module:make-rule <rule-name> Invoice
+php artisan module:make-factory <factory-name> Invoice
+php artisan module:make-migration <migration-name> Invoice
+    Pasos para revertir migraciones específicas de un módulo:
+        Asegúrate que el módulo esté correcto y cargado.
+            Ejecuta:
+                php artisan module:migrate-rollback <NombreDelModulo>
+            En tu caso:
+                php artisan module:migrate-rollback Security
+            Esto revertirá la última migración (o últimas migraciones) aplicadas del módulo Security.
+            Si necesitas revertir todas las migraciones del módulo puedes usar el parámetro --step para mayor control:
+                php artisan module:migrate-rollback Security --step=1
+php artisan module:make-model <model-name> -m # Crea el modelo con su migración                
+php artisan module:make-model NombreDelModelo NombreDelModulo --migration # Crea el modulo y la migración
+php artisan module:make-provider <provider-name> Invoice
+php artisan module:make-command <command-name> Invoice          
+php artisan module:make-event <event-name> Invoice                     
+php artisan module:make-job <job-name> Invoice                       
+php artisan module:make-listener <listener-name> Invoice                                                 
+php artisan module:make-mail <mail-name> Invoice                   
+php artisan module:make-middleware <middleware-name> Invoice               
+php artisan module:make-notification <notification-name> Invoice          
+php artisan module:make-policy <policy-name> Invoice                 
+php artisan module:make-request <request-name> Invoice             
+php artisan module:make-resource <resource-name> Invoice                
+php artisan module:make-seed <seed-name> Invoice                         
+php artisan module:make-test <test-name> Invoice                     
+php artisan module:migrate Invoice
+php artisan module:migrate-refresh Invoice                      
+php artisan module:migrate-reset Invoice                                        
+php artisan module:migrate-rollback Invoice                                   
+php artisan module:migrate-status Invoice                                      
+php artisan module:publish Invoice                     
+php artisan module:publish-config Invoice
+
+
+
+php artisan module:make-migration create_data_ratings_table Data
+php artisan module:make-model Ratings Data 
+php artisan module:make-controller RatingsController Data
+
+php artisan module:make-export VisitorsList Visitors --model Visitor
+
+php artisan migrate --path=Modules/NombreModulo/Database/Migrations # Ejecutar migraciones de un modulo
+php artisan migrate:   # Ejecuta migraciones pendientes.
+php artisan migrate:rollback #Revierte la última migración.
+php artisan migrate:refresh #Revierte y vuelve a ejecutar todas las migraciones.
+php artisan migrate:fresh --path=Modules/Modulo/Database/Migrations # Borra todas las tablas y ejecuta todas las migraciones desde cero.
+php artisan migrate:status #Muestra el estado de todas las migraciones (ejecutadas o pendientes).

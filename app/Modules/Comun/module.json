@@ -1,0 +1,11 @@
+{
+    "name": "Comun",
+    "alias": "comun",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Comun\\Providers\\ComunServiceProvider"
+    ],
+    "files": []
+}

@@ -1,0 +1,63 @@
+# docker-compose.yml simplificado
+#   Docker Compose ahora usa automáticamente la última especificación del formato Compose, por lo que no hace falta declarar explícitamente la version en el YAML. El atributo version sigue funcionando, pero genera esa 
+#   advertencia para que elimines esa línea y evites confusión.
+# version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./app:/var/www/html
+      - ./docker/php/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  webserver:
+    image: nginx:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - ./app:/var/www/html
+      #- ./nginx/nginx.conf:/etc/nginx/conf.d/custom.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - app-network
+
+  db:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: laravel
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: cineform
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+      
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+volumes:
+  pgdata:
+
+networks:
+  app-network:
+    driver: bridge
