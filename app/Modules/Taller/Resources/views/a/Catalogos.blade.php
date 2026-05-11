@@ -117,13 +117,13 @@
                                                 class="btn btn-sm btn-light border shadow-xs rounded-3 me-1 btn-editar-actividad"
                                                 data-id="{{ $act->id_actividad_formativa }}" data-nombre="{{ $act->nombre }}"
                                                 data-abreviatura="{{ $act->abreviatura }}"
-                                                data-url="{{ route('taller.catalogos.actividades.update', $act->id_actividad_formativa) }}"
+                                                data-url="{{ route('taller.catalogos.actividades.update', $act->crypt_id) }}"
                                                 data-bs-toggle="modal" data-bs-target="#modalEditarActividad" title="Editar">
                                                 <i class="fas fa-pen text-primary"></i>
                                             </button>
                                             {{-- Toggle --}}
                                             <form method="POST"
-                                                action="{{ route('taller.catalogos.actividades.toggle', $act->id_actividad_formativa) }}"
+                                                action="{{ route('taller.catalogos.actividades.toggle', $act->crypt_id) }}"
                                                 class="d-inline form-toggle-actividad" data-nombre="{{ $act->nombre }}"
                                                 data-status="{{ $act->status }}">
                                                 @csrf @method('PATCH')
@@ -210,15 +210,15 @@
                                             {{-- Editar --}}
                                             <button type="button"
                                                 class="btn btn-sm btn-light border shadow-xs rounded-3 me-1 btn-editar-aspecto"
-                                                data-id="{{ $asp->id_aspecto }}" data-nombre="{{ $asp->nombre }}"
+                                                data-id="{{ $asp->crypt_id }}" data-nombre="{{ $asp->nombre }}"
                                                 data-abreviatura="{{ $asp->abreviatura }}"
-                                                data-url="{{ route('taller.catalogos.aspectos.update', $asp->id_aspecto) }}"
+                                                data-url="{{ route('taller.catalogos.aspectos.update', $asp->crypt_id) }}"
                                                 data-bs-toggle="modal" data-bs-target="#modalEditarAspecto" title="Editar">
                                                 <i class="fas fa-pen" style="color:#0891b2;"></i>
                                             </button>
                                             {{-- Toggle --}}
                                             <form method="POST"
-                                                action="{{ route('taller.catalogos.aspectos.toggle', $asp->id_aspecto) }}"
+                                                action="{{ route('taller.catalogos.aspectos.toggle', $asp->crypt_id) }}"
                                                 class="d-inline form-toggle-aspecto" data-nombre="{{ $asp->nombre }}"
                                                 data-status="{{ $asp->status }}">
                                                 @csrf @method('PATCH')

@@ -2,6 +2,7 @@
 
 namespace Modules\Taller\Http\Controllers;
 
+use App\Enums\EstadoCurso;
 use Illuminate\Http\Request;
 use Modules\Taller\Entities\Inscripcion;
 use Modules\Taller\Entities\Curso;
@@ -47,7 +48,25 @@ class InscripcionController extends BaseController
                 ], 404);
             }
 
-            if ($curso->estado_actual->id_estado != 6) {
+            // REGLA DE LOCALIDAD (Seguridad de Backend)
+            // Solo si NO es gestor ni facilitador Y NO es curso nacional
+            $esGestor = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO);
+            $esFacilitador = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::EDITAR_CURSO);
+
+            if (!$esGestor && !$esFacilitador && !$curso->es_nacional) {
+                $idEstadoUsuario = $user->personalData->id_estado ?? null;
+                $localidadesPermitidas = $curso->localidades->pluck('id')->toArray();
+
+                if ($idEstadoUsuario && !in_array($idEstadoUsuario, $localidadesPermitidas)) {
+                    $nombresLocalidades = $curso->localidades->pluck('description')->join(', ');
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Lo sentimos, este curso solo está disponible para las siguientes localidades: ' . ($nombresLocalidades ?: 'N/A') . '.'
+                    ], 403);
+                }
+            }
+
+            if ($curso->estado_actual->id_estado != EstadoCurso::INSCRIPCION->value) {
                 return response()->json([
                     'success' => false,
                     'message' => 'El curso no se encuentra en estado de inscripción.',
@@ -109,6 +128,11 @@ class InscripcionController extends BaseController
 
     /**
      * Remove the specified resource from storage.
+     * 
+     * Permite cancelar inscripciones en dos contextos:
+     * 1. El participante cancela su propia inscripción (solo en estado Inscripción).
+     * 2. Un usuario con permiso CANCELAR_INSCRIPCION retira a cualquier participante
+     *    (en estados Inscripción o En Curso).
      */
     public function destroy($id)
     {
@@ -116,8 +140,44 @@ class InscripcionController extends BaseController
 
         $inscripcion = Inscripcion::findOrFail($id);
         $curso = $inscripcion->curso;
+        $estadoActual = $curso->estado_actual->id_estado ?? null;
 
-        if ($curso->estado_actual->id_estado != 6) {
+        // ── Rama Administrativa: usuario con permiso de cancelar inscripciones ──
+        $puedeCancelarInscripciones = hasPermissionRoute(
+            'taller.cursos.index', 
+            \App\Constants\SecurityAction::CANCELAR_INSCRIPCION
+        );
+
+        if ($puedeCancelarInscripciones) {
+            $estadosPermitidos = [
+                EstadoCurso::INSCRIPCION->value,
+                EstadoCurso::EN_CURSO->value,
+            ];
+
+            if (!in_array($estadoActual, $estadosPermitidos)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se pueden retirar participantes en el estado actual del curso.',
+                ], 403);
+            }
+
+            $nombreParticipante = $inscripcion->persona
+                ? ($inscripcion->persona->primer_nombre . ' ' . $inscripcion->persona->primer_apellido)
+                : 'Participante';
+
+            $inscripcion->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => "La inscripción de {$nombreParticipante} ha sido cancelada.",
+                'cupos_restantes' => $curso->cantidad_cupos !== null 
+                    ? max(0, (int)$curso->cantidad_cupos - Inscripcion::where('id_curso', $curso->id_curso)->count()) 
+                    : null
+            ]);
+        }
+
+        // ── Rama Normal: el participante cancela su propia inscripción ──
+        if ($estadoActual != EstadoCurso::INSCRIPCION->value) {
             return response()->json([
                 'success' => false,
                 'message' => 'El curso ya ha iniciado, no se puede gestionar el cupo.',

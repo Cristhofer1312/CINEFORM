@@ -5,7 +5,7 @@
 
 <button class="btn btn-danger w-100 mb-2" data-motivo="{{ $curso->estado_actual->pivot->motivo ?? '' }}"
     data-nombre="{{ $curso->nombre }}"
-    onclick="verMotivoRechazo({{ $curso->id_curso }}, this.dataset.motivo, this.dataset.nombre)">
+    onclick="verMotivoRechazo('{{ $curso->crypt_id }}', this.dataset.motivo, this.dataset.nombre)">
     Motivo de rechazo
 </button>
 
@@ -13,6 +13,6 @@
     <i class="fas fa-user-tie me-2"></i> Editar
 </a>
 
-<button class="btn btn-success w-100 mb-2" onclick="finalizarEdicion({{ $curso->id_curso }})">
+<button class="btn btn-success w-100 mb-2" onclick="finalizarEdicion('{{ $curso->crypt_id }}')">
     <i class="fas fa-user-tie me-2"></i> Finalizar edicion
 </button>

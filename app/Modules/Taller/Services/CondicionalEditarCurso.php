@@ -2,6 +2,8 @@
 
 namespace Modules\Taller\Services;
 
+use App\Enums\EstadoCurso;
+
 /**
  * Servicio: Condicional de Estados del Curso
  * 
@@ -15,41 +17,28 @@ class CondicionalEditarCurso
 {
     /**
      * Mapa de configuración que asocia estados con sus vistas correspondientes
-     * 
-     * Estructura: [id_estado => [rol/condición => vista_parcial]]
-     * 
-     * Estados del curso:
-     * 1 = Por Aceptar
-     * 3 = Declinado
-     * 4 = En Edición
-     * 5 = En Aprobación
-     * 6 = Inscripciones
-     * 7 = En Progreso
-     * 8 = Finalizado
-     * 9 = Cerrado
      */
     private const MAPA_ACCIONES = [
-        1 => [ // Estado: Por Aceptar
+        EstadoCurso::POR_ACEPTAR->value => [
             'facilitador' => 'partials.editar-actions.Editar-Facilitador',
         ],
 
-        3 => [ // Estado: Declinado
+        EstadoCurso::DECLINADO->value => [
             'facilitador' => 'partials.editar-actions.Editar-Facilitador',
         ],
 
-        4 => [ // Estado: En Edición
+        EstadoCurso::EDICION->value => [
             'facilitador' => 'partials.editar-actions.Editar-Facilitador',
             'coordinador' => 'partials.editar-actions.Editar-Coordinador',
         ],
-        6 => [ // Estado: Inscripciones
-            'coordinador' => 'partials.editar-actions.Editar-Coordinador',
 
+        EstadoCurso::INSCRIPCION->value => [
+            'coordinador' => 'partials.editar-actions.Editar-Coordinador',
         ],
 
-        7 => [ // Estado: En Progreso
+        EstadoCurso::EN_CURSO->value => [
             'coordinador' => 'partials.editar-actions.Editar-Coordinador',
         ]
-
     ];
     /**
      * Resuelve qué vista parcial debe mostrarse según el contexto del curso y usuario

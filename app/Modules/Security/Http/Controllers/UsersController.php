@@ -49,7 +49,7 @@ class UsersController extends Controller {
                         ->Where('active', '0')
                         ->orderBy("id", "desc")
                         //->with('getProfile')
-                   //     ->with('getPerfiles') DEBO AJSUTAR A UN ARRAY DE PERFILES
+                   //     ->with('perfiles') DEBO AJSUTAR A UN ARRAY DE PERFILES
                         ->get();
             } else {
                 $cond = $request->search;
@@ -65,7 +65,7 @@ class UsersController extends Controller {
                           ->orderBy("id", "desc")
 
                          */
-                        ->with('getPerfiles')
+                        ->with('perfiles')
                         ->get()
                 //->toSql()
                 ;

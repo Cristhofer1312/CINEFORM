@@ -18,20 +18,20 @@
             @foreach($capsPrincipales as $cap)
                 @switch($cap)
                     @case('inscribirse')
-                        <button class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push" onclick="inscribirAlCurso({{ $curso->id_curso }})">
+                        <button class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push" onclick="inscribirAlCurso('{{ $curso->crypt_id }}')">
                             <i class="fas fa-user-plus me-2"></i> Inscribirme en el Programa
                         </button>
                         @break
 
                     @case('cancelar_inscripcion')
-                        <button class="btn btn-outline-danger w-100 fw-bold py-2 rounded-pill shadow-xs" onclick="cancelarInscripcion({{ $inscripcion->id_inscripcion }})">
+                        <button class="btn btn-outline-danger w-100 fw-bold py-2 rounded-pill shadow-xs" onclick="cancelarInscripcion('{{ $inscripcion->crypt_id }}')">
                             <i class="fas fa-user-minus me-2"></i> Cancelar Inscripción
                         </button>
                         @break
 
                     @case('acceder_contenido')
                         @if($curso->contenidos_count > 0 || $curso->contenidos->count() > 0)
-                            <a class="btn btn-success w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push" href="{{ route('taller.cursos.contenido', ['curso' => $curso->id_curso]) }}">
+                            <a class="btn btn-success w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push" href="{{ route('taller.cursos.contenido', ['curso' => $curso->crypt_id]) }}">
                                 <i class="fas fa-play-circle me-2"></i> Ver contenidos del programa
                             </a>
                         @else
@@ -71,47 +71,47 @@
                 @foreach($capsGestion as $cap)
                     @switch($cap)   
                         @case('aceptar_asignacion')
-                            <button class="btn btn-success btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="aceptarCursoFacilitador({{ $curso->id_curso }})">
+                            <button class="btn btn-success btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="aceptarCursoFacilitador('{{ $curso->crypt_id }}')">
                                 <i class="fas fa-check-circle me-1"></i> Aceptar Asignación
                             </button>
                             @break
                         @case('rechazar_asignacion')
-                             <button class="btn btn-outline-danger btn-sm py-2 fw-bold rounded-pill" onclick="rechazarContenido({{ $curso->id_curso }})">
+                             <button class="btn btn-outline-danger btn-sm py-2 fw-bold rounded-pill" onclick="rechazarContenido('{{ $curso->crypt_id }}')">
                                  <i class="fas fa-times-circle me-1"></i> Rechazar
                              </button>
                              @break
                         @case('editar')
-                            <a href="{{ route('taller.cursos.edit', $curso->id_curso) }}" class="btn btn-white btn-sm py-2 fw-bold border shadow-xs rounded-pill">
+                            <a href="{{ route('taller.cursos.edit', $curso->crypt_id) }}" class="btn btn-white btn-sm py-2 fw-bold border shadow-xs rounded-pill">
                                 <i class="fas fa-edit me-1 text-primary"></i> Editar Programa
                             </a>
                             @break
                         @case('enviar_aprobacion')
-                            <button class="btn btn-primary btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="finalizarEdicion({{ $curso->id_curso }})">
+                            <button class="btn btn-primary btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="finalizarEdicion('{{ $curso->crypt_id }}')">
                                 <i class="fas fa-paper-plane me-1"></i> Enviar a Revisión
                             </button>
                             @break
                         @case('aprobar')
-                            <button class="btn btn-success btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="aprobarCurso({{ $curso->id_curso }})">
+                            <button class="btn btn-success btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="aprobarCurso('{{ $curso->crypt_id }}')">
                                 <i class="fas fa-check-double me-1"></i> Aprobar Propuesta
                             </button>
                             @break
                         @case('rechazar')
-                            <button class="btn btn-danger btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="rechazarContenido({{ $curso->id_curso }})">
+                            <button class="btn btn-danger btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="rechazarContenido('{{ $curso->crypt_id }}')">
                                 <i class="fas fa-ban me-1"></i> Declinar Propuesta
                             </button>
                             @break
                         @case('finalizar_inscripciones')
-                            <button class="btn btn-warning btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="finalizarInscripciones({{ $curso->id_curso }})">
+                            <button class="btn btn-warning btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="finalizarInscripciones('{{ $curso->crypt_id }}')">
                                 <i class="fas fa-user-lock me-1"></i> Cerrar Inscripciones
                             </button>
                             @break
                         @case('finalizar_curso')
-                            <button class="btn btn-danger btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="finalizarCurso({{ $curso->id_curso }})">
+                            <button class="btn btn-danger btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="finalizarCurso('{{ $curso->crypt_id }}')">
                                 <i class="fas fa-stop-circle me-1"></i> Finalizar Curso
                             </button>
                             @break
                         @case('cerrar_curso')
-                            <button class="btn btn-dark btn-sm py-2 fw-bold rounded-pill shadow-sm" onclick="cerrarCurso({{ $curso->id_curso }})">
+                            <button class="btn btn-dark btn-sm py-2 fw-bold rounded-pill shadow-sm" onclick="cerrarCurso('{{ $curso->crypt_id }}')">
                                 <i class="fas fa-archive me-1"></i> Archivar Definitivamente
                             </button>
                             @break
@@ -128,7 +128,7 @@
                                 <span class="fw-bold text-danger small">Propuesta Rechazada</span>
                             </div>
                             <button class="btn btn-info btn-sm py-2 fw-bold rounded-pill shadow-xs text-white w-100"
-                                    onclick="verObservaciones({{ $curso->id_curso }})">
+                                    onclick="verObservaciones('{{ $curso->crypt_id }}')">
                                 <i class="fas fa-clipboard-list me-1"></i> Ver Observaciones
                             </button>
                             @break

@@ -4,6 +4,7 @@ namespace Modules\Taller\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Helpers\Encryptor;
 
 class ContenidoCurso extends Model
 {
@@ -39,8 +40,13 @@ class ContenidoCurso extends Model
     const CREATED_AT = 'creado_en';
     const UPDATED_AT = 'actualizado_en';
 
-    // Campos que no existen en la base de datos pero podrían usarse en el futuro
-    protected $appends = [];
+    // Campos que no existen en la base de datos
+    protected $appends = ['crypt_id'];
+
+    public function getCryptIdAttribute()
+    {
+        return Encryptor::encrypt($this->id_contenido_curso);
+    }
 
     public function curso()
     {

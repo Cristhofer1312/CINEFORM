@@ -4,6 +4,7 @@ namespace Modules\Taller\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Helpers\Encryptor;
 
 class ActividadFormativa extends Model
 {
@@ -17,6 +18,13 @@ class ActividadFormativa extends Model
         'abreviatura',
         'status'
     ];
+
+    protected $appends = ['crypt_id'];
+
+    public function getCryptIdAttribute()
+    {
+        return Encryptor::encrypt($this->id_actividad_formativa);
+    }
 
     /**
      * Scope para obtener solo las actividades activas.

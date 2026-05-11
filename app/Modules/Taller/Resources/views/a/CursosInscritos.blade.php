@@ -42,8 +42,8 @@
                                 <select name="id_estado" class="form-select border-start-0 shadow-none">
                                     <option value="">Todos los estados</option>
                                     @foreach($estados as $estado)
-                                        <option value="{{ $estado->id_estado }}"
-                                            {{ request('id_estado') == $estado->id_estado ? 'selected' : '' }}>
+                                        <option value="{{ $estado->crypt_id }}"
+                                            {{ request('id_estado') == $estado->crypt_id || request('id_estado') == $estado->id_estado ? 'selected' : '' }}>
                                             {{ str_replace('_', ' ', $estado->nombre) }}
                                         </option>
                                     @endforeach
@@ -119,7 +119,7 @@
                                                     </small>
                                                 @endif
                                             </div>
-                                            <a href="{{ route('taller.cursos.show', $curso->id_curso) }}"
+                                            <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
                                                 class="btn btn-sm btn-success">
                                                 <i class="fas fa-eye me-1"></i> Ver Curso
                                             </a>

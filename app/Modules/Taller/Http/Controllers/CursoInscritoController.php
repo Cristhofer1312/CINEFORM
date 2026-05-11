@@ -40,7 +40,7 @@ class CursoInscritoController extends BaseController
         // Filtro por estado
         if ($request->filled('id_estado')) {
             $query->whereHas('estados', function ($q) use ($request) {
-                $q->where('taller.estados_curso.id_estado', $request->id_estado);
+                $q->where('taller.curso_estado.id_estado', $request->id_estado);
             });
         }
 

@@ -24,15 +24,21 @@ class CheckSecurity {
              * Establece el locale de Laravel
              */
             App::setLocale(session()->get('language'));
-            //setlocale(LC_TIME, config('locale.languages')[session()->get('language')][1]);
-            //Carbon::setLocale(config('locale.languages')[session()->get('language')][0]);
         }
 
-        $ruta = explode('.', \Request::route()->getName()) ;
-        if ($ruta[0]=='users' && Auth::user()->id != 1){
-            abort(404);
+        // Verificar acceso a rutas administrativas 'users.*'
+        // Se usa el sistema RBAC en lugar de un ID de usuario hardcodeado.
+        $routeName = $request->route()?->getName();
+        if ($routeName) {
+            $ruta = explode('.', $routeName);
+            if ($ruta[0] === 'users') {
+                // Verificar si el perfil tiene al menos el permiso 'view' 
+                // para la ruta completa registrada en security.processes
+                if (!hasPermissionRoute($routeName, \App\Constants\SecurityAction::VER)) {
+                    abort(403, 'No tiene permisos para acceder a esta sección.');
+                }
+            }
         }
-
 
         return $next($request);
     }

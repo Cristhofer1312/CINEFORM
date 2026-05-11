@@ -4,6 +4,7 @@ namespace Modules\Taller\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Helpers\Encryptor;
 
 class Aspecto extends Model
 {
@@ -17,6 +18,13 @@ class Aspecto extends Model
         'abreviatura',
         'status'
     ];
+
+    protected $appends = ['crypt_id'];
+
+    public function getCryptIdAttribute()
+    {
+        return Encryptor::encrypt($this->id_aspecto);
+    }
 
     /**
      * Scope para obtener solo los aspectos activos.

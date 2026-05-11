@@ -5,6 +5,6 @@
     <i class="fas fa-check-circle me-2"></i> Ya estás inscrito
 </a>
 <button class="btn btn-outline-danger w-100 mb-2 cancelar-inscripcion-btn"
-    data-inscripcion-id="{{ $inscripcion->id_inscripcion }}">
+    data-inscripcion-id="{{ $inscripcion->crypt_id }}">
     <i class="fas fa-times-circle me-2"></i> Cancelar inscripción
 </button>

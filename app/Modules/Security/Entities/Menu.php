@@ -20,6 +20,10 @@ class Menu extends Model
 
 
     public function getProcess() {
+        return $this->processes();
+    }
+
+    public function processes() {
         return $this->hasMany(Process::class, 'menu_id')->orderBy('order');
     }
 }

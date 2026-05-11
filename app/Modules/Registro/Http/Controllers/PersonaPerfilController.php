@@ -4,7 +4,7 @@ namespace Modules\Registro\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Modules\Registro\Entities\Personas;
+use Modules\Comun\Entities\PersonalData;
 use Modules\Security\Entities\Profile;
 use Illuminate\Support\Facades\DB;
 
@@ -19,7 +19,7 @@ class PersonaPerfilController extends Controller
     public function searchByDni($dni)
     {
         try {
-            $persona = Personas::with('especializaciones')
+            $persona = PersonalData::with('especializaciones')
                 ->where('dni', $dni)
                 ->first();
 
@@ -29,8 +29,8 @@ class PersonaPerfilController extends Controller
 
             // Cargar perfiles actuales de forma segura
             $perfilesActuales = [];
-            if ($persona->usuario) {
-                $perfilesActuales = $persona->usuario->getPerfiles()->pluck('id')->toArray();
+            if ($persona->user) {
+                $perfilesActuales = $persona->user->perfiles()->pluck('id')->toArray();
             }
 
             return response()->json([
@@ -63,13 +63,13 @@ class PersonaPerfilController extends Controller
             return response()->json(['success' => false, 'message' => 'Falta el ID de la persona'], 400);
         }
 
-        $persona = Personas::find($id_persona);
+        $persona = PersonalData::find($id_persona);
 
         if (!$persona) {
             return response()->json(['success' => false, 'message' => 'Persona no encontrada en la base de datos'], 404);
         }
 
-        $user = $persona->usuario;
+        $user = $persona->user;
 
         if (!$user) {
             return response()->json(['success' => false, 'message' => 'La persona no tiene un usuario asociado para asignar perfiles'], 400);

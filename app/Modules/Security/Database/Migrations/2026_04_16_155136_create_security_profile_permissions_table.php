@@ -36,7 +36,8 @@ return new class extends Migration {
                 2 => ['view', 'create', 'edit', 'security'],
                 3 => ['view'],
                 4 => ['view', 'create_course', 'manage_course', 'approve_course', 'edit_course_e', 'grade_course'],
-                5 => ['view', 'assign'],
+                5 => ['view'],
+                6 => ['view', 'assign'],
                 7 => ['view'],
             ],
 

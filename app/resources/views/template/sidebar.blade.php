@@ -59,7 +59,7 @@
                         </a>
                         <div class="collapse" id="menu{{$key}}">
                             <ul class="nav nav-collapse">
-                                @foreach($value['get_process'] as $value2)
+                                @foreach($value['processes'] as $value2)
                                     <li>
                                         <a href="{{route($value2['route'])}}">
                                             <span class="sub-item">{{__($value2['name'])}}</span>

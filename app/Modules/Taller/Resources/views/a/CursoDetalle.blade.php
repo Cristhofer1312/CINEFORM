@@ -163,6 +163,88 @@
                     </div>
                 </div>
 
+                    {{-- ══ Sección: Participantes Inscritos (Solo con permiso CANCELAR_INSCRIPCION) ══ --}}
+                    @if(isset($puedeCancelarInscripciones) && $puedeCancelarInscripciones && $curso->inscripciones->count() > 0)
+                        @php
+                            $estadoId = $curso->estado_actual->id_estado ?? $curso->id_estado ?? 0;
+                            $puedeRetirar = in_array($estadoId, [
+                                \App\Enums\EstadoCurso::INSCRIPCION->value,
+                                \App\Enums\EstadoCurso::EN_CURSO->value,
+                            ]);
+                        @endphp
+                        <div class="card border-0 shadow-card rounded-4 overflow-hidden mb-4 border-top border-4 border-warning">
+                            <div class="card-header bg-white py-4 px-4 border-bottom d-flex justify-content-between align-items-center">
+                                <h5 class="fw-bold mb-0 text-dark">
+                                    <i class="fas fa-users me-2 text-warning opacity-70"></i> Participantes Inscritos
+                                </h5>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-2 fw-bold" style="font-size: 0.8rem;" id="participants-counter">
+                                        {{ $curso->inscripciones->count() }}
+                                        @if($curso->cantidad_cupos)
+                                            / {{ $curso->cantidad_cupos }}
+                                        @endif
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="card-body p-4 pt-3">
+                                {{-- Buscador --}}
+                                <div class="input-group mb-3 shadow-sm border rounded-pill overflow-hidden bg-white">
+                                    <span class="input-group-text bg-white border-0 ps-3">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </span>
+                                    <input type="text" class="form-control border-0 py-2 shadow-none" 
+                                           id="search-participante" 
+                                           placeholder="Buscar por nombre o cédula..." 
+                                           onkeyup="filtrarParticipantes()">
+                                </div>
+
+                                {{-- Lista de Participantes --}}
+                                <div class="overflow-auto" style="max-height: 380px;" id="participantes-list">
+                                    @foreach($curso->inscripciones as $insc)
+                                        @php $p = $insc->persona; @endphp
+                                        @if($p)
+                                        <div class="participante-item d-flex align-items-center p-3 mb-2 rounded-3 border bg-white transition-all"
+                                             data-name="{{ strtolower(($p->primer_nombre ?? '') . ' ' . ($p->primer_apellido ?? '')) }}"
+                                             data-doc="{{ $p->dni ?? '' }}"
+                                             id="participante-{{ $insc->id_inscripcion }}">
+                                            <div class="me-3 flex-shrink-0">
+                                                {!! renderAvatar($p, 'avatar-sm') !!}
+                                            </div>
+                                            <div class="flex-grow-1 overflow-hidden">
+                                                <h6 class="mb-0 fw-bold text-dark text-truncate">
+                                                    {{ $p->primer_nombre }} {{ $p->primer_apellido }}
+                                                </h6>
+                                                <div class="d-flex align-items-center gap-3 mt-1">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-id-card me-1 opacity-50"></i> C.I: {{ $p->dni }}
+                                                    </small>
+                                                    <small class="text-muted">
+                                                        <i class="far fa-calendar me-1 opacity-50"></i> {{ $insc->fecha_inscripcion ? $insc->fecha_inscripcion->format('d/m/Y') : 'N/A' }}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            @if($puedeRetirar)
+                                            <button type="button" 
+                                                    class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold ms-2 flex-shrink-0 shadow-xs"
+                                                    onclick="retirarParticipante('{{ $insc->crypt_id }}', '{{ $p->primer_nombre }} {{ $p->primer_apellido }}', {{ $insc->id_inscripcion }})">
+                                                <i class="fas fa-user-minus me-1"></i> Retirar
+                                            </button>
+                                            @endif
+                                        </div>
+                                        @endif
+                                    @endforeach
+                                </div>
+
+                                @if(!$puedeRetirar && $curso->inscripciones->count() > 0)
+                                    <div class="alert alert-light text-center small p-3 mb-0 mt-3 rounded-3 border">
+                                        <i class="fas fa-lock me-1 opacity-50"></i> 
+                                        Solo es posible retirar participantes en estado <strong>Inscripción</strong> o <strong>En Curso</strong>.
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
+
                 <!-- Barra Lateral (4) -->
                 <div class="col-lg-4">
                     <!-- Instructor -->
@@ -184,9 +266,9 @@
                             <p class="text-muted small mb-4">Instructor Titular</p>
                             
                             @if($curso->persona)
-                                <button onclick="mostrarContactoProfesor('{{ $curso->persona->nombre_completo }}', '{{ $curso->persona->user->email ?? 'N/D' }}', '{{ $curso->persona->telefono ?? 'N/D' }}', '{{ $curso->persona->hasPhoto() ? route('show_avatar', $curso->persona->crypt_id()) : '' }}')"
-                                        class="btn btn-primary rounded-pill px-5 w-100 fw-bold shadow-sm transition-all hvr-push">
-                                    <i class="fas fa-paper-plane me-2"></i> Contactar
+                                <button onclick="mostrarContactoProfesor('{{ $curso->persona->nombre_completo }}', '{{ $curso->persona->user->email ?? 'N/D' }}', '{{ $curso->persona->telefono ?? 'N/D' }}', '{{ $curso->persona->hasPhoto() ? route('show_avatar', $curso->persona->user->crypt_id) : '' }}')"
+                                        class="btn btn-primary rounded-pill px-3 w-100 fw-bold shadow-sm transition-all hvr-push">
+                                    <i class="fas fa-paper-plane me-2"></i> Contactar al Instructor
                                 </button>
                             @endif
                         </div>
@@ -207,10 +289,40 @@
                                     <span class="text-muted small fw-bold text-uppercase"><i class="far fa-calendar-check me-2 text-success opacity-50"></i> Cierre</span>
                                     <span class="fw-bold text-dark">{{ $curso->fecha_fin ? \Carbon\Carbon::parse($curso->fecha_fin)->format('d/m/Y') : '--/--/----' }}</span>
                                 </div>
+                                <div class="list-group-item border-0 px-0 py-3 d-flex flex-column border-bottom-light">
+                                    <span class="text-muted small fw-bold text-uppercase mb-2"><i class="fas fa-map-marker-alt me-2 text-danger opacity-50"></i> Ámbito Geográfico</span>
+                                    
+                                    @if($curso->es_nacional)
+                                        <div class="alert alert-info border-0 shadow-xs rounded-3 d-flex align-items-center mb-0 py-2">
+                                            <i class="fas fa-globe-americas me-2"></i>
+                                            <span class="fw-bold small">ALCANCE NACIONAL</span>
+                                        </div>
+                                    @else
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @forelse($curso->localidades as $loc)
+                                                <span class="badge bg-light text-dark border fw-normal">{{ $loc->description }}</span>
+                                            @empty
+                                                <span class="text-muted small italic">No definido</span>
+                                            @endforelse
+                                        </div>
+                                    @endif
+                                </div>
                                 <div class="list-group-item border-0 px-0 py-3 d-flex justify-content-between align-items-center border-bottom-light">
                                     <span class="text-muted small fw-bold text-uppercase"><i class="fas fa-users me-2 text-warning opacity-50"></i> Cupos</span>
-                                    <span class="badge bg-primary rounded-pill px-3">{{ $curso->cantidad_cupos ?? '0' }} disponibles</span>
+                                    @if($curso->cantidad_cupos !== null)
+                                        <span class="badge bg-primary rounded-pill px-3">{{ $curso->cantidad_cupos }} disponibles</span>
+                                    @else
+                                        <span class="badge bg-success rounded-pill px-3">Cupos Ilimitados</span>
+                                    @endif
                                 </div>
+                                @if($curso->telegram)
+                                <div class="list-group-item border-0 px-0 py-3 d-flex flex-column align-items-start border-bottom-light">
+                                    <span class="text-muted small fw-bold text-uppercase mb-2"><i class="fab fa-telegram-plane me-2 text-info opacity-50"></i> Comunicación</span>
+                                    <a href="{{ $curso->telegram }}" target="_blank" class="btn btn-info btn-sm w-100 rounded-pill fw-bold text-white shadow-sm transition-all hvr-push">
+                                        Unirse al Telegram
+                                    </a>
+                                </div>
+                                @endif
                             </div>
                         </div>
                         <div class="card-footer bg-light bg-opacity-50 border-0 p-4 rounded-bottom-4">
@@ -426,7 +538,7 @@
         : `<span style="color: #fff; font-size: 1.4rem; font-weight: 800;">${iniciales}</span>`;
 
     Swal.fire({
-        width: 'min(400px, 92vw)',
+        width: 'min(500px, 95vw)',
         padding: 0,
         background: 'transparent',
         heightAuto: false,
@@ -435,47 +547,47 @@
         allowOutsideClick: true,
         allowEscapeKey: true,
         html: `
-            <div style="border-radius: 20px; overflow: hidden; font-family: 'Inter', -apple-system, sans-serif; background: #fff; box-shadow: 0 25px 60px rgba(0,0,0,0.15); width: 100%; position: relative; max-height: 90vh; overflow-y: auto;">
+            <div style="border-radius: 24px; overflow: hidden; font-family: 'Inter', -apple-system, sans-serif; background: #fff; box-shadow: 0 30px 70px rgba(0,0,0,0.2); width: 100%; position: relative; max-height: 90vh; overflow-y: auto;">
 
                 <!-- Header con gradiente + Avatar integrado -->
-                <div style="background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); padding: 24px 24px 28px; text-align: center;">
-                    <p style="color: rgba(255,255,255,0.7); font-size: 0.65rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 2px;">Información de Contacto</p>
-                    <h4 style="color: #fff; font-weight: 800; margin: 0 0 16px; font-size: 1rem;">Facilitador del Curso</h4>
+                <div style="background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); padding: 35px 24px 40px; text-align: center;">
+                    <p style="color: rgba(255,255,255,0.8); font-size: 0.75rem; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; margin: 0 0 6px;">Información de Contacto</p>
+                    <h4 style="color: #fff; font-weight: 800; margin: 0 0 20px; font-size: 1.2rem;">Facilitador del Curso</h4>
 
                     <!-- Avatar dentro del header -->
-                    <div style="width: 72px; height: 72px; border-radius: 50%; background: ${avatarUrl ? 'transparent' : 'rgba(255,255,255,0.2)'}; border: ${avatarUrl ? 'none' : '3px solid rgba(255,255,255,0.6)'}; display: inline-flex; align-items: center; justify-content: center; backdrop-filter: ${avatarUrl ? 'none' : 'blur(4px)'}; margin: 0 auto;">
+                    <div style="width: 100px; height: 100px; border-radius: 50%; background: ${avatarUrl ? 'transparent' : 'rgba(255,255,255,0.2)'}; border: ${avatarUrl ? 'none' : '4px solid rgba(255,255,255,0.6)'}; display: inline-flex; align-items: center; justify-content: center; backdrop-filter: ${avatarUrl ? 'none' : 'blur(4px)'}; margin: 0 auto; box-shadow: 0 8px 20px rgba(0,0,0,0.15);">
                         ${avatarHtml}
                     </div>
                 </div>
 
                 <!-- Nombre y título -->
-                <div style="text-align: center; padding: 14px 24px 12px;">
-                    <h5 style="font-weight: 800; color: #0f172a; margin: 0 0 4px; font-size: 1.05rem;">${nombre}</h5>
-                    <span style="background: #eff6ff; color: #2563eb; border-radius: 20px; font-size: 0.68rem; font-weight: 700; padding: 2px 10px; letter-spacing: 0.5px;">INSTRUCTOR TITULAR</span>
+                <div style="text-align: center; padding: 20px 24px 15px;">
+                    <h5 style="font-weight: 800; color: #0f172a; margin: 0 0 6px; font-size: 1.3rem;">${nombre}</h5>
+                    <span style="background: #eff6ff; color: #2563eb; border-radius: 25px; font-size: 0.75rem; font-weight: 700; padding: 4px 16px; letter-spacing: 0.5px;">INSTRUCTOR TITULAR</span>
                 </div>
 
                 <!-- Datos de contacto -->
-                <div style="padding: 0 24px 16px;">
+                <div style="padding: 0 30px 30px;">
 
                     <!-- Email -->
-                    <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; margin-bottom: 10px;">
-                        <div style="width: 36px; height: 36px; border-radius: 10px; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 12px;">
-                            <i class="fas fa-envelope" style="color: #2563eb; font-size: 0.85rem;"></i>
+                    <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 20px; margin-bottom: 12px; transition: all 0.2s;">
+                        <div style="width: 44px; height: 44px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 15px;">
+                            <i class="fas fa-envelope" style="color: #2563eb; font-size: 1rem;"></i>
                         </div>
-                        <div style="overflow: hidden; flex: 1;">
-                            <div style="font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Correo electrónico</div>
-                            <div style="font-weight: 600; color: #1e293b; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${email}</div>
+                        <div style="overflow: hidden; flex: 1; text-align: left;">
+                            <div style="font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Correo electrónico</div>
+                            <div style="font-weight: 600; color: #1e293b; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${email}</div>
                         </div>
                     </div>
 
                     <!-- Teléfono -->
-                    <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; margin-bottom: 24px;">
-                        <div style="width: 36px; height: 36px; border-radius: 10px; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 12px; font-size: 1.1rem;">
+                    <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 20px; margin-bottom: 5px; transition: all 0.2s;">
+                        <div style="width: 44px; height: 44px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 15px; font-size: 1.3rem;">
                             📱
                         </div>
-                        <div style="flex: 1;">
-                            <div style="font-size: 0.65rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Teléfono de Contacto</div>
-                            <div style="font-weight: 600; color: #1e293b; font-size: 1.05rem;">${telefono}</div>
+                        <div style="flex: 1; text-align: left;">
+                            <div style="font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Teléfono de Contacto</div>
+                            <div style="font-weight: 600; color: #1e293b; font-size: 1.15rem;">${telefono}</div>
                         </div>
                     </div>
 
@@ -502,7 +614,7 @@
 }
 
     function processStatusAction(idEstado, title, successMsg) {
-        fetch('{{ route("taller.cursos.updateStatus", ["curso" => $curso->id_curso]) }}', {
+        fetch('{{ route("taller.cursos.updateStatus", ["curso" => $curso->crypt_id]) }}', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
             body: JSON.stringify({ id_estado: idEstado })
@@ -535,7 +647,7 @@
             confirmButtonColor: '#dc3545',
             preConfirm: (motivo) => {
                 if (!motivo) return Swal.showValidationMessage('Debe ingresar un motivo');
-                return fetch('{{ route("taller.cursos.updateStatus", ["curso" => $curso->id_curso]) }}', {
+                return fetch('{{ route("taller.cursos.updateStatus", ["curso" => $curso->crypt_id]) }}', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
                     body: JSON.stringify({ id_estado: 3, motivo: motivo })
@@ -568,7 +680,7 @@
                         'X-CSRF-TOKEN': '{{ csrf_token() }}', 
                         'Accept': 'application/json' 
                     },
-                    body: JSON.stringify({ id_curso: id })
+                    body: JSON.stringify({ id_curso: '{{ $curso->crypt_id }}' })
                 })
                 .then(r => r.json())
                 .then(data => {
@@ -655,6 +767,91 @@
             });
         });
     });
+
+    // ── Gestión Administrativa de Participantes ──
+
+    function filtrarParticipantes() {
+        const query = (document.getElementById('search-participante')?.value || '').toLowerCase();
+        document.querySelectorAll('.participante-item').forEach(item => {
+            const name = item.getAttribute('data-name') || '';
+            const doc = item.getAttribute('data-doc') || '';
+            item.style.display = (name.includes(query) || doc.includes(query)) ? 'flex' : 'none';
+        });
+    }
+
+    function retirarParticipante(cryptId, nombreParticipante, idInscripcion) {
+        Swal.fire({
+            title: '¿Retirar a este participante?',
+            html: `Se cancelará la inscripción de <strong>${nombreParticipante}</strong>.<br><small class="text-muted">Esta acción liberará un cupo disponible.</small>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="fas fa-user-minus me-1"></i> Sí, retirar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Procesando...',
+                    text: 'Retirando participante del curso.',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                fetch(`{{ url('taller/inscripciones') }}/${cryptId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        // Animar y remover la fila del participante del DOM
+                        const row = document.getElementById(`participante-${idInscripcion}`);
+                        if (row) {
+                            row.style.transition = 'all 0.3s ease';
+                            row.style.opacity = '0';
+                            row.style.transform = 'translateX(30px)';
+                            setTimeout(() => row.remove(), 300);
+                        }
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Participante Retirado',
+                            text: data.message,
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
+
+                        // Actualizar contador
+                        const counter = document.getElementById('participants-counter');
+                        if (counter && data.cupos_restantes !== null) {
+                            const remaining = document.querySelectorAll('.participante-item').length - 1;
+                            const cuposText = '{{ $curso->cantidad_cupos }}' ? ` / {{ $curso->cantidad_cupos }}` : '';
+                            counter.textContent = remaining + cuposText;
+                        }
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.message
+                        });
+                    }
+                })
+                .catch(() => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error de red',
+                        text: 'No se pudo comunicar con el servidor.'
+                    });
+                });
+            }
+        });
+    }
 </script>
 @endpush
 @endsection

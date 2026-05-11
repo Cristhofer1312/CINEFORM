@@ -98,7 +98,7 @@
                 {{-- En sesión activa, omitir el perfil ya seleccionado --}}
                 @if ($withinSession && $esCurrent) @continue @endif
                 <div class="col-12">
-                    <a href="{{ route('usuario.set_perfil', ['id_rol' => $perfil->id]) }}" class="profile-card">
+                    <a href="{{ route('usuario.set_perfil', ['id_rol' => $perfil->crypt_id]) }}" class="profile-card">
                         <i class="icon-user"></i>
                         <h4>{{ __($perfil->name) }}</h4>
                     </a>

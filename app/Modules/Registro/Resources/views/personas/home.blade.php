@@ -4,7 +4,7 @@
     <h3>Selecciona tu perfil</h3>
     <div class="row">
         @foreach ($perfiles as $perfil)
-            <a href="{{ route('usuario.set_perfil', ['id' => $perfil->id]) }}" class="btn btn-primary btn-block btn-lg">
+            <a href="{{ route('usuario.set_perfil', ['id_rol' => $perfil->crypt_id]) }}" class="btn btn-primary btn-block btn-lg">
                 {{ __($perfil->name) }}
             </a>
         @endforeach

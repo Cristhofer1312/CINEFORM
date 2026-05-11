@@ -5,7 +5,7 @@
     <i class="fas fa-user-tie me-2"></i> Ver contenidos
 </a>
 
-<button class="btn btn-danger w-100 mb-2" onclick="finalizarCurso({{ $curso->id_curso }})">
+<button class="btn btn-danger w-100 mb-2" onclick="finalizarCurso('{{ $curso->crypt_id }}')">
     Finalizar Curso
 </button>
 

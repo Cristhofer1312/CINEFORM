@@ -41,9 +41,8 @@ class Process extends Model
             ->toArray();
     }
 
-    public function getProfile() {
+    public function profiles() {
         return $this->belongsToMany(Profile::class, 'security.profile_processes')
-                        ->withPivot('profile_id', 'process_id', 'actions')
-                ;
+                        ->withPivot('profile_id', 'process_id', 'actions');
     }
 }

@@ -6,7 +6,7 @@
 @endphp
 
 @if($puedeAprobar)
-    <button class="btn btn-success w-100 mb-2 fw-bold" onclick="aprobarCurso({{ $curso->id_curso }})">
+    <button class="btn btn-success w-100 mb-2 fw-bold" onclick="aprobarCurso('{{ $curso->crypt_id }}')">
         <i class="fas fa-check-circle me-2"></i> Aprobar y Abrir Inscripciones
     </button>
 @else
@@ -15,6 +15,6 @@
     </div>
 @endif
 
-<button class="btn btn-danger w-100 mb-2" onclick="rechazarContenido({{ $curso->id_curso }})">
+<button class="btn btn-danger w-100 mb-2" onclick="rechazarContenido('{{ $curso->crypt_id }}')">
     <i class="fas fa-times-circle me-2"></i> Declinar Propuesta
 </button>

@@ -99,7 +99,7 @@
                                                     </small>
                                                 </div>
                                                 <div class="btn-group">
-                                                    <a href="{{ route('taller.cursos.show', $curso->id_curso) }}"
+                                                    <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
                                                         class="btn btn-success">
                                                         <i class="fas fa-eye me-1"></i> Detalles
                                                     </a>

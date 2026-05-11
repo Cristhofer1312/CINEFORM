@@ -15,11 +15,13 @@ class SecurityAction
     const RESPONDER_CURSO = 8; // Para que el facilitador acepte o rechace la asignación
     const APROBAR_CURSO = 9; // Para aprobar un curso y abrir las inscripciones (Estado 5 → 6)
     const INSCRIBIRSE_CURSO = 18; // Para que un participante pueda inscribirse en un curso
+    const CANCELAR_INSCRIPCION = 19; // Para que un coordinador pueda retirar participantes de un curso
 
     // ── Administración de Seguridad ──────────────────────────────────────────
     const EDITAR = 10; // Editar registros en módulos de administración (perfiles, usuarios)
     const GESTIONAR_PERMISOS = 11; // Asignar / revocar acciones sobre los perfiles del sistema
     const SEGURIDAD_USUARIO = 12; // Cambiar credenciales de seguridad (contraseña) de otro usuario
+    const ASIGNAR_PERFIL = 20; // Asignar o quitar perfiles a usuarios desde el panel administrativo
 
     /**
      * Nombres amigables para mostrar en la interfaz (Checkboxes).
@@ -40,6 +42,8 @@ class SecurityAction
             self::GESTIONAR_PERMISOS => 'Modificar Permisos del Sistema',
             self::SEGURIDAD_USUARIO => 'Restablecer Contraseñas',
             self::INSCRIBIRSE_CURSO => 'Inscribirse en Cursos',
+            self::CANCELAR_INSCRIPCION => 'Cancelar Inscripciones de Participantes',
+            self::ASIGNAR_PERFIL => 'Asignar Perfiles a Usuarios',
         ];
     }
 
@@ -62,6 +66,8 @@ class SecurityAction
             self::GESTIONAR_PERMISOS => 'Permite alterar el nivel de acceso de cualquier perfil de la institución. Solo para administradores principales.',
             self::SEGURIDAD_USUARIO => 'Permite forzar o restaurar contraseñas de las cuentas de otros empleados del sistema.',
             self::INSCRIBIRSE_CURSO => 'Permite que el perfil pueda realizar inscripciones formales en los cursos disponibles.',
+            self::CANCELAR_INSCRIPCION => 'Permite retirar participantes de un curso. Solo efectivo en estados donde las inscripciones están activas o el curso está en progreso.',
+            self::ASIGNAR_PERFIL => 'Permite buscar usuarios por cédula y asignar o quitar perfiles/roles desde el panel administrativo.',
         ];
     }
 
@@ -84,6 +90,8 @@ class SecurityAction
             self::GESTIONAR_PERMISOS => 'permissions',
             self::SEGURIDAD_USUARIO => 'security',
             self::INSCRIBIRSE_CURSO => 'enroll',
+            self::CANCELAR_INSCRIPCION => 'cancel_enrollment',
+            self::ASIGNAR_PERFIL => 'assign',
             default => '',
         };
     }
@@ -107,6 +115,8 @@ class SecurityAction
             'permissions' => self::GESTIONAR_PERMISOS,
             'security' => self::SEGURIDAD_USUARIO,
             'enroll' => self::INSCRIBIRSE_CURSO,
+            'cancel_enrollment' => self::CANCELAR_INSCRIPCION,
+            'assign' => self::ASIGNAR_PERFIL,
             default => 0, // Desconocido
         };
     }

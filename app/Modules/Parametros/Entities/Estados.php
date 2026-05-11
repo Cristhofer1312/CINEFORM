@@ -10,7 +10,7 @@ class Estados extends Model
     use HasFactory;
     
     protected $table = 'comun.estados';
-    protected $primaryKey = 'id_estado';
+    protected $primaryKey = 'id';
 
     protected $fillable = [];
     

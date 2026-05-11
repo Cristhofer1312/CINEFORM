@@ -48,24 +48,13 @@
                                                     </span>
 
                                                     @if($curso->estado_actual)
-                                                        @if($curso->estado_actual->id_estado == 1)
-                                                            <span class="badge bg-success">Por Aceptar</span>
-                                                        @elseif($curso->estado_actual->id_estado == 2)
-                                                            <span class="badge bg-danger">Rechazado</span>
-                                                        @elseif($curso->estado_actual->id_estado == 3)
-                                                            <span class="badge bg-warning">Declinado</span>
-                                                        @elseif($curso->estado_actual->id_estado == 4)
-                                                            <span class="badge bg-warning">En edición</span>
-                                                        @elseif($curso->estado_actual->id_estado == 5)
-                                                            <span class="badge bg-warning">En Evaluación</span>
-                                                        @elseif($curso->estado_actual->id_estado == 6)
-                                                            <span class="badge bg-success">Abierto a inscripciones</span>
-                                                        @elseif($curso->estado_actual->id_estado == 7)
-                                                            <span class="badge bg-success">En curso</span>
-                                                        @elseif($curso->estado_actual->id_estado == 8)
-                                                            <span class="badge bg-danger">Finalizado</span>
-                                                        @elseif($curso->estado_actual->id_estado == 9)
-                                                            <span class="badge bg-danger">Cerrado</span>
+                                                        @php
+                                                            $estadoEnum = \App\Enums\EstadoCurso::tryFrom($curso->estado_actual->id_estado);
+                                                        @endphp
+                                                        @if($estadoEnum)
+                                                            <span class="badge bg-{{ $estadoEnum->color() }}">{{ $estadoEnum->label() }}</span>
+                                                        @else
+                                                            <span class="badge bg-secondary">{{ $curso->estado_actual->nombre }}</span>
                                                         @endif
                                                     @else
                                                         <span class="badge bg-secondary">Sin estado</span>
@@ -99,7 +88,7 @@
                                                         </small>
                                                     </div>
                                                     <div class="d-flex gap-2">
-                                                        <a href="{{ route('taller.cursos.show', $curso->id_curso) }}"
+                                                        <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
                                                             class="btn btn-secondary btn-sm" title="Ver detalles">
                                                             <i class="fas fa-info-circle"></i> Detalles
                                                         </a>

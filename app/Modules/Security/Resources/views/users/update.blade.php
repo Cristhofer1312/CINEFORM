@@ -32,7 +32,7 @@
                     <h1>{{__('Personal Data')}}</h1>
 
                     <div class="form-floating form-floating-custom mb-2">
-                        {{html()->select("document_type_id", $typeDoc, $user->getDocumentType?->crypt_id ?? '' )
+                        {{html()->select("document_type_id", $typeDoc, $user->documentType?->crypt_id ?? '' )
                                                         ->class('form-select')
                                                         ->placeholder(__("Select"))
                                                         ->required(true)
@@ -155,7 +155,7 @@
         });
 
         iti = window.intlTelInput(document.getElementById('phone'), {
-            initialCountry: '{{Auth::user()->getCountry->iso2}}',
+            initialCountry: '{{Auth::user()->country->iso2}}',
             strictMode: true,
             separateDialCode: true,
             i18n: INTL_TEL_ES,

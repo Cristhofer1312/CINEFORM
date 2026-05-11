@@ -11,7 +11,7 @@ use Modules\Taller\Http\Controllers\BaseController;
 use Modules\Taller\Http\Controllers\CatalogoController;
 use Modules\Comun\Http\Controllers\PersonalDataController;
 
-Route::prefix('taller')->group(function () {
+Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
     // Ruta para cursos asignados (facilitador)
     Route::get('/Cursos-asignados', [CursoAsignadoController::class, 'index'])
         ->name('taller.mis-cursos-asignados');

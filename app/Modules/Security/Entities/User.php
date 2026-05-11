@@ -104,43 +104,43 @@ class User extends Authenticatable
 
     public function getCellPhoneAttribute()
     {
-        $country = $this->getCountry;
+        $country = $this->country;
         $phone = $this->phone;
         return ($country && $country->dial_code) ? ($country->dial_code . ' ' . $phone) : ($phone ?? null);
     }
     public function getFullDocumentAttribute()
     {
-        $docType = $this->getDocumentType;
+        $docType = $this->documentType;
         $doc = $this->document;
         return ($docType && $docType->code) ? ($docType->code . '-' . $doc) : ($doc ?? null);
     }
 
-    function getProfile()
+    public function getProfile()
+    {
+        return $this->profile();
+    }
+
+    public function profile()
     {
         return $this->belongsTo(Profile::class, 'profile_id');
     }
 
-    function getCountry()
+    public function country()
     {
         return $this->belongsTo(Countries::class, 'country_id');
     }
 
-    /*   
-      function getOffices() {
-          return $this->belongsToMany(\Modules\Library\Entities\Offices::class, 'library_office_users', 'user_id', 'office_id');
-      }
-       */
-    public function getDocumentType()
+    public function documentType()
     {
         return $this->belongsTo(DocumentType::class, 'document_type_id');
     }
 
     public function getProfileIdAttribute()
     {
-        return $this->attributes['profile_id'] ?? session()->get('profile_id') ?? $this->getPerfiles()->first()?->id ?? null;
+        return $this->attributes['profile_id'] ?? session()->get('profile_id') ?? $this->perfiles()->first()?->id ?? null;
     }
 
-    public function getPerfiles()
+    public function perfiles()
     {
         return $this->belongsToMany(
             \Modules\Security\Entities\Profile::class,
@@ -152,24 +152,12 @@ class User extends Authenticatable
 
     public function getPerfilesArray()
     {
-        $perfiles = $this->getPerfiles; // obtiene los perfiles relacionados
-        $resultado = [];
-
-        foreach ($perfiles as $perfil) {
-            $resultado[] = $perfil->id;
-        }
-
-        return $resultado;
+        return $this->perfiles->pluck('id')->toArray();
     }
 
-    public function getProfiles()
+    public function profiles()
     {
         return $this->hasMany(ProfileUser::class, 'id_users');
-    }
-
-    public function getPersona()
-    {
-        return $this->hasOne(\Modules\Registro\Entities\Personas::class, 'user_id', 'id'); // Ajusta foreign key si es necesario
     }
 
     public function personalData()
@@ -179,7 +167,7 @@ class User extends Authenticatable
 
     public function getIdPersonaAttribute()
     {
-        return $this->getPersona?->id_persona;
+        return $this->personalData?->id_persona;
     }
 
     // ========================================================================
@@ -192,100 +180,39 @@ class User extends Authenticatable
 
         $Menu = \Modules\Security\Entities\Menu::orderBy('order')
             ->where('active', true)
-            ->with(['getProcess' => function($q) {
+            ->with(['processes' => function($q) {
                 $q->where('active', true)->orderBy('order');
             }])
             ->get()
             ->toArray();
 
         foreach ($Menu as $key => $value) {
-            foreach ($value['get_process'] as $key2 => $value2) {
+            foreach ($value['processes'] as $key2 => $value2) {
                 $allowedProfiles = $value2['profile_array'] ?? [];
                 if (!in_array($profileId, $allowedProfiles)) {
-                    unset($Menu[$key]['get_process'][$key2]);
+                    unset($Menu[$key]['processes'][$key2]);
                 }
             }
-            if (count($Menu[$key]['get_process']) == 0) {
+            if (count($Menu[$key]['processes']) == 0) {
                 unset($Menu[$key]);
             }
         }
         return $Menu;
-    }
-
-    // ========================================================================
-    // INICIO CÓDIGO COMENTADO — Lógica de Módulos (rollback si es necesario)
-    // Fecha: 2026-04-24 | Motivo: Simplificación del sidebar
-    // ========================================================================
-    /*
-    public function getModules()
-    {
-        $Modules = Modulo::join('security.menus', 'security.menus.module_id', '=', 'security.modules.id')
-            ->join('security.processes', 'security.processes.menu_id', '=', 'security.menus.id')
-            ->join('security.permissions', 'security.permissions.process_id', '=', 'security.processes.id')
-            ->join('security.profile_permissions', 'security.profile_permissions.permission_id', '=', 'security.permissions.id')
-            ->where('security.profile_permissions.profile_id', session()->get('profile_id'))
-            ->groupBy("security.modules.id", "security.modules.name", "security.modules.description", "security.modules.icon", "security.modules.order")
-            ->select('security.modules.*')
-            ->get();
-        return $Modules;
-    }
-
-    public function getProcesses()
-    {
-        $Processes = Process::join('security.permissions', 'security.permissions.process_id', '=', 'security.processes.id')
-            ->join('security.profile_permissions', 'security.profile_permissions.permission_id', '=', 'security.permissions.id')
-            ->where('security.profile_permissions.profile_id', session()->get('profile_id'))
-            ->groupBy("security.processes.id", "security.processes.name", "security.processes.description", "security.processes.icon", "security.processes.route", "security.processes.order")
-            ->select('security.processes.*')
-            ->get();
-        return $Processes;
-    }
-
-    public function captureMenu()
-    {
-
-        if (!session()->get('MODULE') == null) {
-            return $this->getMenu(session()->get('MODULE'));
-        } else {
-            return [];
-        }
     }
 
     public function capturePerfil()
     {
-        if (session()->get('MODULE') == null) {
-            return $this->getPerfiles->toArray();
+        if (session()->get('profile_id')) {
+            return $this->perfiles->toArray();
         } else {
             return [];
         }
     }
 
-    public function getMenu($Module)
-    {
-        $Menu = Menu::orderBy('order')->where("module_id", $Module)->with('getProcess')->get()->toArray();
-        foreach ($Menu as $key => $value) {
-            foreach ($value['get_process'] as $key2 => $value2) {
-                if (!in_array(session()->get('profile_id'), $value2['profile_array'])) {
-                    unset($Menu[$key]['get_process'][$key2]);
-                    unset($Menu[$key]['process'][$key2]);
-                }
-            }
-            if (count($Menu[$key]['get_process']) == 0) {
-                unset($Menu[$key]);
-            }
-        }
-        return $Menu;
-    }
-
     public function getShortNameAttribute()
     {
-        if ($this->document_type->is_natural === false) {
-            $name = ucwords(Lower($this->full_name));
-        } else {
-            $nameParts = explode(' ', $this->full_name);
-            $name = ucwords(Lower(implode(' ', array_slice($nameParts, 0, 2))));
-        }
-        return $name;
+        $nameParts = explode(' ', $this->full_name);
+        return ucwords(strtolower(implode(' ', array_slice($nameParts, 0, 2))));
     }
 
     public function verifyPermission($route = null)
@@ -314,5 +241,4 @@ class User extends Authenticatable
 
         return $query->exists();
     }
-    */
 }

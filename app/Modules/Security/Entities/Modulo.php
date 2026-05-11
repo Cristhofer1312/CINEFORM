@@ -21,6 +21,11 @@ class Modulo extends Model
         'id'
     ];
 
+    public function menus()
+    {
+        return $this->getMenus();
+    }
+
     public function getMenus()
     {
         return $this->hasMany(Menu::class, 'module_id')->orderBy('order');

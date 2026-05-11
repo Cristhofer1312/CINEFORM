@@ -525,7 +525,7 @@ class SecurityController extends Controller
                         ]);//Si el login es exitoso, actualiza el usuario logueado para quitar flags temporales relacionados con el cambio de contraseña y limpiar tokens.
 
                         //$perfiles = Auth::user()->getProfiles();
-                        $perfiles = Auth::user()->getPerfiles; //$user->profiles; // Ya gracias a la relación
+                        $perfiles = Auth::user()->perfiles; //$user->profiles; // Ya gracias a la relación
                         //dd($perfiles);
                         if ($perfiles->count() <= 1) {
                             // Obtener el primer perfil si existe, usando método first()
@@ -559,6 +559,20 @@ class SecurityController extends Controller
 
     public function seleccionarPerfil($id_rol)
     {
+        // El id_rol viene encriptado desde la vista (crypt_id)
+        $id_rol = Encryptor::decrypt($id_rol);
+
+        // Seguridad: Verificar que el usuario realmente tiene asignado este perfil
+        $tienePerfil = Auth::user()->perfiles()->where('security.profiles.id', $id_rol)->exists();
+
+        if (!$tienePerfil) {
+            Log::warning('Intento de acceso a perfil no autorizado', [
+                'user_id' => Auth::id(),
+                'requested_profile' => $id_rol
+            ]);
+            return to_route('home')->withErrors(['error-message' => __('Unauthorized profile selection.')]);
+        }
+
         // Guarda el perfil seleccionado en sesión con la clave 'profile_id'
         session()->put('profile_id', $id_rol);
 
@@ -574,7 +588,7 @@ class SecurityController extends Controller
 
     public function showSwitchProfile()
     {
-        $perfiles = Auth::user()->getPerfiles;
+        $perfiles = Auth::user()->perfiles;
 
         if ($perfiles->count() <= 1) {
             return to_route('home')->withErrors(['error-message' => __('You only have one profile assigned.')]);

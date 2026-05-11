@@ -20,6 +20,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        \Modules\Taller\Entities\Curso::observe(\App\Observers\CursoObserver::class);
     }
 }

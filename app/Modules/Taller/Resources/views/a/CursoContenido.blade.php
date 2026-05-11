@@ -12,7 +12,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
     {{-- Contenedor fluido con altura mínima para asegurar footer al fondo --}}
     <div class="container-fluid py-4" style="min-height: 85vh;">
         <div class="mb-3">
-            <a href="{{ route('taller.cursos.show', $curso->id_curso) }}" class="btn btn-light shadow-sm border">
+            <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}" class="btn btn-light shadow-sm border">
                 <i class="fas fa-arrow-left me-2"></i> Volver a Detalles del Curso
             </a>
         </div>
@@ -40,7 +40,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
 
                                     if ($contenido->es_evaluacion) $icono = 'fa-clipboard-check';
                                 @endphp
-                                <a href="{{ route('taller.cursos.contenido', ['curso' => $curso->id_curso, 'contenido_id' => $contenido->id_contenido_curso]) }}"
+                                <a href="{{ route('taller.cursos.contenido', ['curso' => $curso->crypt_id, 'contenido_id' => $contenido->crypt_id]) }}"
                                     class="list-group-item list-group-item-action d-flex align-items-center border-0 mb-2 rounded-3 py-3 px-3 shadow-sm {{ $esActivo ? 'active-lesson-shadow border-start border-primary border-4' : 'bg-white' }}">
                                     <div class="lesson-number me-3 text-center rounded-circle {{ $esActivo ? 'bg-primary text-white' : 'bg-light text-muted' }}" style="width: 32px; height: 32px; line-height: 32px; font-weight: bold; font-size: 0.85rem; transition: all 0.3s;">
                                         {{ $index + 1 }}
@@ -121,7 +121,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                         $btnClass = 'btn-primary text-white';
                                         $btnIcon = 'fa-check-double';
                                         $btnText = 'Calificar ' . $tipoNombre;
-                                        $url = route('taller.calificaciones.index', ['curso' => $curso->id_curso, 'contenido' => $contenidoActual->id_contenido_curso]);
+                                        $url = route('taller.calificaciones.index', ['curso' => $curso->crypt_id, 'contenido' => $contenidoActual->crypt_id]);
                                         $showBtn = true; // Siempre mostrar para facilitador evaluando
                                     } else {
                                         if ($tipo == 'video') {

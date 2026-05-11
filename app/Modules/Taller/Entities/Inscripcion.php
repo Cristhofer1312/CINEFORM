@@ -4,6 +4,7 @@ namespace Modules\Taller\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Helpers\Encryptor;
 
 class Inscripcion extends Model
 {
@@ -18,11 +19,16 @@ class Inscripcion extends Model
         'fecha_inscripcion',
     ];
 
-    protected $dates = [
-        'fecha_inscripcion',
-        'created_at',
-        'updated_at'
+    protected $casts = [
+        'fecha_inscripcion' => 'datetime',
     ];
+
+    protected $appends = ['crypt_id'];
+
+    public function getCryptIdAttribute()
+    {
+        return Encryptor::encrypt($this->id_inscripcion);
+    }
 
     /**
      * Relación con el modelo Curso
@@ -33,12 +39,10 @@ class Inscripcion extends Model
     }
 
     /**
-     * Relación con el modelo Persona (asumiendo que existe)
+     * Relación con el modelo Persona
      */
     public function persona()
     {
         return $this->belongsTo(\Modules\Comun\Entities\PersonalData::class, 'id_persona');
     }
-
-
 }

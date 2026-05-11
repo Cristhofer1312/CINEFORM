@@ -230,6 +230,11 @@ if (!function_exists('hasPermission')) {
         $profileId = session()->get('profile_id');
         if (!$profileId) return false;
 
+        // Defensa: Si por alguna razón el ID en la sesión está encriptado, lo desencriptamos
+        if (!is_numeric($profileId)) {
+            $profileId = \App\Helpers\Encryptor::decrypt($profileId);
+        }
+
         $slugToCheck = \App\Constants\SecurityAction::dbString($actionId);
         if (!$slugToCheck) return false;
 
@@ -247,6 +252,11 @@ if (!function_exists('hasPermissionRoute')) {
     {
         $profileId = session()->get('profile_id');
         if (!$profileId) return false;
+
+        // Defensa: Si por alguna razón el ID en la sesión está encriptado, lo desencriptamos
+        if (!is_numeric($profileId)) {
+            $profileId = \App\Helpers\Encryptor::decrypt($profileId);
+        }
 
         $slugToCheck = \App\Constants\SecurityAction::dbString($actionId);
         if (!$slugToCheck) return false;

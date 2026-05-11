@@ -46,6 +46,8 @@ class Curso extends Model
         'duracion',
         'horas',
         'cantidad_cupos',
+        'telegram',
+        'es_nacional',
         'creado_por',
         'actualizado_por',
         'fecha_inicio',
@@ -60,6 +62,7 @@ class Curso extends Model
     protected $casts = [
         'fecha_inicio' => 'date',
         'fecha_fin' => 'date',
+        'es_nacional' => 'boolean',
         'status' => EstadoCurso::class
     ];
 
@@ -71,11 +74,11 @@ class Curso extends Model
     public static function getStatuses()
     {
         return [
-            EstadoCurso::por_aceptar->value => 'Por Aceptar',
-            EstadoCurso::inscripcion->value => 'Inscripción',
-            EstadoCurso::en_curso->value => 'En Curso',
-            EstadoCurso::finalizado->value => 'Finalizado',
-            EstadoCurso::cerrado->value => 'Cerrado',
+            EstadoCurso::POR_ACEPTAR->value => EstadoCurso::POR_ACEPTAR->label(),
+            EstadoCurso::INSCRIPCION->value => EstadoCurso::INSCRIPCION->label(),
+            EstadoCurso::EN_CURSO->value => EstadoCurso::EN_CURSO->label(),
+            EstadoCurso::FINALIZADO->value => EstadoCurso::FINALIZADO->label(),
+            EstadoCurso::CERRADO->value => EstadoCurso::CERRADO->label(),
         ];
     }
 
@@ -99,6 +102,14 @@ class Curso extends Model
         return $this->belongsTo(Aspecto::class, 'id_aspecto', 'id_aspecto');
     }
 
+    /**
+     * Relación con las múltiples localidades (Estados) a las que pertenece el curso
+     */
+    public function localidades()
+    {
+        return $this->belongsToMany(\Modules\Parametros\Entities\Estados::class, 'taller.curso_localidades', 'id_curso', 'id_estado');
+    }
+
     public function modalidadEspecial()
     {
         return $this->belongsTo(ModalidadEspecial::class, 'id_modalidad_especial', 'id_modalidad_especial');
@@ -108,15 +119,23 @@ class Curso extends Model
     {
         return $this->belongsTo(\Modules\Parametros\Entities\Estados::class, 'id_estado', 'id_estado');
     }
+
+    /**
+     * Get all estados for the curso (Historial de estados).
+     */
+    public function estados()
+    {
+        return $this->belongsToMany(Estado::class, 'taller.curso_estado', 'id_curso', 'id_estado')
+            ->withPivot('created_at')
+            ->orderBy('taller.curso_estado.created_at', 'desc');
+    }
+
     /**
      * Get the current estado of the curso.
      */
     public function estadoActual()
     {
-        return $this->belongsToMany(Estado::class, 'taller.curso_estado', 'id_curso', 'id_estado')
-            ->withPivot('created_at')
-            ->orderBy('taller.curso_estado.created_at', 'desc')
-            ->take(1);
+        return $this->estados()->take(1);
     }
 
     /**
@@ -139,16 +158,6 @@ class Curso extends Model
     }
 
     /**
-     * Get all estados for the curso.
-     */
-    public function estados()
-    {
-        return $this->belongsToMany(Estado::class, 'taller.curso_estado', 'id_curso', 'id_estado')
-            ->withPivot('created_at')
-            ->orderBy('taller.curso_estado.created_at', 'desc');
-    }
-
-    /**
      * Historial de observaciones/rechazos registradas por la coordinación.
      */
     public function observaciones()
@@ -156,10 +165,6 @@ class Curso extends Model
         return $this->hasMany(ObservacionCurso::class, 'id_curso', 'id_curso')
             ->orderBy('created_at', 'desc');
     }
-
-    /**
-     * Add a new estado to the curso.
-     */
 
     public function contenidos()
     {
@@ -173,8 +178,6 @@ class Curso extends Model
     {
         return $this->hasMany(\Modules\Taller\Entities\Inscripcion::class, 'id_curso', 'id_curso');
     }
-
-    // En app/Modules/Taller/Entities/Curso.php
 
     /**
      * Actualiza el estado del curso

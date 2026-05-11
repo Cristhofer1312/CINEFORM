@@ -4,15 +4,20 @@ namespace Modules\Taller\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 
+use App\Helpers\Encryptor;
+
 class Estado extends Model
 {
     protected $table = 'taller.estados_curso';
     protected $primaryKey = 'id_estado';
 
-    protected $fillable = [
-        'nombre',
-        'descripcion'
-    ];
+    // ...
+    protected $appends = ['crypt_id'];
+
+    public function getCryptIdAttribute()
+    {
+        return Encryptor::encrypt($this->id_estado);
+    }
 
     /**
      * Get all cursos that have this estado.

@@ -33,7 +33,7 @@
 
                     <div class="form-floating form-floating-custom mb-2">
                         {{
-                        html()->input("text", 'document_type_id', $user->getDocumentType->name )
+                        html()->input("text", 'document_type_id', $user->documentType->name )
                                     ->class('form-control')
                                     ->placeholder('')
                                     ->disabled(true)

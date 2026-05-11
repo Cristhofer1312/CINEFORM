@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Constants\SecurityAction;
+use App\Enums\EstadoCurso;
 
 class CursoController extends BaseController
 {
@@ -31,6 +32,21 @@ class CursoController extends BaseController
             'persona',
             'estados'
         ])->findOrFail($id);
+
+        // 1. Verificar si es gestor (permiso administrativo total)
+        $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
+        
+        // 2. Verificar si es facilitador (dueño del curso)
+        $personalData = $this->getUsuarioAutenticado()->personalData;
+        $esFacilitador = $curso->id_persona == $personalData->id_persona;
+
+        // 3. Verificar si es estudiante inscrito
+        $estaInscrito = $curso->inscripciones->contains('id_persona', $personalData->id_persona);
+
+        // Bloque de Seguridad: Si no es gestor, ni facilitador, ni está inscrito -> Acceso denegado
+        if (!$esGestor && !$esFacilitador && !$estaInscrito) {
+            abort(403, 'No tienes permiso para acceder al contenido de este curso. Debes inscribirte primero.');
+        }
 
         $contenidoActual = null;
         if ($contenido_id) {
@@ -63,17 +79,17 @@ class CursoController extends BaseController
 
             // Validación RBAC: el cambio de estado 5 → 6 (Aprobar → Inscripciones)
             // requiere el permiso específico de APROBAR_CURSO
-            if ($nuevoEstado === 6) {
+            if ($nuevoEstado === EstadoCurso::INSCRIPCION->value) {
                 if (!hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::APROBAR_CURSO)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'No tienes permiso para aprobar courses y abrir inscripciones.'
+                        'message' => 'No tienes permiso para aprobar cursos y abrir inscripciones.'
                     ], 403);
                 }
 
                 // Verificar que el curso esté en estado 5 (En Aprobación) para poder aprobar
-                $estadoActual = $curso->estado_actual?->id_estado;
-                if ($estadoActual !== 5) {
+                $estadoActualId = $curso->estado_actual?->id_estado;
+                if ($estadoActualId !== EstadoCurso::APROBACION->value) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Solo se pueden aprobar cursos que están en estado "En Aprobación".'
@@ -82,7 +98,7 @@ class CursoController extends BaseController
             }
 
             // Para otros cambios de estado sensibles, verificar gestión general
-            if (in_array($nuevoEstado, [7, 8, 9])) {
+            if (in_array($nuevoEstado, [EstadoCurso::EN_CURSO->value, EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value])) {
                 if (!hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO)) {
                     return response()->json([
                         'success' => false,
@@ -94,7 +110,7 @@ class CursoController extends BaseController
             $curso->agregarEstado($nuevoEstado);
 
             // Si es un rechazo, guardar la observación en su propia tabla
-            if ($nuevoEstado === 3 && $request->filled('motivo')) {
+            if ($nuevoEstado === EstadoCurso::DECLINADO->value && $request->filled('motivo')) {
                 ObservacionCurso::create([
                     'id_curso'    => $curso->id_curso,
                     'observacion' => $request->motivo,
@@ -138,26 +154,38 @@ class CursoController extends BaseController
         $query = Curso::with(['modalidad', 'inscripciones', 'estados', 'persona'])
             ->withCount(['contenidos', 'inscripciones']);
 
-        // Si NO tiene gestión total (no es coordinador)
-        if (!hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO)) {
-            $idPersonaActual = Auth::user()->personalData->id_persona ?? null;
-            // Evaluamos si actúa como un facilitador (Posee permisos de edición)
-            $puedeEditar = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::EDITAR_CURSO);
+        // Si NO es gestor, ni facilitador, ni coordinador (Participante Base)
+        if (!hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO) &&
+            !hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::EDITAR_CURSO)) {
+            
+            $personalData = Auth::user()->personalData;
+            $idEstadoUsuario = $personalData->id_estado ?? null;
+            $idPersonaActual = $personalData->id_persona ?? null;
 
-            $query->where(function ($q) use ($idPersonaActual, $puedeEditar) {
-                // El filtro base son cursos en estado 6 (Inscripción)
-                $q->whereHas('estados', function ($q2) {
-                    $q2->where('taller.estados_curso.id_estado', 6);
+            $query->where(function ($q) use ($idEstadoUsuario, $idPersonaActual) {
+                // Bloque 1: Cursos públicos en Inscripción
+                $q->where(function ($qPublico) use ($idEstadoUsuario) {
+                    $qPublico->whereHas('estados', function ($q2) {
+                        $q2->where('taller.curso_estado.id_estado', 6);
+                    });
+
+                    // REGLA DE ALCANCE: Nacional o Localidad Coincidente
+                    $qPublico->where(function($qAlcance) use ($idEstadoUsuario) {
+                        $qAlcance->where('es_nacional', true); // Opción 1: Es de alcance nacional
+
+                        if ($idEstadoUsuario) {
+                            $qAlcance->orWhereHas('localidades', function($qLoc) use ($idEstadoUsuario) {
+                                $qLoc->where('comun.estados.id', $idEstadoUsuario);
+                            }); // Opción 2: El estado del usuario está permitido
+                        }
+                    });
                 });
 
+                // REGLA: Si el participante ya está inscrito en un curso de otra localidad (antes del cambio o por excepción), permitir que lo siga viendo
                 if ($idPersonaActual) {
-                    if (!$puedeEditar) {
-                        // REGLA: Si es participante base sin poderes, EXCLUIR sus propios cursos
-                        $q->where('taller.cursos.id_persona', '!=', $idPersonaActual);
-                    } else {
-                        // REGLA: Si tiene permisos de edición (Facilitador), MOSTRAR sus propios cursos siempre
-                        $q->orWhere('taller.cursos.id_persona', $idPersonaActual);
-                    }
+                    $q->orWhereHas('inscripciones', function($qIns) use ($idPersonaActual) {
+                        $qIns->where('id_persona', $idPersonaActual);
+                    });
                 }
             });
         }
@@ -173,7 +201,7 @@ class CursoController extends BaseController
         // Filtro por estado específico
         if ($request->has('id_estado') && !empty($request->id_estado)) {
             $query->whereHas('estados', function ($q) use ($request) {
-                $q->where('taller.estados_curso.id_estado', $request->id_estado);
+                $q->where('taller.curso_estado.id_estado', $request->id_estado);
             });
         }
 
@@ -450,13 +478,13 @@ class CursoController extends BaseController
                 ], 403);
             }
 
-            // Agregar el nuevo estado (5 = Finalizado)
-            $curso->agregarEstado(5);
+            // Agregar el nuevo estado (En Aprobación)
+            $curso->agregarEstado(EstadoCurso::APROBACION->value);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Edición del curso finalizada correctamente',
-                'estado_actual' => 5
+                'message' => 'Propuesta de curso enviada a coordinación exitosamente.',
+                'estado_actual' => EstadoCurso::APROBACION->value
             ]);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

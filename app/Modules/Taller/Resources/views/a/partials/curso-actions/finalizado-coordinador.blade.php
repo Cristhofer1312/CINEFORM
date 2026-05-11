@@ -5,6 +5,6 @@
     <i class="fas fa-eye me-2"></i> Ver contenidos
 </a>
 
-<button class="btn btn-dark w-100 mb-2" onclick="cerrarCurso({{ $curso->id_curso }})">
+<button class="btn btn-dark w-100 mb-2" onclick="cerrarCurso('{{ $curso->crypt_id }}')">
     <i class="fas fa-archive me-2"></i> Archivar Curso
 </button>

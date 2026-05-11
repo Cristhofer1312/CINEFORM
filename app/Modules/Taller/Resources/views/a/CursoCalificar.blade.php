@@ -19,7 +19,7 @@
                             <h3 class="fw-bold text-dark mb-0">{{ $contenido->titulo }}</h3>
                         </div>
                         <div class="d-flex gap-2">
-                            <a href="{{ route('taller.cursos.contenido', ['curso' => $curso->id_curso, 'contenido_id' => $contenido->id_contenido_curso]) }}"
+                            <a href="{{ route('taller.cursos.contenido', ['curso' => $curso->id_curso, 'contenido_id' => $contenido->crypt_id]) }}"
                                 class="btn btn-outline-light text-dark border-0 bg-gray-100 hover-lift">
                                 <i class="fas fa-arrow-left me-2"></i> Volver al contenido
                             </a>
@@ -36,7 +36,7 @@
                         <!-- Search Bar Centered -->
                         <div class="row justify-content-center mt-4 mb-4">
                             <div class="col-12">
-                                <form action="{{ route('taller.calificaciones.index', ['curso' => $curso->id_curso, 'contenido' => $contenido->id_contenido_curso]) }}" method="GET">
+                                <form action="{{ route('taller.calificaciones.index', ['curso' => $curso->id_curso, 'contenido' => $contenido->crypt_id]) }}" method="GET">
                                     <div class="input-group input-group-lg shadow-sm border bg-white rounded-pill overflow-hidden search-box-focus">
                                         <span class="input-group-text border-0 bg-transparent ps-4 text-muted"><i class="fas fa-search"></i></span>
                                         <input type="text" name="search"
@@ -44,7 +44,7 @@
                                             placeholder="Buscar participante por nombre o cédula..."
                                             value="{{ request('search') }}">
                                         @if(request('search'))
-                                            <a href="{{ route('taller.calificaciones.index', ['curso' => $curso->id_curso, 'contenido' => $contenido->id_contenido_curso]) }}" 
+                                            <a href="{{ route('taller.calificaciones.index', ['curso' => $curso->id_curso, 'contenido' => $contenido->crypt_id]) }}" 
                                                class="btn btn-link text-muted px-3 border-0 shadow-none"><i class="fas fa-times-circle"></i></a>
                                         @endif
                                         <button type="submit" class="btn btn-primary px-4 rounded-pill m-1 fw-bold shadow-sm" style="background-color: #1e3a8a;">Buscar</button>
@@ -53,7 +53,7 @@
                             </div>
                         </div>
 
-                <form action="{{ route('taller.calificaciones.store', ['curso' => $curso->id_curso, 'contenido' => $contenido->id_contenido_curso]) }}" method="POST">
+                <form action="{{ route('taller.calificaciones.store', ['curso' => $curso->id_curso, 'contenido' => $contenido->crypt_id]) }}" method="POST">
                     @csrf
                     <!-- Lista Zen-Minimalista -->
                     <div class="mt-4 bg-white rounded-3 border-top border-bottom">

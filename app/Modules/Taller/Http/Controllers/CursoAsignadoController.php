@@ -2,6 +2,7 @@
 
 namespace Modules\Taller\Http\Controllers;
 
+use App\Enums\EstadoCurso;
 use Illuminate\Http\Request;
 use Modules\Taller\Http\Controllers\BaseController;
 use Illuminate\Support\Facades\DB;
@@ -101,12 +102,12 @@ class CursoAsignadoController extends BaseController
                 ->where('id_persona', $user->personalData->id_persona)
                 ->firstOrFail();
 
-            // Actualizar el estado existente del curso a 6 (Aceptado)
+            // Actualizar el estado existente del curso a EDICION
             $updated = DB::table('taller.curso_estado')
                 ->where('id_curso', $id_curso)
                 ->latest('created_at')
                 ->update([
-                    'id_estado' => 4, // ID del estado "Aceptado"
+                    'id_estado' => EstadoCurso::EDICION->value,
                     'updated_at' => now()
                 ]);
 
@@ -115,7 +116,7 @@ class CursoAsignadoController extends BaseController
                 'success' => true,
                 'message' => 'Curso aceptado exitosamente',
                 'estado_actual' => [
-                    'id_estado' => 4,
+                    'id_estado' => EstadoCurso::EDICION->value,
                     'updated_at' => now()->toDateTimeString()
                 ]
             ]);
@@ -126,7 +127,4 @@ class CursoAsignadoController extends BaseController
             return response()->json(['success' => false, 'message' => 'Error al actualizar el estado del curso: ' . $e->getMessage()], 500);
         }
     }
-
-
-
 }

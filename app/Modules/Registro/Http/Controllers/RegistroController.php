@@ -14,7 +14,7 @@ class RegistroController extends Controller
             return redirect()->route('login');
         }
         
-        $perfiles = \Auth::user()->getPerfiles;
+        $perfiles = \Auth::user()->perfiles;
         return view('security::users.select_profile', compact('perfiles'));
     }
 
