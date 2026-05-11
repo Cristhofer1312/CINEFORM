@@ -28,13 +28,22 @@ class CheckSecurity {
 
         // Verificar acceso a rutas administrativas 'users.*'
         // Se usa el sistema RBAC en lugar de un ID de usuario hardcodeado.
+        //
+        // Lógica de resolución:
+        // 1. Intentar con la ruta completa (ej. 'users.asignar_perfil' → Process 6)
+        // 2. Si no hay match, usar solo la base 'users' (ej. 'users.list' → Process 2)
         $routeName = $request->route()?->getName();
         if ($routeName) {
             $ruta = explode('.', $routeName);
             if ($ruta[0] === 'users') {
-                // Verificar si el perfil tiene al menos el permiso 'view' 
-                // para la ruta completa registrada en security.processes
-                if (!hasPermissionRoute($routeName, \App\Constants\SecurityAction::VER)) {
+                $tienePermiso = hasPermissionRoute($routeName, \App\Constants\SecurityAction::VER);
+                
+                // Fallback: si la ruta exacta no tiene process, buscar por la base
+                if (!$tienePermiso && count($ruta) > 1) {
+                    $tienePermiso = hasPermissionRoute($ruta[0], \App\Constants\SecurityAction::VER);
+                }
+
+                if (!$tienePermiso) {
                     abort(403, 'No tiene permisos para acceder a esta sección.');
                 }
             }
