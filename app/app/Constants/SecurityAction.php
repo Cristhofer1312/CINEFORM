@@ -16,6 +16,7 @@ class SecurityAction
     const APROBAR_CURSO = 9; // Para aprobar un curso y abrir las inscripciones (Estado 5 → 6)
     const INSCRIBIRSE_CURSO = 18; // Para que un participante pueda inscribirse en un curso
     const CANCELAR_INSCRIPCION = 19; // Para que un coordinador pueda retirar participantes de un curso
+    const VER_PARTICIPANTES = 21; // Para poder ver el listado de participantes inscritos
 
     // ── Administración de Seguridad ──────────────────────────────────────────
     const EDITAR = 10; // Editar registros en módulos de administración (perfiles, usuarios)
@@ -42,6 +43,7 @@ class SecurityAction
             self::GESTIONAR_PERMISOS => 'Modificar Permisos del Sistema',
             self::SEGURIDAD_USUARIO => 'Restablecer Contraseñas',
             self::INSCRIBIRSE_CURSO => 'Inscribirse en Cursos',
+            self::VER_PARTICIPANTES => 'Ver Participantes Inscritos',
             self::CANCELAR_INSCRIPCION => 'Cancelar Inscripciones de Participantes',
             self::ASIGNAR_PERFIL => 'Asignar Perfiles a Usuarios',
         ];
@@ -66,6 +68,7 @@ class SecurityAction
             self::GESTIONAR_PERMISOS => 'Permite alterar el nivel de acceso de cualquier perfil de la institución. Solo para administradores principales.',
             self::SEGURIDAD_USUARIO => 'Permite forzar o restaurar contraseñas de las cuentas de otros empleados del sistema.',
             self::INSCRIBIRSE_CURSO => 'Permite que el perfil pueda realizar inscripciones formales en los cursos disponibles.',
+            self::VER_PARTICIPANTES => 'Permite ver el listado completo de participantes inscritos en el curso.',
             self::CANCELAR_INSCRIPCION => 'Permite retirar participantes de un curso. Solo efectivo en estados donde las inscripciones están activas o el curso está en progreso.',
             self::ASIGNAR_PERFIL => 'Permite buscar usuarios por cédula y asignar o quitar perfiles/roles desde el panel administrativo.',
         ];
@@ -90,6 +93,7 @@ class SecurityAction
             self::GESTIONAR_PERMISOS => 'permissions',
             self::SEGURIDAD_USUARIO => 'security',
             self::INSCRIBIRSE_CURSO => 'enroll',
+            self::VER_PARTICIPANTES => 'view_participants',
             self::CANCELAR_INSCRIPCION => 'cancel_enrollment',
             self::ASIGNAR_PERFIL => 'assign',
             default => '',
@@ -115,6 +119,7 @@ class SecurityAction
             'permissions' => self::GESTIONAR_PERMISOS,
             'security' => self::SEGURIDAD_USUARIO,
             'enroll' => self::INSCRIBIRSE_CURSO,
+            'view_participants' => self::VER_PARTICIPANTES,
             'cancel_enrollment' => self::CANCELAR_INSCRIPCION,
             'assign' => self::ASIGNAR_PERFIL,
             default => 0, // Desconocido

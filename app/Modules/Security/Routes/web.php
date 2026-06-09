@@ -94,7 +94,6 @@ Route::prefix('security')->group(function () {
     
     Route::group(array('middleware' => array(\Modules\Security\Http\Middleware\SetLanguage::class)), function () {
         Route::match(['get', 'post'], 'login', [Modules\Security\Http\Controllers\SecurityController::class, 'login'])->name('login');
-        //Route::match(['get', 'post', 'put'], 'register', [Modules\Security\Http\Controllers\SecurityController::class, 'register'])->name('register');
         Route::match(['get', 'post', 'put'], 'recovery/{token?}', [Modules\Security\Http\Controllers\SecurityController::class, 'recovery'])->name('recovery');        
     });
     Route::get('captcha/{seed?}', [Modules\Security\Http\Controllers\SecurityController::class, 'captcha'])->name('captcha');

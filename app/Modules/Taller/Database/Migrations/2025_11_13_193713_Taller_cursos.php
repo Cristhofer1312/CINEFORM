@@ -25,7 +25,7 @@ return new class extends Migration {
             $table->unsignedBigInteger('id_modalidad_especial')->nullable()->comment('Público objetivo: Niño, Adolescente, Adulto');
             $table->unsignedBigInteger('id_estado')->nullable()->comment('Región del curso');
             $table->unsignedBigInteger('id_persona')->comment('Facilitador del curso');
-            $table->string('descripcion')->nullable();
+            $table->text('descripcion')->nullable();
             $table->string('nivel')->nullable()->comment('Básico, Medio, Avanzado');
             $table->tinyInteger('trimestre')->nullable()->comment('Trimestre del año: 1=Ene-Mar, 2=Abr-Jun, 3=Jul-Sep, 4=Oct-Dic');
             $table->integer('correlativo')->nullable()->comment('Número correlativo de la actividad educativa');

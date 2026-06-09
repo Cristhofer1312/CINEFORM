@@ -55,6 +55,9 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                                     {{ $contenido->ponderacion ?? '0' }}%
                                                 </span>
                                             @endif
+                                            @if($contenido->fecha_contenido)
+                                                <span class="mb-0 fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.2;">{{ $contenido->fecha_contenido->format('d/m/Y') }}</span>
+                                            @endif
                                         </div>
                                         <div class="d-flex align-items-center mt-1">
                                             <i class="fas {{ $icono }} me-2 text-primary opacity-75" style="font-size: 0.8rem;"></i>
@@ -145,6 +148,12 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                             <i class="fas fa-tag text-primary me-2"></i>
                                             <span class="small fw-bold">{{ ucfirst($tipo) }}</span>
                                         </div>
+
+                                        <div class="px-3 py-2 bg-light border rounded-3 d-flex align-items-center">
+                                            <i class="far fa-clock me-2"></i>
+                                            <span class="small fw-bold" style="font-size: 0.95rem; line-height: 1.2;">{{ $contenidoActual->fecha_contenido->format('d/m/Y') }}</span>
+                                        </div>
+                                        
                                         @if($contenidoActual->es_evaluacion)
                                             <div class="px-3 py-2 bg-success bg-opacity-10 border border-success border-opacity-25 rounded-3 d-flex align-items-center shadow-sm">
                                                 <span class="small text-black fw-bold">Ponderación: <span class="text-white">{{ $contenidoActual->ponderacion ?? '0' }}%</span></span>
@@ -202,7 +211,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                             <div class="card bg-light border-0 rounded-4 mt-5">
                                 <div class="card-body p-4">
                                     <h5 class="fw-bold mb-3 text-primary d-flex align-items-center">
-                                        <i class="fas fa-info-circle me-2"></i> Sobre este contenido
+                                        <i class="fas fa-info-circle me-2"></i> Descripción
                                     </h5>
                                     <div class="text-muted" style="font-size: 1rem; line-height: 1.7;">
                                         {!! nl2br(e($contenidoActual->descripcion)) !!}

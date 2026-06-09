@@ -15,6 +15,7 @@
         "maatwebsite/excel": "3.1.58",
         "mews/purifier": "^3.4",
         "nwidart/laravel-modules": "10.0",
+        "setasign/fpdf": "^1.9",
         "smalot/pdfparser": "^2.10",
         "spatie/laravel-html": "^3.11",
         "yajra/laravel-datatables-oracle": "^10.11"

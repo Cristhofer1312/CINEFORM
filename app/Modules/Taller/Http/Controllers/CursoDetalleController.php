@@ -35,6 +35,7 @@ class CursoDetalleController extends BaseController
 
         $puedeInscribirse = hasPermissionRoute('taller.cursos.index', SecurityAction::INSCRIBIRSE_CURSO);
         $puedeCancelarInscripciones = hasPermissionRoute('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION);
+        $puedeVerParticipantes = hasPermissionRoute('taller.cursos.index', SecurityAction::VER_PARTICIPANTES);
 
         // El administrador (gestor) NO actúa como facilitador ni como participante.
         // Solo ve herramientas de gestión y acceso a contenidos como revisor.
@@ -53,13 +54,54 @@ class CursoDetalleController extends BaseController
             $esOperativo,
             $datosUsuario['esGestor'],
             $datosCurso['CuposDisponibles'],
-            $puedeInscribirse
+            $puedeInscribirse,
+            $puedeVerParticipantes
         );
 
         return view('taller::a.CursoDetalle', array_merge(
-            compact('curso', 'capacidades', 'puedeCancelarInscripciones'),
+            compact('curso', 'capacidades', 'puedeCancelarInscripciones', 'puedeVerParticipantes'),
             $datosUsuario,
             $datosCurso
+        ));
+    }
+
+    public function participantes($id)
+    {
+        $curso = Curso::with([
+            'inscripciones.persona',
+            'inscripciones.rechazadoPor',
+            'persona.user',
+            'estados',
+            'requisitos'
+        ])->findOrFail($id);
+
+        $puedeVerParticipantes = hasPermissionRoute('taller.cursos.index', SecurityAction::VER_PARTICIPANTES);
+
+        if (!$puedeVerParticipantes) {
+            abort(403, 'No tienes permiso para ver los participantes de este curso.');
+        }
+
+        $puedeCancelarInscripciones = hasPermissionRoute('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION);
+
+        // Categorización por Workflow de Postulación
+        $postulados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_POSTULADO);
+        $aprobados  = $curso->inscripciones->where('estado', Inscripcion::ESTADO_APROBADO);
+        $rechazados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_RECHAZADO);
+        $denegados  = $curso->inscripciones->where('estado', Inscripcion::ESTADO_DENEGADO);
+
+        // Soporte para estados legacy si existen
+        $inscripcionesActivas = $aprobados->merge($curso->inscripciones->where('estado', 'activa'));
+        $inscripcionesRechazadas = $denegados->merge($curso->inscripciones->where('estado', 'rechazada'));
+
+        return view('taller::a.CursoParticipantes', compact(
+            'curso', 
+            'puedeCancelarInscripciones',
+            'postulados',
+            'aprobados',
+            'rechazados',
+            'denegados',
+            'inscripcionesActivas',
+            'inscripcionesRechazadas'
         ));
     }
 
@@ -97,7 +139,7 @@ class CursoDetalleController extends BaseController
             : null;
 
         $cuposDisponibles = $curso->cantidad_cupos !== null 
-            ? max(0, (int)$curso->cantidad_cupos - $curso->inscripciones->count()) 
+            ? max(0, (int)$curso->cantidad_cupos - $curso->inscripcionesActivas->count()) 
             : null;
 
         $datosPromedio = $this->calcularPromedioEstudiante($curso, $idPersona, $inscripcion);

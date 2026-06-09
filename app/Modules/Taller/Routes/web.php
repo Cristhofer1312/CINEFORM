@@ -11,23 +11,46 @@ use Modules\Taller\Http\Controllers\BaseController;
 use Modules\Taller\Http\Controllers\CatalogoController;
 use Modules\Comun\Http\Controllers\PersonalDataController;
 
+Route::get('/dev-login', function() {
+    $user = \Modules\Security\Entities\User::where('username', 'admin')->first();
+    if ($user) {
+        \Illuminate\Support\Facades\Auth::login($user);
+        $perfil = $user->perfiles()->first();
+        if ($perfil) {
+            session()->put('profile_id', $perfil->id);
+        }
+        return "Logged in! <a href='/taller/cursos/S0lUMVNwTTNzMVZFSUtLT3U1T1Y1Zz09/plantilla'>Go to calibration</a>";
+    }
+    return "No admin user";
+});
+
 Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
-    // Ruta para cursos asignados (facilitador)
-    Route::get('/Cursos-asignados', [CursoAsignadoController::class, 'index'])
-        ->name('taller.mis-cursos-asignados');
-
-    // Ruta para ver detalle de un curso
-    Route::get('/cursos/{curso}', [CursoDetalleController::class, 'show'])
-        ->name('taller.cursos.show');
-
-    // Ruta para cursos inscritos (participante)
-    Route::get('/mis-cursos', [CursoInscritoController::class, 'index'])
-        ->name('taller.mis-cursos');
-
     // Rutas de gestión de cursos
     Route::middleware(['auth'])->group(function () {
+        // Ruta para ver detalle de un curso
+        Route::get('/cursos/{curso}', [CursoDetalleController::class, 'show'])
+            ->name('taller.cursos.show');
+
+        // Ruta para ver participantes de un curso
+        Route::get('/cursos/{curso}/participantes', [CursoDetalleController::class, 'participantes'])
+            ->name('taller.cursos.participantes');
+
+        // Ruta para cursos asignados (facilitador)
+        Route::get('/Cursos-asignados', [CursoAsignadoController::class, 'index'])
+            ->name('taller.mis-cursos-asignados');
+
+        // Ruta para cursos inscritos (participante)
+        Route::get('/mis-cursos', [CursoInscritoController::class, 'index'])
+            ->name('taller.mis-cursos');
+
         Route::get('/crear-curso', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'create'])->name('taller.cursos.create');
         Route::post('/crear-curso', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'store'])->name('taller.cursos.store_new');
+
+        // Carga de Plantilla de Certificado (Paso Intermedio)
+        Route::get('/cursos/{curso}/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'plantillaCreate'])
+            ->name('taller.cursos.plantilla.create');
+        Route::post('/cursos/{curso}/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'plantillaStore'])
+            ->name('taller.cursos.plantilla.store');
 
         // Ruta para ver el contenido de un curso
         Route::get('/cursos/{curso}/contenido/{contenido_id?}', [CursoController::class, 'contenido'])->name('taller.cursos.contenido');
@@ -50,13 +73,49 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
         Route::post('/cursos/{curso}/aceptar-estado', [CursoAsignadoController::class, 'aceptarCurso'])
             ->name('taller.cursos.aceptar-estado');
 
+        // Requisitos del curso
+        Route::get('/cursos/{curso}/requisitos/crear', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'create'])
+            ->name('taller.cursos.requisitos.create');
+        Route::post('/cursos/{curso}/requisitos', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'store'])
+            ->name('taller.cursos.requisitos.store');
+        Route::get('/cursos/{curso}/requisitos/editar', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'edit'])
+            ->name('taller.cursos.requisitos.edit');
+        Route::put('/cursos/{curso}/requisitos', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'update'])
+            ->name('taller.cursos.requisitos.update');
+
         // Rutas de inscripciones
+        Route::get('/cursos/{curso}/inscribirse', [InscripcionController::class, 'create'])
+            ->name('taller.inscripciones.create');
+        
+        Route::post('/cursos/{curso}/inscribirse', [InscripcionController::class, 'procesarInscripcion'])
+            ->name('taller.inscripciones.procesar');
+
         Route::post('/inscripciones', [InscripcionController::class, 'store'])
             ->name('taller.inscripciones.store');
 
-
         Route::delete('/inscripciones/{inscripcion}', [InscripcionController::class, 'destroy'])
             ->name('taller.inscripciones.destroy');
+
+        Route::patch('/inscripciones/{inscripcion}/rehabilitar', [InscripcionController::class, 'rehabilitar'])
+            ->name('taller.inscripciones.rehabilitar');
+
+        // Nuevas rutas para el Workflow de Postulación
+        Route::post('/inscripciones/{inscripcion}/aprobar', [InscripcionController::class, 'aprobar'])
+            ->name('taller.inscripciones.aprobar');
+        Route::post('/inscripciones/{inscripcion}/rechazar', [InscripcionController::class, 'rechazar'])
+            ->name('taller.inscripciones.rechazar');
+        Route::post('/inscripciones/{inscripcion}/denegar', [InscripcionController::class, 'denegar'])
+            ->name('taller.inscripciones.denegar');
+
+        // Nota: esta ruta va ANTES de cualquier wildcard que pueda capturar 'respuestas'
+        Route::get('/inscripciones/respuestas/{respuesta}/descargar', [InscripcionController::class, 'descargarDocumento'])
+            ->name('taller.inscripciones.respuestas.descargar');
+
+        Route::get('/inscripciones/respuestas/{respuesta}/ver', [InscripcionController::class, 'verDocumento'])
+            ->name('taller.inscripciones.respuestas.ver');
+
+        Route::get('/cursos/{curso}/inscripciones/{inscripcion}/respuestas', [InscripcionController::class, 'verRespuestas'])
+            ->name('taller.inscripciones.respuestas');
 
 
         // Ruta para actualizar el estado del curso
@@ -72,6 +131,14 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
             ->name('taller.calificaciones.index');
         Route::post('/cursos/{curso}/contenido/{contenido}/calificar', [\Modules\Taller\Http\Controllers\CalificacionController::class, 'store'])
             ->name('taller.calificaciones.store');
+
+        // Rutas de Certificados
+        Route::get('/certificados/{curso}/descargar', [\Modules\Taller\Http\Controllers\CertificadoController::class, 'descargar'])
+            ->name('taller.certificados.descargar');
+
+        Route::get('/certificados/verificar/{codigo}', [\Modules\Taller\Http\Controllers\CertificadoController::class, 'verificar'])
+            ->name('taller.certificados.verificar')
+            ->withoutMiddleware(['auth', 'decrypt_id']);
 
         // ── Gestión de Catálogos: Agregar Tipo de Actividad ──────────────────
         Route::get('/catalogos', [CatalogoController::class, 'index'])

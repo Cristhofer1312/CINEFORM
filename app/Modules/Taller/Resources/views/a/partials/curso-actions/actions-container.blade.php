@@ -3,7 +3,7 @@
 @php
     // Categorización de capacidades para organizar la interfaz
     $principales = ['inscribirse', 'cancelar_inscripcion', 'acceder_contenido', 'emitir_certificado', 'ver_archivo'];
-    $gestion = ['aceptar_asignacion', 'rechazar_asignacion', 'editar', 'enviar_aprobacion', 'aprobar', 'rechazar', 'finalizar_inscripciones', 'finalizar_curso', 'cerrar_curso', 'ver_motivo', 'en_revision'];
+    $gestion = ['ver_participantes', 'aceptar_asignacion', 'rechazar_asignacion', 'editar', 'enviar_aprobacion', 'aprobar', 'rechazar', 'finalizar_inscripciones', 'finalizar_curso', 'cerrar_curso', 'ver_motivo', 'en_revision'];
     
     // Filtrar qué capacidades tiene el usuario en cada categoría
     $capsPrincipales = array_intersect($capacidades, $principales);
@@ -12,21 +12,70 @@
 
 <div class="actions-wrapper">
     
+    <!-- ZONA 0: ESTADO DE POSTULACIÓN (Para el Participante) -->
+    @if(isset($inscripcion) && $inscripcion && $curso->id_estado <= 6)
+        <div class="postulation-status-zone mb-4">
+            <div class="card border-0 shadow-xs rounded-4 overflow-hidden border-start border-4 
+                {{ $inscripcion->esPostulado() ? 'border-primary bg-primary-soft' : '' }}
+                {{ $inscripcion->esAprobado() ? 'border-success bg-success-soft' : '' }}
+                {{ $inscripcion->esRechazado() ? 'border-warning bg-warning-soft' : '' }}
+                {{ $inscripcion->esDenegado() ? 'border-danger bg-danger-soft' : '' }}">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3">
+                            <i class="fas 
+                                {{ $inscripcion->esPostulado() ? 'fa-hourglass-half text-primary' : '' }}
+                                {{ $inscripcion->esAprobado() ? 'fa-check-circle text-success' : '' }}
+                                {{ $inscripcion->esRechazado() ? 'fa-exclamation-triangle text-warning' : '' }}
+                                {{ $inscripcion->esDenegado() ? 'fa-times-circle text-danger' : '' }}
+                                fa-2x"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-1 fw-bold text-dark">
+                                Estado: 
+                                {{ $inscripcion->esPostulado() ? 'Postulación en Revisión' : '' }}
+                                {{ $inscripcion->esAprobado() ? 'Inscrito Formalmente' : '' }}
+                                {{ $inscripcion->esRechazado() ? 'Postulación con Observaciones' : '' }}
+                                {{ $inscripcion->esDenegado() ? 'Postulación Denegada' : '' }}
+                            </h6>
+                            <p class="mb-0 text-muted small">
+                                {{ $inscripcion->esPostulado() ? 'Tu solicitud está siendo evaluada por la coordinación.' : '' }}
+                                {{ $inscripcion->esAprobado() ? '¡Felicidades! Ya puedes acceder a los contenidos.' : '' }}
+                                {{ $inscripcion->esRechazado() ? 'Debes corregir los documentos o respuestas indicadas.' : '' }}
+                                {{ $inscripcion->esDenegado() ? 'Lo sentimos, no has sido admitido en este programa.' : '' }}
+                            </p>
+                        </div>
+                    </div>
+                    @if($inscripcion->esRechazado())
+                        <div class="mt-3 p-2 bg-white rounded border border-warning-subtle small text-dark">
+                            <strong>Motivo:</strong> {{ $inscripcion->motivo_estado }}
+                        </div>
+                        <a href="{{ route('taller.inscripciones.create', $curso->id_curso) }}" class="btn btn-warning btn-sm w-100 fw-bold mt-2 rounded-pill shadow-sm">
+                            <i class="fas fa-edit me-2"></i> Corregir Postulación
+                        </a>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+    
     <!-- ZONA 1: ACCIONES PRINCIPALES (Usuario Final / Participante) -->
     @if(count($capsPrincipales) > 0)
         <div class="main-actions-zone d-grid gap-3 mb-4">
             @foreach($capsPrincipales as $cap)
                 @switch($cap)
                     @case('inscribirse')
-                        <button class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push" onclick="inscribirAlCurso('{{ $curso->crypt_id }}')">
-                            <i class="fas fa-user-plus me-2"></i> Inscribirme en el Programa
-                        </button>
+                        <a href="{{ route('taller.inscripciones.create', $curso->id_curso) }}" class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push">
+                            <i class="fas fa-paper-plane me-2"></i> Postularme al Programa
+                        </a>
                         @break
 
                     @case('cancelar_inscripcion')
-                        <button class="btn btn-outline-danger w-100 fw-bold py-2 rounded-pill shadow-xs" onclick="cancelarInscripcion('{{ $inscripcion->crypt_id }}')">
-                            <i class="fas fa-user-minus me-2"></i> Cancelar Inscripción
-                        </button>
+                        @if($inscripcion && ($inscripcion->esPostulado() || $inscripcion->esRechazado()))
+                            <button class="btn btn-outline-danger w-100 fw-bold py-2 rounded-pill shadow-xs" onclick="cancelarInscripcion('{{ $inscripcion->crypt_id }}')">
+                                <i class="fas fa-user-minus me-2"></i> Retirar Postulación
+                            </button>
+                        @endif
                         @break
 
                     @case('acceder_contenido')
@@ -43,7 +92,7 @@
                         @break
 
                     @case('emitir_certificado')
-                        <a class="btn btn-gold w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push border-0" style="background: linear-gradient(135deg, #d4af37 0%, #f9d71c 100%); color: #000;" href="#">
+                        <a class="btn btn-gold w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push border-0" style="background: linear-gradient(135deg, #d4af37 0%, #f9d71c 100%); color: #000;" href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}">
                             <i class="fas fa-award me-2"></i> Obtener Certificado
                         </a>
                         @break
@@ -70,6 +119,11 @@
             <div class="d-grid gap-3">
                 @foreach($capsGestion as $cap)
                     @switch($cap)   
+                        @case('ver_participantes')
+                            <a href="{{ route('taller.cursos.participantes', $curso->crypt_id) }}" class="btn btn-secondary btn-sm py-2 fw-bold border shadow-xs rounded-pill">
+                                <i class="fas fa-users-cog me-1"></i> Postulados y Participantes
+                            </a>
+                            @break
                         @case('aceptar_asignacion')
                             <button class="btn btn-success btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="aceptarCursoFacilitador('{{ $curso->crypt_id }}')">
                                 <i class="fas fa-check-circle me-1"></i> Aceptar Asignación
@@ -83,6 +137,9 @@
                         @case('editar')
                             <a href="{{ route('taller.cursos.edit', $curso->crypt_id) }}" class="btn btn-white btn-sm py-2 fw-bold border shadow-xs rounded-pill">
                                 <i class="fas fa-edit me-1 text-primary"></i> Editar Programa
+                            </a>
+                            <a href="{{ route('taller.cursos.requisitos.edit', $curso->id_curso) }}" class="btn btn-white btn-sm py-2 fw-bold border shadow-xs rounded-pill mt-2">
+                                <i class="fas fa-list-check me-1 text-info"></i> Editar Requisitos
                             </a>
                             @break
                         @case('enviar_aprobacion')

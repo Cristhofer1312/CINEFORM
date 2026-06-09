@@ -163,11 +163,12 @@ class CursoController extends BaseController
             $idPersonaActual = $personalData->id_persona ?? null;
 
             $query->where(function ($q) use ($idEstadoUsuario, $idPersonaActual) {
-                // Bloque 1: Cursos públicos en Inscripción
+                // Bloque 1: Cursos públicos cuyo estado ACTUAL es Inscripción (6)
+                // Se usa la columna id_estado de la tabla cursos (sincronizada por agregarEstado())
+                // en lugar de buscar en el historial de curso_estado, ya que un curso que pasó
+                // por estado 6 pero ahora está en 7 (En Curso) no debe mostrarse como disponible.
                 $q->where(function ($qPublico) use ($idEstadoUsuario) {
-                    $qPublico->whereHas('estados', function ($q2) {
-                        $q2->where('taller.curso_estado.id_estado', 6);
-                    });
+                    $qPublico->where('id_estado', \App\Enums\EstadoCurso::INSCRIPCION->value);
 
                     // REGLA DE ALCANCE: Nacional o Localidad Coincidente
                     $qPublico->where(function($qAlcance) use ($idEstadoUsuario) {
@@ -198,11 +199,9 @@ class CursoController extends BaseController
             });
         }
 
-        // Filtro por estado específico
+        // Filtro por estado específico (usa la columna id_estado de cursos, que refleja el estado actual)
         if ($request->has('id_estado') && !empty($request->id_estado)) {
-            $query->whereHas('estados', function ($q) use ($request) {
-                $q->where('taller.curso_estado.id_estado', $request->id_estado);
-            });
+            $query->where('id_estado', $request->id_estado);
         }
 
         $cursos = $query->orderBy('fecha_inicio', 'desc')

@@ -50,7 +50,7 @@
                                 <h6 class="text-muted small fw-bold mb-3 d-flex align-items-center">
                                     <i class="fas fa-align-left me-2 text-primary opacity-50"></i> SÍNTESIS DEL PROGRAMA
                                 </h6>
-                                <p class="text-secondary mb-0 fs-5" style="line-height: 1.7;">
+                                <p class="text-black mb-0 fs-5" style="line-height: 1.7;">
                                     {{ $curso->descripcion ?? 'Este programa académico no cuenta con una descripción detallada en este momento.' }}
                                 </p>
                             </div>
@@ -163,87 +163,7 @@
                     </div>
                 </div>
 
-                    {{-- ══ Sección: Participantes Inscritos (Solo con permiso CANCELAR_INSCRIPCION) ══ --}}
-                    @if(isset($puedeCancelarInscripciones) && $puedeCancelarInscripciones && $curso->inscripciones->count() > 0)
-                        @php
-                            $estadoId = $curso->estado_actual->id_estado ?? $curso->id_estado ?? 0;
-                            $puedeRetirar = in_array($estadoId, [
-                                \App\Enums\EstadoCurso::INSCRIPCION->value,
-                                \App\Enums\EstadoCurso::EN_CURSO->value,
-                            ]);
-                        @endphp
-                        <div class="card border-0 shadow-card rounded-4 overflow-hidden mb-4 border-top border-4 border-warning">
-                            <div class="card-header bg-white py-4 px-4 border-bottom d-flex justify-content-between align-items-center">
-                                <h5 class="fw-bold mb-0 text-dark">
-                                    <i class="fas fa-users me-2 text-warning opacity-70"></i> Participantes Inscritos
-                                </h5>
-                                <div class="d-flex align-items-center gap-2">
-                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-2 fw-bold" style="font-size: 0.8rem;" id="participants-counter">
-                                        {{ $curso->inscripciones->count() }}
-                                        @if($curso->cantidad_cupos)
-                                            / {{ $curso->cantidad_cupos }}
-                                        @endif
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="card-body p-4 pt-3">
-                                {{-- Buscador --}}
-                                <div class="input-group mb-3 shadow-sm border rounded-pill overflow-hidden bg-white">
-                                    <span class="input-group-text bg-white border-0 ps-3">
-                                        <i class="fas fa-search text-muted"></i>
-                                    </span>
-                                    <input type="text" class="form-control border-0 py-2 shadow-none" 
-                                           id="search-participante" 
-                                           placeholder="Buscar por nombre o cédula..." 
-                                           onkeyup="filtrarParticipantes()">
-                                </div>
 
-                                {{-- Lista de Participantes --}}
-                                <div class="overflow-auto" style="max-height: 380px;" id="participantes-list">
-                                    @foreach($curso->inscripciones as $insc)
-                                        @php $p = $insc->persona; @endphp
-                                        @if($p)
-                                        <div class="participante-item d-flex align-items-center p-3 mb-2 rounded-3 border bg-white transition-all"
-                                             data-name="{{ strtolower(($p->primer_nombre ?? '') . ' ' . ($p->primer_apellido ?? '')) }}"
-                                             data-doc="{{ $p->dni ?? '' }}"
-                                             id="participante-{{ $insc->id_inscripcion }}">
-                                            <div class="me-3 flex-shrink-0">
-                                                {!! renderAvatar($p, 'avatar-sm') !!}
-                                            </div>
-                                            <div class="flex-grow-1 overflow-hidden">
-                                                <h6 class="mb-0 fw-bold text-dark text-truncate">
-                                                    {{ $p->primer_nombre }} {{ $p->primer_apellido }}
-                                                </h6>
-                                                <div class="d-flex align-items-center gap-3 mt-1">
-                                                    <small class="text-muted">
-                                                        <i class="fas fa-id-card me-1 opacity-50"></i> C.I: {{ $p->dni }}
-                                                    </small>
-                                                    <small class="text-muted">
-                                                        <i class="far fa-calendar me-1 opacity-50"></i> {{ $insc->fecha_inscripcion ? $insc->fecha_inscripcion->format('d/m/Y') : 'N/A' }}
-                                                    </small>
-                                                </div>
-                                            </div>
-                                            @if($puedeRetirar)
-                                            <button type="button" 
-                                                    class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold ms-2 flex-shrink-0 shadow-xs"
-                                                    onclick="retirarParticipante('{{ $insc->crypt_id }}', '{{ $p->primer_nombre }} {{ $p->primer_apellido }}', {{ $insc->id_inscripcion }})">
-                                                <i class="fas fa-user-minus me-1"></i> Retirar
-                                            </button>
-                                            @endif
-                                        </div>
-                                        @endif
-                                    @endforeach
-                                </div>
-
-                                @if(!$puedeRetirar && $curso->inscripciones->count() > 0)
-                                    <div class="alert alert-light text-center small p-3 mb-0 mt-3 rounded-3 border">
-                                        <i class="fas fa-lock me-1 opacity-50"></i> 
-                                        Solo es posible retirar participantes en estado <strong>Inscripción</strong> o <strong>En Curso</strong>.
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    @endif
 
                 <!-- Barra Lateral (4) -->
                 <div class="col-lg-4">
@@ -310,7 +230,7 @@
                                 <div class="list-group-item border-0 px-0 py-3 d-flex justify-content-between align-items-center border-bottom-light">
                                     <span class="text-muted small fw-bold text-uppercase"><i class="fas fa-users me-2 text-warning opacity-50"></i> Cupos</span>
                                     @if($curso->cantidad_cupos !== null)
-                                        <span class="badge bg-primary rounded-pill px-3">{{ $curso->cantidad_cupos }} disponibles</span>
+                                        <span class="badge {{ $CuposDisponibles > 0 ? 'bg-primary' : 'bg-danger' }} rounded-pill px-3">{{ $CuposDisponibles }} disponibles de {{ $curso->cantidad_cupos }}</span>
                                     @else
                                         <span class="badge bg-success rounded-pill px-3">Cupos Ilimitados</span>
                                     @endif
@@ -768,90 +688,7 @@
         });
     });
 
-    // ── Gestión Administrativa de Participantes ──
 
-    function filtrarParticipantes() {
-        const query = (document.getElementById('search-participante')?.value || '').toLowerCase();
-        document.querySelectorAll('.participante-item').forEach(item => {
-            const name = item.getAttribute('data-name') || '';
-            const doc = item.getAttribute('data-doc') || '';
-            item.style.display = (name.includes(query) || doc.includes(query)) ? 'flex' : 'none';
-        });
-    }
-
-    function retirarParticipante(cryptId, nombreParticipante, idInscripcion) {
-        Swal.fire({
-            title: '¿Retirar a este participante?',
-            html: `Se cancelará la inscripción de <strong>${nombreParticipante}</strong>.<br><small class="text-muted">Esta acción liberará un cupo disponible.</small>`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: '<i class="fas fa-user-minus me-1"></i> Sí, retirar',
-            cancelButtonText: 'Cancelar',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    title: 'Procesando...',
-                    text: 'Retirando participante del curso.',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    didOpen: () => Swal.showLoading()
-                });
-
-                fetch(`{{ url('taller/inscripciones') }}/${cryptId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json'
-                    }
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        // Animar y remover la fila del participante del DOM
-                        const row = document.getElementById(`participante-${idInscripcion}`);
-                        if (row) {
-                            row.style.transition = 'all 0.3s ease';
-                            row.style.opacity = '0';
-                            row.style.transform = 'translateX(30px)';
-                            setTimeout(() => row.remove(), 300);
-                        }
-
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Participante Retirado',
-                            text: data.message,
-                            timer: 2500,
-                            showConfirmButton: false
-                        });
-
-                        // Actualizar contador
-                        const counter = document.getElementById('participants-counter');
-                        if (counter && data.cupos_restantes !== null) {
-                            const remaining = document.querySelectorAll('.participante-item').length - 1;
-                            const cuposText = '{{ $curso->cantidad_cupos }}' ? ` / {{ $curso->cantidad_cupos }}` : '';
-                            counter.textContent = remaining + cuposText;
-                        }
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: data.message
-                        });
-                    }
-                })
-                .catch(() => {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error de red',
-                        text: 'No se pudo comunicar con el servidor.'
-                    });
-                });
-            }
-        });
-    }
 </script>
 @endpush
 @endsection

@@ -130,8 +130,8 @@ class CrearCursoController extends BaseController
 
             DB::commit();
 
-            return redirect()->route('taller.cursos.index')
-                ->with('success', 'Curso "' . $curso->nombre . '" planificado exitosamente.');
+            return redirect()->route('taller.cursos.plantilla.create', ['curso' => $curso->id_curso])
+                ->with('success', 'Curso "' . $curso->nombre . '" planificado exitosamente. Ahora configure la plantilla del certificado.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -140,5 +140,112 @@ class CrearCursoController extends BaseController
                 ->withInput()
                 ->withErrors(['error' => 'Ocurrió un error al crear el curso: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * Muestra el formulario para cargar la plantilla del certificado (Paso 2)
+     *
+     * @param int|string $id_curso
+     * @return \Illuminate\View\View
+     */
+    public function plantillaCreate($id_curso)
+    {
+        $curso = Curso::findOrFail($id_curso);
+
+        // Verificar si ya tiene plantilla personalizada, o usar la genérica por defecto
+        $tienePlantillaPersonalizada = file_exists(storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '.png'));
+        $plantillaUrl = $tienePlantillaPersonalizada
+            ? asset('storage/Certificados/cursos/' . $curso->id_curso . '.png')
+            : (file_exists(storage_path('app/public/Certificados/plantilla.png'))
+                ? asset('storage/Certificados/plantilla.png')
+                : null);
+
+        // Cargar coordenadas: hardcoded → defaults.json → {id_curso}.json
+        $hardcoded = [
+            'nombre' => ['x' => 40.9, 'y' => 78.2, 'size' => 24, 'w' => 220],
+            'dni'    => ['x' => 159.4, 'y' => 92.6, 'size' => 12, 'w' => 25],
+            'qr'     => ['x' => 9.8, 'y' => 154.6, 'w' => 20, 'h' => 20],
+            'code'   => ['x' => 0.0, 'y' => 177.4, 'size' => 8, 'w' => 50],
+            'firma'  => ['x' => 178.1, 'y' => 130.2, 'w' => 50, 'h' => 20],
+        ];
+
+        $coords = $hardcoded;
+
+        // 1. Cargar defaults globales si existen
+        $defaultsPath = storage_path('app/public/Certificados/defaults.json');
+        if (file_exists($defaultsPath)) {
+            $defaults = json_decode(file_get_contents($defaultsPath), true);
+            if ($defaults) {
+                $coords = array_merge($coords, $defaults);
+            }
+        }
+
+        // 2. Cargar coordenadas específicas del curso si existen
+        $coordsPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '.json');
+        if (file_exists($coordsPath)) {
+            $savedCoords = json_decode(file_get_contents($coordsPath), true);
+            if ($savedCoords) {
+                $coords = array_merge($coords, $savedCoords);
+            }
+        }
+
+        // Verificar si ya existe firma guardada
+        $firmaPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '_firma.png');
+        $firmaUrl  = file_exists($firmaPath)
+            ? asset('storage/Certificados/cursos/' . $curso->id_curso . '_firma.png')
+            : null;
+
+        return view('taller::a.CursoPlantillaCrear', compact('curso', 'plantillaUrl', 'coords', 'firmaUrl'));
+    }
+
+    /**
+     * Almacena la plantilla del certificado y continúa a Requisitos (Paso 3)
+     *
+     * @param Request $request
+     * @param int|string $id_curso
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function plantillaStore(Request $request, $id_curso)
+    {
+        $curso = Curso::findOrFail($id_curso);
+
+        $request->validate([
+            'plantilla' => 'nullable|image|mimes:png,jpg,jpeg|max:4096',
+            'firma'     => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
+            'coords'    => 'nullable|json',
+            'guardar_default' => 'nullable'
+        ]);
+
+        $destinationPath = storage_path('app/public/Certificados/cursos');
+        if (!file_exists($destinationPath)) {
+            mkdir($destinationPath, 0755, true);
+        }
+
+        // Guardar plantilla si se subió una
+        if ($request->hasFile('plantilla')) {
+            $request->file('plantilla')->move($destinationPath, $curso->id_curso . '.png');
+        }
+
+        // Guardar firma si se subió una
+        if ($request->hasFile('firma')) {
+            $request->file('firma')->move($destinationPath, $curso->id_curso . '_firma.png');
+        }
+
+        // Guardar coordenadas si se enviaron
+        if ($request->filled('coords')) {
+            file_put_contents($destinationPath . '/' . $curso->id_curso . '.json', $request->coords);
+
+            // Guardar como predeterminado si se solicitó
+            if ($request->has('guardar_default')) {
+                $defaultsDir = storage_path('app/public/Certificados');
+                if (!file_exists($defaultsDir)) {
+                    mkdir($defaultsDir, 0755, true);
+                }
+                file_put_contents($defaultsDir . '/defaults.json', $request->coords);
+            }
+        }
+
+        return redirect()->route('taller.cursos.requisitos.create', ['curso' => $curso->id_curso])
+            ->with('success', 'Configuración de certificado guardada. Ahora define los requisitos de la actividad.');
     }
 }

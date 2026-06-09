@@ -180,6 +180,22 @@ class Curso extends Model
     }
 
     /**
+     * Get only active inscripciones for the curso.
+     */
+    public function inscripcionesActivas()
+    {
+        return $this->hasMany(\Modules\Taller\Entities\Inscripcion::class, 'id_curso', 'id_curso')->where('estado', 'activa');
+    }
+
+    /**
+     * Get the requirements for the curso.
+     */
+    public function requisitos()
+    {
+        return $this->hasMany(CursoRequisito::class, 'id_curso', 'id_curso')->orderBy('id_requisito', 'asc');
+    }
+
+    /**
      * Actualiza el estado del curso
      *
      * @param int $idEstado

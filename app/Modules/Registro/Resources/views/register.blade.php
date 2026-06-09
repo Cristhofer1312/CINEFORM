@@ -202,6 +202,22 @@
                                 </div>
                             </div>
 
+                            {{-- Código de Verificación --}}
+                            <div class="col-md-6">
+                                <div class="input-group mb-2">
+                                    <div class="form-floating form-floating-custom flex-grow-1">
+                                        <input id="code" name="code" type="text" class="form-control"
+                                            placeholder="Código" required />
+                                        <label for="code">{{__('Código de Verificación')}} <span class="text-danger">*</span></label>
+                                    </div>
+                                    <button class="btn btn-outline-primary" type="button" id="btn_send_code">
+                                        <i class="fas fa-paper-plane me-1"></i> Enviar
+                                    </button>
+                                </div>
+                                <div id="code_message" class="small mt-1"></div>
+                                @error('code') <small class="text-danger">{{ $message }}</small> @enderror
+                            </div>
+
                             {{-- Contraseña y confirmación (máx 16 caracteres) --}}
                             <div class="col-md-6">
                                 <div class="form-floating form-floating-custom mb-2">
@@ -409,6 +425,53 @@
                 if (municipioId) {
                     ajaxGeo('{{ url("registro/ajax/parroquias") }}/' + municipioId, '#id_parroquia', 'Seleccione Parroquia');
                 }
+            });
+
+            // ── 4. Envío de Código de Verificación ─────────────────────
+            $('#btn_send_code').on('click', function() {
+                const email = $('#email').val();
+                const $btn = $(this);
+                const $message = $('#code_message');
+
+                if (!email) {
+                    $message.removeClass('text-success').addClass('text-danger').text('Por favor, ingrese su correo electrónico primero.');
+                    return;
+                }
+
+                $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Enviando...');
+                $message.empty();
+
+                $.ajax({
+                    url: '{{ route("registro.usuario.enviar_codigo") }}',
+                    method: 'PUT',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        email: email
+                    },
+                    success: function(response) {
+                        if (response.status == "1") {
+                            $message.removeClass('text-danger').addClass('text-success').text(response.message);
+                            // Iniciar temporizador de 15 minutos (opcional, por ahora solo mostramos el mensaje)
+                            let timeLeft = 60; // Ejemplo: 60 segundos para reintentar
+                            const interval = setInterval(() => {
+                                timeLeft--;
+                                $btn.text('Reenviar en ' + timeLeft + 's');
+                                if (timeLeft <= 0) {
+                                    clearInterval(interval);
+                                    $btn.prop('disabled', false).html('<i class="fas fa-paper-plane me-1"></i> Enviar');
+                                }
+                            }, 1000);
+                        } else {
+                            $message.removeClass('text-success').addClass('text-danger').text(response.message);
+                            $btn.prop('disabled', false).html('<i class="fas fa-paper-plane me-1"></i> Enviar');
+                        }
+                    },
+                    error: function(xhr) {
+                        const errorMsg = xhr.responseJSON ? xhr.responseJSON.message : 'Error al enviar el código.';
+                        $message.removeClass('text-success').addClass('text-danger').text(errorMsg);
+                        $btn.prop('disabled', false).html('<i class="fas fa-paper-plane me-1"></i> Enviar');
+                    }
+                });
             });
 
         });

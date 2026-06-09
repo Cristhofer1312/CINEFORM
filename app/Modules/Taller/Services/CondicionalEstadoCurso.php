@@ -77,7 +77,7 @@ class CondicionalEstadoCurso
      * @param bool $puedeInscribirse Si el usuario tiene el permiso formal de inscripción (RBAC)
      * @return array Lista de capacidades únicas
      */
-    public function obtenerCapacidades($estadoId, $esParticipante, $esOperativo, $esGestor, $cuposDisponibles, $puedeInscribirse = true)
+    public function obtenerCapacidades($estadoId, $esParticipante, $esOperativo, $esGestor, $cuposDisponibles, $puedeInscribirse = true, $puedeVerParticipantes = false)
     {
         $capacidadesTeoricas = self::MAPA_CAPACIDADES[$estadoId] ?? [];
         $misCapacidades = [];
@@ -96,9 +96,10 @@ class CondicionalEstadoCurso
                     if ($esParticipante) $cumpleContexto = true;
                     break;
                 case 'publico':
-                    // Caso especial para inscripción: debe cumplir contexto público Y tener el permiso
+                    // Caso especial para inscripción: debe cumplir contexto público,
+                    // tener el permiso RBAC, y NO ser el facilitador del curso
                     if ($capacidad === 'inscribirse') {
-                        if (!$esParticipante && ($cuposDisponibles === null || $cuposDisponibles > 0) && $puedeInscribirse) {
+                        if (!$esParticipante && !$esOperativo && ($cuposDisponibles === null || $cuposDisponibles > 0) && $puedeInscribirse) {
                             $cumpleContexto = true;
                         }
                     } else {
@@ -117,17 +118,18 @@ class CondicionalEstadoCurso
 
         // Casos especiales y herencias lógicas
         if ($esGestor) {
-            // El gestor siempre puede ver contenidos si el curso ya está activo/finalizado
-            if (in_array($estadoId, [6, 7, 8])) {
-                $misCapacidades[] = 'acceder_contenido';
-            }
+            // El gestor siempre puede ver contenidos en cualquier estado
+            $misCapacidades[] = 'acceder_contenido';
         }
 
         if ($esOperativo) {
-            // El operativo siempre puede ver contenidos si no está en borrador
-            if (in_array($estadoId, [4, 5, 6, 7, 8])) {
-                $misCapacidades[] = 'acceder_contenido';
-            }
+            // El operativo (facilitador) siempre puede ver contenidos en cualquier estado
+            $misCapacidades[] = 'acceder_contenido';
+        }
+
+        if ($puedeVerParticipantes) {
+            // Si tiene el permiso explícito, puede ver los participantes
+            $misCapacidades[] = 'ver_participantes';
         }
 
         return array_unique($misCapacidades);

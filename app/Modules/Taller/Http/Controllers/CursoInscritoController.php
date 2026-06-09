@@ -37,11 +37,9 @@ class CursoInscritoController extends BaseController
             });
         }
 
-        // Filtro por estado
+        // Filtro por estado (usa la columna id_estado de cursos, que refleja el estado actual)
         if ($request->filled('id_estado')) {
-            $query->whereHas('estados', function ($q) use ($request) {
-                $q->where('taller.curso_estado.id_estado', $request->id_estado);
-            });
+            $query->where('id_estado', $request->id_estado);
         }
 
         $cursosInscritos = $query->orderBy('fecha_inicio', 'desc')->paginate(12)->withQueryString();

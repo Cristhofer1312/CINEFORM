@@ -119,10 +119,20 @@
                                                     </small>
                                                 @endif
                                             </div>
-                                            <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
-                                                class="btn btn-sm btn-success">
-                                                <i class="fas fa-eye me-1"></i> Ver Curso
-                                            </a>
+                                            <div class="d-flex gap-2">
+                                                @if(in_array($curso->id_estado, [8, 9]))
+                                                    <a href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}" 
+                                                       class="btn btn-sm btn-outline-primary" 
+                                                       data-bs-toggle="tooltip" 
+                                                       title="Descargar Certificado">
+                                                        <i class="fas fa-certificate"></i>
+                                                    </a>
+                                                @endif
+                                                <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
+                                                    class="btn btn-sm btn-success">
+                                                    <i class="fas fa-eye me-1"></i> Ver Curso
+                                                </a>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
