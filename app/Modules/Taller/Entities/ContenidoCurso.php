@@ -57,4 +57,31 @@ class ContenidoCurso extends Model
     {
         return $this->belongsTo(TipoEvaluacion::class, 'id_tipo_evaluacion', 'id_tipo_evaluacion');
     }
+
+    public function asistencias()
+    {
+        return $this->hasMany(Asistencia::class, 'id_contenido_curso');
+    }
+
+    public function asistenciaTokens()
+    {
+        return $this->hasMany(AsistenciaToken::class, 'id_contenido_curso');
+    }
+
+    public function esDiaDeClases(): bool
+    {
+        return !$this->es_evaluacion;
+    }
+
+    public function tokenActivo()
+    {
+        return $this->asistenciaTokens()
+            ->where('activo', true)
+            ->where(function ($q) {
+                $q->whereNull('fecha_expiracion')
+                  ->orWhere('fecha_expiracion', '>', now());
+            })
+            ->latest('creado_en')
+            ->first();
+    }
 }

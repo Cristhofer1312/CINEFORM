@@ -68,7 +68,7 @@ class CursoController extends BaseController
                 ->first();
         }
 
-        return view('taller::a.CursoContenido', compact('curso', 'contenidoActual', 'esFacilitador', 'calificacion'));
+        return view('taller::a.CursoContenido', compact('curso', 'contenidoActual', 'esFacilitador', 'calificacion', 'esGestor'));
     }
 
     public function updateStatus(Request $request, $id)

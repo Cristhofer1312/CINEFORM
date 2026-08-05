@@ -50,7 +50,12 @@ class CertificadoController extends BaseController
             return redirect()->back()->with('error', 'No tiene una inscripción aprobada en este curso.');
         }
 
-        // 3. Generar PDF
+        // 3. Verificar que la certificación haya sido aprobada por el facilitador
+        if (!$inscripcion->certificadoAprobado()) {
+            return redirect()->back()->with('error', 'Tu certificación aún no ha sido aprobada por el facilitador.');
+        }
+
+        // 4. Generar PDF
         try {
             $pdfContent = $this->certificadoService->generarPdf($curso, $inscripcion);
             
@@ -59,6 +64,44 @@ class CertificadoController extends BaseController
                 ->header('Content-Disposition', 'attachment; filename="Certificado_' . $curso->codigo . '.pdf"');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Error al generar el certificado: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Permite probar la emisión del certificado (Vista Previa).
+     * 
+     * @param int|string $id_curso
+     */
+    public function probar($id_curso)
+    {
+        $curso = Curso::findOrFail($id_curso);
+        $user = Auth::user();
+        $persona = $user->personalData;
+
+        // Si el usuario no tiene datos personales (ej. admin puro), creamos un objeto dummy
+        if (!$persona) {
+            $persona = new \Modules\Comun\Entities\PersonalData([
+                'primer_nombre' => 'USUARIO',
+                'primer_apellido' => 'DE PRUEBA',
+                'dni' => '00000000'
+            ]);
+        }
+
+        // Creamos una inscripción dummy para la prueba
+        $inscripcion = new Inscripcion([
+            'id_curso' => $curso->id_curso,
+            'estado' => Inscripcion::ESTADO_APROBADO
+        ]);
+        $inscripcion->setRelation('persona', $persona);
+
+        try {
+            $pdfContent = $this->certificadoService->generarPdf($curso, $inscripcion);
+            
+            return response($pdfContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'inline; filename="Prueba_Certificado.pdf"');
+        } catch (\Exception $e) {
+            return "Error al generar prueba: " . $e->getMessage();
         }
     }
 
@@ -90,7 +133,9 @@ class CertificadoController extends BaseController
             ->where('estado', Inscripcion::ESTADO_APROBADO)
             ->first();
 
-        $valido = $inscripcion && in_array($curso->id_estado, [EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value]);
+        $valido = $inscripcion
+            && $inscripcion->certificadoAprobado()
+            && in_array($curso->id_estado, [EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value]);
 
         return view('taller::certificados.verificar', [
             'valido' => $valido,

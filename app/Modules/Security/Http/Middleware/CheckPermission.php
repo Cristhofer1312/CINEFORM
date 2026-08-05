@@ -21,8 +21,17 @@ class CheckPermission
      */
     public function handle(Request $request, Closure $next, string $processRoute, int $requiredActionId)
     {
-        // El usuario administrador del sistema (ID 1) siempre tiene acceso total
+        // El usuario administrador del sistema (ID 1) siempre tiene acceso total.
+        // Se registra en log de auditoría para detectar uso indebido de la cuenta raíz.
         if (Auth::check() && Auth::id() === 1) {
+            \Illuminate\Support\Facades\Log::channel('single')->info('[ADMIN-BYPASS] Acceso sin verificación RBAC', [
+                'user_id'    => Auth::id(),
+                'process'    => $processRoute,
+                'action_id'  => $requiredActionId,
+                'ip'         => $request->ip(),
+                'url'        => $request->fullUrl(),
+                'method'     => $request->method(),
+            ]);
             return $next($request);
         }
 

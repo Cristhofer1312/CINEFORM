@@ -53,12 +53,15 @@ class CondicionalEstadoCurso
             'acceder_contenido' => 'participante',
             'gestionar' => 'gestion',
             'finalizar_curso' => 'gestion',
+            'gestionar_asistencia' => 'operativo',
+            'marcar_asistencia' => 'participante',
         ],
         8 => [ // Finalizado
             'acceder_contenido' => 'participante',
             'emitir_certificado' => 'participante',
             'gestionar' => 'gestion',
             'cerrar_curso' => 'gestion',
+            'consultar_asistencia' => 'operativo',
         ],
         9 => [ // Cerrado
             'ver_archivo' => 'publico',
@@ -127,9 +130,24 @@ class CondicionalEstadoCurso
             $misCapacidades[] = 'acceder_contenido';
         }
 
-        if ($puedeVerParticipantes) {
-            // Si tiene el permiso explícito, puede ver los participantes
+        // El botón de participantes solo se muestra en estados de Inscripción (6) y En Curso (7)
+        if ($puedeVerParticipantes && in_array($estadoId, [6, 7])) {
             $misCapacidades[] = 'ver_participantes';
+        }
+
+        // Capacidad de ajustar certificado (Solo para Gestión o Facilitador)
+        // Disponible desde que el curso está en Aprobación hasta que se cierra (antes de archivar)
+        if ($esGestor || $esOperativo) {
+            if (in_array($estadoId, [5, 6, 7, 8])) {
+                $misCapacidades[] = 'ajustar_certificado';
+            }
+        }
+
+        // Capacidad de gestionar certificación (Solo Gestor y Operativo, en Finalizado o Cerrado)
+        if ($esGestor || $esOperativo) {
+            if (in_array($estadoId, [8, 9])) {
+                $misCapacidades[] = 'gestionar_certificacion';
+            }
         }
 
         return array_unique($misCapacidades);

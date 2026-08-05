@@ -10,6 +10,25 @@ use FPDF;
 class CertificadoService
 {
     /**
+     * Detecta el tipo real de imagen leyendo los magic bytes del archivo.
+     * Devuelve 'PNG', 'JPG' o null si no es un formato soportado.
+     */
+    private function detectImageType(string $path): ?string
+    {
+        $handle = @fopen($path, 'rb');
+        if (!$handle) return null;
+        $bytes = fread($handle, 4);
+        fclose($handle);
+
+        // PNG: 89 50 4E 47
+        if (substr($bytes, 0, 4) === "\x89PNG") return 'PNG';
+        // JPEG: FF D8 FF
+        if (substr($bytes, 0, 3) === "\xFF\xD8\xFF") return 'JPG';
+
+        return null;
+    }
+
+    /**
      * Genera el PDF del certificado para un participante inscrito.
      *
      * @param Curso $curso
@@ -71,13 +90,21 @@ class CertificadoService
             $plantillaPath = storage_path('app/public/Certificados/plantilla.png');
         }
 
-        // Generar PDF
-        $pdf = new FPDF();
-        $pdf->AddPage('L'); // Landscape
+        // Generar PDF (A4 Horizontal)
+        $pdf = new FPDF('L', 'mm', 'A4');
+        
+        // 1. DESACTIVAR el salto de página automático para permitir dibujo al borde
+        $pdf->SetAutoPageBreak(false, 0);
+        
+        // 2. Añadir la página
+        $pdf->AddPage();
 
-        // Fondo del certificado
+        // 3. Dibujar la plantilla de fondo PRIMERO (Ocupa toda la hoja)
         if (file_exists($plantillaPath)) {
-            $pdf->Image($plantillaPath, 0, 0, 297, 210);
+            $plantillaType = $this->detectImageType($plantillaPath);
+            if ($plantillaType) {
+                $pdf->Image($plantillaPath, 0, 0, 297, 210, $plantillaType);
+            }
         } else {
             $pdf->SetDrawColor(0, 0, 0);
             $pdf->Rect(5, 5, 287, 200);
@@ -86,6 +113,7 @@ class CertificadoService
             $pdf->Cell(0, 10, 'Plantilla de certificado no encontrada.', 0, 1, 'C');
         }
 
+        // 4. Dibujar imágenes adicionales (Firma, QR)
         // QR Code
         if (file_exists($tempQrPath) && isset($coords['qr'])) {
             $qrW = $coords['qr']['w'] ?? 20;
@@ -94,34 +122,53 @@ class CertificadoService
         }
 
         // Firma digital del docente
-        $firmaPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '_firma.png');
-        if (file_exists($firmaPath) && isset($coords['firma'])) {
-            $firmaW = $coords['firma']['w'] ?? 50;
-            $firmaH = $coords['firma']['h'] ?? ($firmaW * 0.4); // fallback a proporción si no hay h
-            $pdf->Image($firmaPath, $coords['firma']['x'], $coords['firma']['y'], $firmaW, $firmaH, 'PNG');
+        $firmaPath = null;
+        $firmaExt = null;
+        foreach (['png', 'jpg', 'jpeg'] as $ext) {
+            $testPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '_firma.' . $ext);
+            if (file_exists($testPath)) {
+                $firmaPath = $testPath;
+                $firmaExt = strtoupper($ext);
+                break;
+            }
         }
 
-        // Código del certificado
+        if ($firmaPath && isset($coords['firma'])) {
+            $firmaW = $coords['firma']['w'] ?? 50;
+            $firmaH = $coords['firma']['h'] ?? ($firmaW * 0.4);
+            // Detectar tipo real por magic bytes, ignorando la extensión
+            $firmaTypeReal = $this->detectImageType($firmaPath);
+            if ($firmaTypeReal) {
+                $pdf->Image($firmaPath, $coords['firma']['x'], $coords['firma']['y'], $firmaW, $firmaH, $firmaTypeReal);
+            }
+        }
+
+        // 5. Posicionar y dibujar los textos
         $pdf->SetTextColor(0, 0, 0);
-        $pdf->SetFont('Arial', 'B', $coords['code']['size'] ?? 8);
-        $pdf->setXY($coords['code']['x'], $coords['code']['y']);
-        $codeW = $coords['code']['w'] ?? 50;
-        $pdf->Cell($codeW, 6, utf8_decode($code), 0, 1, 'C');
+
+        // Código del certificado
+        if (isset($coords['code'])) {
+            $pdf->SetFont('Arial', 'B', $coords['code']['size'] ?? 8);
+            $pdf->setXY($coords['code']['x'], $coords['code']['y']);
+            $codeW = $coords['code']['w'] ?? 50;
+            $pdf->Cell($codeW, 10, utf8_decode($code), 0, 0, 'C');
+        }
 
         // Nombre completo del participante
-        $pdf->SetTextColor(0, 0, 0);
-        $pdf->SetFont('Arial', 'B', $coords['nombre']['size'] ?? 24);
-        $pdf->setXY($coords['nombre']['x'], $coords['nombre']['y']);
-        $nombreCompleto = $persona->nombre_completo;
-        $nombreW = $coords['nombre']['w'] ?? 220;
-        $pdf->Cell($nombreW, 10, utf8_decode($nombreCompleto), 0, 1, 'C');
+        if (isset($coords['nombre'])) {
+            $pdf->SetFont('Arial', 'B', $coords['nombre']['size'] ?? 24);
+            $pdf->setXY($coords['nombre']['x'], $coords['nombre']['y']);
+            $nombreW = $coords['nombre']['w'] ?? 220;
+            $pdf->Cell($nombreW, 10, utf8_decode($persona->nombre_completo), 0, 0, 'C');
+        }
 
         // Cédula del participante
-        $pdf->SetTextColor(0, 0, 0);
-        $pdf->SetFont('Arial', 'B', $coords['dni']['size'] ?? 12);
-        $pdf->setXY($coords['dni']['x'], $coords['dni']['y']);
-        $dniW = $coords['dni']['w'] ?? 25;
-        $pdf->Cell($dniW, 10, utf8_decode($persona->dni), 0, 1, 'L');
+        if (isset($coords['dni'])) {
+            $pdf->SetFont('Arial', 'B', $coords['dni']['size'] ?? 12);
+            $pdf->setXY($coords['dni']['x'], $coords['dni']['y']);
+            $dniW = $coords['dni']['w'] ?? 25;
+            $pdf->Cell($dniW, 10, utf8_decode($persona->dni), 0, 0, 'L');
+        }
 
         $pdfContent = $pdf->Output('S');
 

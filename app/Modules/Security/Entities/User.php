@@ -39,8 +39,9 @@ class User extends Authenticatable
      */
     protected $hidden = [
         'id',
-        /* 'password',
-        'username', */
+        'password',       // Ocultar siempre en serialización (toArray, toJson, API)
+        'remember_token', // Token de sesión persistente nunca debe exponerse
+        'token',          // Token de recuperación de contraseña (contiene hash sensible)
     ];
 
     /**

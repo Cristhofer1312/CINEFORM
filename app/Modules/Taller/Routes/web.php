@@ -9,6 +9,10 @@ use Modules\Taller\Http\Controllers\CursoController;
 use Modules\Taller\Http\Controllers\EditarCursoController;
 use Modules\Taller\Http\Controllers\BaseController;
 use Modules\Taller\Http\Controllers\CatalogoController;
+use Modules\Taller\Http\Controllers\AsistenciaController;
+use Modules\Taller\Http\Controllers\PostulacionFacilitadorController;
+use Modules\Taller\Http\Controllers\CertificacionPanelController;
+use Modules\Taller\Http\Controllers\EstadisticasController;
 use Modules\Comun\Http\Controllers\PersonalDataController;
 
 Route::get('/dev-login', function() {
@@ -51,6 +55,10 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
             ->name('taller.cursos.plantilla.create');
         Route::post('/cursos/{curso}/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'plantillaStore'])
             ->name('taller.cursos.plantilla.store');
+
+        // Ruta para editar el certificado (Premium acceso rápido)
+        Route::get('/cursos/{curso}/certificado/editar', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'plantillaCreate'])
+            ->name('taller.cursos.certificado.edit');
 
         // Ruta para ver el contenido de un curso
         Route::get('/cursos/{curso}/contenido/{contenido_id?}', [CursoController::class, 'contenido'])->name('taller.cursos.contenido');
@@ -136,6 +144,9 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
         Route::get('/certificados/{curso}/descargar', [\Modules\Taller\Http\Controllers\CertificadoController::class, 'descargar'])
             ->name('taller.certificados.descargar');
 
+        Route::get('/certificados/{curso}/probar', [\Modules\Taller\Http\Controllers\CertificadoController::class, 'probar'])
+            ->name('taller.certificados.probar');
+
         Route::get('/certificados/verificar/{codigo}', [\Modules\Taller\Http\Controllers\CertificadoController::class, 'verificar'])
             ->name('taller.certificados.verificar')
             ->withoutMiddleware(['auth', 'decrypt_id']);
@@ -160,5 +171,71 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
         Route::patch('/catalogos/aspectos/{aspecto}/toggle', [CatalogoController::class, 'toggleAspecto'])
             ->name('taller.catalogos.aspectos.toggle');
 
+        // ── Rutas de Asistencia ──────────────────────────────────────────────
+        Route::get('/cursos/{curso}/asistencia', [AsistenciaController::class, 'consolidado'])
+            ->name('taller.asistencia.consolidado');
+        Route::get('/cursos/{curso}/asistencia/{inscripcion}/individual', [AsistenciaController::class, 'individual'])
+            ->name('taller.asistencia.individual');
+        Route::post('/cursos/{curso}/generar-token', [AsistenciaController::class, 'generarToken'])
+            ->name('taller.asistencia.generar-token');
+        Route::post('/cursos/{curso}/asistencia/{asistencia}/anular', [AsistenciaController::class, 'anular'])
+            ->name('taller.asistencia.anular');
+        Route::post('/cursos/{curso}/asistencia/{asistencia}/restaurar', [AsistenciaController::class, 'restaurar'])
+            ->name('taller.asistencia.restaurar');
+        Route::post('/cursos/{curso}/contenido/{contenido}/marcar-manual', [AsistenciaController::class, 'marcarManual'])
+            ->name('taller.asistencia.marcar-manual');
+        Route::post('/cursos/{curso}/token/{token}/marcar', [AsistenciaController::class, 'marcar'])
+            ->name('taller.asistencia.marcar');
+
+        // ── Postulación a Facilitador ──
+        // Landing (participantes)
+        Route::get('/postulacion-facilitador', [PostulacionFacilitadorController::class, 'landing'])
+            ->name('taller.postulacion-facilitador.landing');
+        Route::get('/postulacion-facilitador/postularse', [PostulacionFacilitadorController::class, 'formulario'])
+            ->name('taller.postulacion-facilitador.formulario');
+        Route::post('/postulacion-facilitador/postularse', [PostulacionFacilitadorController::class, 'postular'])
+            ->name('taller.postulacion-facilitador.postular');
+
+        // Admin (coordinadores)
+        Route::get('/postulacion-facilitador/admin', [PostulacionFacilitadorController::class, 'adminIndex'])
+            ->name('taller.postulacion-facilitador.admin');
+        Route::get('/postulacion-facilitador/admin/preview', [PostulacionFacilitadorController::class, 'previewLanding'])
+            ->name('taller.postulacion-facilitador.admin.preview');
+        Route::post('/postulacion-facilitador/requisitos', [PostulacionFacilitadorController::class, 'storeRequisito'])
+            ->name('taller.postulacion-facilitador.requisitos.store');
+        Route::put('/postulacion-facilitador/requisitos/{requisito}', [PostulacionFacilitadorController::class, 'updateRequisito'])
+            ->name('taller.postulacion-facilitador.requisitos.update');
+        Route::patch('/postulacion-facilitador/requisitos/{requisito}/toggle', [PostulacionFacilitadorController::class, 'toggleRequisito'])
+            ->name('taller.postulacion-facilitador.requisitos.toggle');
+        Route::post('/postulacion-facilitador/{postulacion}/aprobar', [PostulacionFacilitadorController::class, 'aprobar'])
+            ->name('taller.postulacion-facilitador.aprobar');
+        Route::post('/postulacion-facilitador/{postulacion}/rechazar', [PostulacionFacilitadorController::class, 'rechazar'])
+            ->name('taller.postulacion-facilitador.rechazar');
+        Route::get('/postulacion-facilitador/{postulacion}/documentos', [PostulacionFacilitadorController::class, 'verDocumentos'])
+            ->name('taller.postulacion-facilitador.documentos');
+        Route::get('/postulacion-facilitador/documento/{respuesta}/descargar', [PostulacionFacilitadorController::class, 'descargarDocumento'])
+            ->name('taller.postulacion-facilitador.documento.descargar');
+
+        // ── Panel de Certificación (Aprobación por Facilitador) ──
+        Route::get('/cursos/{curso}/certificacion', [CertificacionPanelController::class, 'index'])
+            ->name('taller.certificacion.panel');
+        Route::post('/cursos/{curso}/certificacion/{inscripcion}/aprobar', [CertificacionPanelController::class, 'aprobar'])
+            ->name('taller.certificacion.aprobar');
+        Route::post('/cursos/{curso}/certificacion/{inscripcion}/denegar', [CertificacionPanelController::class, 'denegar'])
+            ->name('taller.certificacion.denegar');
+
+        // ── Estadísticas de Cursos ──
+        Route::get('/estadisticas', [EstadisticasController::class, 'index'])
+            ->name('taller.estadisticas.index');
+        Route::get('/estadisticas/datos', [EstadisticasController::class, 'datos'])
+            ->name('taller.estadisticas.datos');
     });
+
+    // Ruta pública: marcado de asistencia vía link/QR (requiere auth, pero fuera del grupo 'auth' para el flujo intencionado)
+    Route::get('/asistencia/{curso}/{token}', [AsistenciaController::class, 'mostrarConfirmacion'])
+        ->name('taller.asistencia.confirmar')
+        ->middleware('auth');
+    Route::post('/asistencia/{curso}/{token}/confirmar', [AsistenciaController::class, 'marcar'])
+        ->name('taller.asistencia.confirmar-marcar')
+        ->middleware('auth');
 });

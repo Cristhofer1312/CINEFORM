@@ -64,18 +64,35 @@ class DecryptIds
         return $next($request);
     }
 
-    private function isEncrypted($value)
+    /**
+     * Determina si un valor podría ser un ID cifrado.
+     * Criterios estrictos para minimizar falsos positivos:
+     * - Debe ser string de longitud razonable (no muy corto)
+     * - No debe ser puramente numérico (sería un ID en claro)
+     * - Debe ser base64 válido (los IDs cifrados siempre lo son)
+     */
+    private function isEncrypted($value): bool
     {
-        // Un ID encriptado debe ser string, tener longitud razonable y no ser puramente numérico
-        return $value && is_string($value) && strlen($value) > 10 && !is_numeric($value);
+        if (!$value || !is_string($value) || strlen($value) < 16 || is_numeric($value)) {
+            return false;
+        }
+        // Verificar que sea base64 válido estricto
+        return base64_decode($value, true) !== false;
     }
 
-    private function tryDecrypt($value)
+    /**
+     * Intenta descifrar un valor. Solo acepta el resultado si es un entero positivo,
+     * lo que corresponde a un ID de base de datos real.
+     */
+    private function tryDecrypt($value): mixed
     {
         try {
             $decrypted = Encryptor::decrypt($value);
-            // Si el resultado es false, openssl_decrypt falló
-            return $decrypted === false ? null : $decrypted;
+            // Solo aceptar si el resultado descifrado es un entero positivo válido (ID de DB)
+            if ($decrypted !== false && $decrypted !== null && is_numeric($decrypted) && (int)$decrypted > 0) {
+                return (int)$decrypted;
+            }
+            return null;
         } catch (\Exception $e) {
             return null;
         }

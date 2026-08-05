@@ -20,6 +20,10 @@
                     <p class="text-muted small mb-0"><i class="fas fa shield-alt me-1 text-primary"></i> Posees permisos totales para modificar los parámetros base de este programa.</p>
                 </div>
                 <div class="text-end">
+                    <a href="{{ route('taller.cursos.certificado.edit', $curso->crypt_id) }}" 
+                       class="btn btn-outline-primary shadow-sm rounded-pill px-4 btn-sm fw-bold transition-hover me-2">
+                        <i class="fas fa-certificate me-2"></i> Ajustar Certificado
+                    </a>
                     <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
                         class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold transition-hover">
                         <i class="fas fa-arrow-left me-2 text-primary"></i> Volver

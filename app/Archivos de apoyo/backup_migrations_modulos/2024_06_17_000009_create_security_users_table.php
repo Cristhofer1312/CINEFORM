@@ -5,6 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 return new class extends Migration {
     /**
@@ -29,11 +30,11 @@ return new class extends Migration {
         DB::table('security.users')->insert([
             [
                 'username' => 'admin',
-                'email' => 'crisclasyt@gmail.com',
-                'password' => Hash::make('12345678'),
+                'email' => 'admin@cineform.gob.ve',
+                'password' => '12345678',
                 'register_date' => now(),
-                'active' => 0,
-                'ip' => '[IP_ADDRESS]',
+                'active' => 1,
+                'ip' => '[MIGRATION]',
             ]
         ]);
     }

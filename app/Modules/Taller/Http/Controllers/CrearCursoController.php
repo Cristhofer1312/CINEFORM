@@ -152,13 +152,23 @@ class CrearCursoController extends BaseController
     {
         $curso = Curso::findOrFail($id_curso);
 
-        // Verificar si ya tiene plantilla personalizada, o usar la genérica por defecto
-        $tienePlantillaPersonalizada = file_exists(storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '.png'));
-        $plantillaUrl = $tienePlantillaPersonalizada
-            ? asset('storage/Certificados/cursos/' . $curso->id_curso . '.png')
-            : (file_exists(storage_path('app/public/Certificados/plantilla.png'))
-                ? asset('storage/Certificados/plantilla.png')
-                : null);
+        // --- MANEJO DE IMAGEN DE PLANTILLA CON PREVENCIÓN DE CACHÉ ---
+        $plantillaPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '.png');
+        $plantillaGlobalPath = storage_path('app/public/Certificados/plantilla.png');
+
+        $plantillaUrl = null;
+        if (file_exists($plantillaPath)) {
+            // Agregamos ?v=timestamp para obligar al navegador a refrescar la imagen
+            $plantillaUrl = asset('storage/Certificados/cursos/' . $curso->id_curso . '.png') . '?v=' . filemtime($plantillaPath);
+        } elseif (file_exists($plantillaGlobalPath)) {
+            $plantillaUrl = asset('storage/Certificados/plantilla.png') . '?v=' . filemtime($plantillaGlobalPath);
+        }
+
+        // --- MANEJO DE FIRMA CON PREVENCIÓN DE CACHÉ ---
+        $firmaPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '_firma.png');
+        $firmaUrl = file_exists($firmaPath)
+            ? asset('storage/Certificados/cursos/' . $curso->id_curso . '_firma.png') . '?v=' . filemtime($firmaPath)
+            : null;
 
         // Cargar coordenadas: hardcoded → defaults.json → {id_curso}.json
         $hardcoded = [
@@ -189,11 +199,15 @@ class CrearCursoController extends BaseController
             }
         }
 
-        // Verificar si ya existe firma guardada
-        $firmaPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '_firma.png');
-        $firmaUrl  = file_exists($firmaPath)
-            ? asset('storage/Certificados/cursos/' . $curso->id_curso . '_firma.png')
-            : null;
+        // Verificar si ya existe firma guardada con cualquier extensión válida (png, jpg, jpeg)
+        $firmaUrl = null;
+        foreach (['png', 'jpg', 'jpeg'] as $ext) {
+            $firmaPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '_firma.' . $ext);
+            if (file_exists($firmaPath)) {
+                $firmaUrl = asset('storage/Certificados/cursos/' . $curso->id_curso . '_firma.' . $ext);
+                break;
+            }
+        }
 
         return view('taller::a.CursoPlantillaCrear', compact('curso', 'plantillaUrl', 'coords', 'firmaUrl'));
     }
@@ -228,7 +242,15 @@ class CrearCursoController extends BaseController
 
         // Guardar firma si se subió una
         if ($request->hasFile('firma')) {
-            $request->file('firma')->move($destinationPath, $curso->id_curso . '_firma.png');
+            $extension = $request->file('firma')->getClientOriginalExtension();
+            // Eliminar firmas previas con otras extensiones para evitar duplicidad de firmas
+            foreach (['png', 'jpg', 'jpeg'] as $ext) {
+                $oldFile = $destinationPath . '/' . $curso->id_curso . '_firma.' . $ext;
+                if (file_exists($oldFile)) {
+                    @unlink($oldFile);
+                }
+            }
+            $request->file('firma')->move($destinationPath, $curso->id_curso . '_firma.' . $extension);
         }
 
         // Guardar coordenadas si se enviaron
@@ -245,7 +267,14 @@ class CrearCursoController extends BaseController
             }
         }
 
-        return redirect()->route('taller.cursos.requisitos.create', ['curso' => $curso->id_curso])
-            ->with('success', 'Configuración de certificado guardada. Ahora define los requisitos de la actividad.');
+        // Redirección condicional: si es creación inicial (POR_ACEPTAR), ir a Requisitos. 
+        // De lo contrario (edición posterior), regresar al detalle del curso.
+        if ($curso->estado_actual && $curso->estado_actual->id_estado == EstadoCurso::POR_ACEPTAR->value) {
+            return redirect()->route('taller.cursos.requisitos.create', ['curso' => $curso->id_curso])
+                ->with('success', 'Configuración de certificado guardada. Ahora define los requisitos de la actividad.');
+        }
+
+        return redirect()->route('taller.cursos.show', $curso->id_curso)
+            ->with('success', 'Certificado actualizado exitosamente.');
     }
 }

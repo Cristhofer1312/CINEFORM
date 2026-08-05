@@ -77,7 +77,7 @@ class AdminPermissionsSeeder extends Seeder
         $participantePerms = DB::table('security.permissions')
             ->where(function($q) use ($processCursosId) {
                 $q->where('process_id', $processCursosId)
-                  ->whereIn('slug', ['view', 'enroll']);
+                  ->whereIn('slug', ['view', 'enroll', 'mark_attendance']);
             })
             ->orWhere(function($q) {
                 $q->where('process_id', 5) // Mis Cursos

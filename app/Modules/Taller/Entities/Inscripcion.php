@@ -21,6 +21,10 @@ class Inscripcion extends Model
         'rechazada_por',
         'fecha_rechazo',
         'motivo_estado',
+        'certificado_aprobado',
+        'certificado_aprobado_por',
+        'certificado_fecha_aprobacion',
+        'certificado_motivo_denegacion',
     ];
 
     // Constantes de Estado
@@ -32,6 +36,7 @@ class Inscripcion extends Model
     protected $casts = [
         'fecha_inscripcion' => 'datetime',
         'fecha_rechazo' => 'datetime',
+        'certificado_fecha_aprobacion' => 'datetime',
     ];
 
     protected $appends = ['crypt_id'];
@@ -66,6 +71,24 @@ class Inscripcion extends Model
     }
 
     /**
+     * Helpers de Estado de Certificación
+     */
+    public function certificadoPendiente(): bool
+    {
+        return is_null($this->certificado_aprobado);
+    }
+
+    public function certificadoAprobado(): bool
+    {
+        return $this->certificado_aprobado === true;
+    }
+
+    public function certificadoDenegado(): bool
+    {
+        return $this->certificado_aprobado === false;
+    }
+
+    /**
      * Relación con el modelo Curso
      */
     public function curso()
@@ -90,10 +113,23 @@ class Inscripcion extends Model
     }
 
     /**
+     * Relación con el usuario que aprobó/denegó la certificación
+     */
+    public function certificadoAprobadoPor()
+    {
+        return $this->belongsTo(\Modules\Security\Entities\User::class, 'certificado_aprobado_por');
+    }
+
+    /**
      * Respuestas a los requisitos
      */
     public function respuestas()
     {
         return $this->hasMany(InscripcionRespuesta::class, 'id_inscripcion');
+    }
+
+    public function asistencias()
+    {
+        return $this->hasMany(Asistencia::class, 'id_inscripcion');
     }
 }

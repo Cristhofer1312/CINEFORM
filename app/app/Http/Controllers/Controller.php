@@ -46,9 +46,9 @@ class Controller extends BaseController
           });
 
          */
-        $Countries = \Modules\Security\Entities\Countries::find($this->COUNTRY_DEFAULT);
+        $Countries = \Modules\Security\Entities\Countries::where('default', 1)->first();
 
-        View::share('COUNTRY_DEFAULT', $Countries->crypt_id);
+        View::share('COUNTRY_DEFAULT', $Countries?->crypt_id ?? 0);
     }
 
     public function setJavascript($js = [])

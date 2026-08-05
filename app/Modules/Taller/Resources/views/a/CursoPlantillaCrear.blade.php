@@ -21,10 +21,10 @@
                         <span class="badge bg-white text-primary">A4 (297 x 210 mm)</span>
                     </div>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        {{-- Columna Izquierda: Controles --}}
-                        <div class="col-lg-3">
+                <div class="card-body p-3 p-md-4">
+                    <div class="row g-4">
+                        {{-- Columna: Controles (Se muestra abajo en móviles) --}}
+                        <div class="col-12 col-lg-3 order-2 order-lg-1">
                             <form action="{{ route('taller.cursos.plantilla.store', $curso->crypt_id) }}" method="POST" enctype="multipart/form-data" id="form-plantilla">
                                 @csrf
                                 <input type="hidden" name="coords" id="coords-input">
@@ -40,6 +40,14 @@
                                         <div id="collapsePlantilla" class="accordion-collapse collapse show">
                                             <div class="accordion-body py-2 px-3">
                                                 <input type="file" class="form-control form-control-sm" name="plantilla" accept="image/*" onchange="previewImage(this)">
+                                                
+                                                {{-- Miniatura para indicar que ya hay una imagen guardada --}}
+                                                @if(!empty($plantillaUrl))
+                                                <div class="text-center mt-2 p-2 border rounded bg-light">
+                                                    <img src="{{ $plantillaUrl }}" alt="Plantilla guardada" class="img-fluid border" style="max-height:50px;">
+                                                    <div class="small text-muted mt-1">Plantilla usada actualmente</div>
+                                                </div>
+                                                @endif
                                             </div>
                                         </div>
                                     </div>
@@ -119,14 +127,19 @@
                                 </div>
 
                                 <div class="d-grid gap-2">
-                                    <button type="submit" class="btn btn-primary">
+                                    <button type="submit" class="btn btn-primary shadow-sm">
                                         <i class="fas fa-save me-1"></i> Guardar Diseño
                                     </button>
+                                    
+                                    <a href="{{ route('taller.certificados.probar', $curso->crypt_id) }}" target="_blank" class="btn btn-dark shadow-sm">
+                                        <i class="fas fa-file-pdf me-1"></i> Probar Emisión
+                                    </a>
+
                                     <div class="form-check mt-1">
                                         <input class="form-check-input" type="checkbox" name="guardar_default" id="guardar-default" value="1">
                                         <label class="form-check-label small" for="guardar-default" style="cursor: pointer;">
                                             <i class="fas fa-star me-1 text-warning"></i>
-                                            Guardar como predeterminado para futuros cursos
+                                            Guardar predeterminado
                                         </label>
                                     </div>
                                     <a href="{{ route('taller.cursos.requisitos.create', $curso->crypt_id) }}" class="btn btn-outline-secondary btn-sm">
@@ -136,9 +149,9 @@
                             </form>
                         </div>
 
-                        {{-- Columna Derecha: Lienzo Interactivo --}}
-                        <div class="col-lg-9">
-                            <div class="preview-wrapper position-relative border shadow-sm rounded bg-light overflow-hidden" id="canvas-wrapper">
+                        {{-- Columna: Lienzo Interactivo (Se muestra arriba en móviles) --}}
+                        <div class="col-12 col-lg-9 order-1 order-lg-2">
+                            <div class="preview-wrapper position-relative border shadow-sm rounded bg-light overflow-hidden mx-auto" id="canvas-wrapper">
                                 <div id="certificate-canvas" class="position-relative" 
                                      style="aspect-ratio: 297/210; background-image: url('{{ $plantillaUrl }}'); background-size: 100% 100%; background-repeat: no-repeat;">
                                     

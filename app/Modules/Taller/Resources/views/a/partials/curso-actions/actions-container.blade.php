@@ -3,7 +3,7 @@
 @php
     // Categorización de capacidades para organizar la interfaz
     $principales = ['inscribirse', 'cancelar_inscripcion', 'acceder_contenido', 'emitir_certificado', 'ver_archivo'];
-    $gestion = ['ver_participantes', 'aceptar_asignacion', 'rechazar_asignacion', 'editar', 'enviar_aprobacion', 'aprobar', 'rechazar', 'finalizar_inscripciones', 'finalizar_curso', 'cerrar_curso', 'ver_motivo', 'en_revision'];
+    $gestion = ['ver_participantes', 'ajustar_certificado', 'aceptar_asignacion', 'rechazar_asignacion', 'editar', 'enviar_aprobacion', 'aprobar', 'rechazar', 'finalizar_inscripciones', 'finalizar_curso', 'cerrar_curso', 'ver_motivo', 'en_revision', 'gestionar_certificacion'];
     
     // Filtrar qué capacidades tiene el usuario en cada categoría
     $capsPrincipales = array_intersect($capacidades, $principales);
@@ -92,9 +92,23 @@
                         @break
 
                     @case('emitir_certificado')
-                        <a class="btn btn-gold w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push border-0" style="background: linear-gradient(135deg, #d4af37 0%, #f9d71c 100%); color: #000;" href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}">
-                            <i class="fas fa-award me-2"></i> Obtener Certificado
-                        </a>
+                        @if(isset($inscripcion) && $inscripcion->certificadoAprobado())
+                            <a class="btn btn-gold w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push border-0" style="background: linear-gradient(135deg, #d4af37 0%, #f9d71c 100%); color: #000;" href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}">
+                                <i class="fas fa-award me-2"></i> Obtener Certificado
+                            </a>
+                        @elseif(isset($inscripcion) && $inscripcion->certificadoDenegado())
+                            <div class="alert alert-danger text-center small p-3 mb-0 rounded-4 border-0">
+                                <i class="fas fa-times-circle fa-2x mb-2 d-block text-danger opacity-60"></i>
+                                <strong class="d-block mb-1">Certificado No Aprobado</strong>
+                                <p class="mb-0 opacity-75">{{ $inscripcion->certificado_motivo_denegacion }}</p>
+                            </div>
+                        @else
+                            <div class="alert alert-secondary text-center small p-3 mb-0 rounded-4 border-0">
+                                <i class="fas fa-hourglass-half fa-2x mb-2 d-block opacity-40"></i>
+                                <strong class="d-block mb-1">Certificado en Revisión</strong>
+                                <p class="mb-0 opacity-75">Tu certificado está siendo evaluado por el facilitador.</p>
+                            </div>
+                        @endif
                         @break
 
                     @case('ver_archivo')
@@ -122,6 +136,11 @@
                         @case('ver_participantes')
                             <a href="{{ route('taller.cursos.participantes', $curso->crypt_id) }}" class="btn btn-secondary btn-sm py-2 fw-bold border shadow-xs rounded-pill">
                                 <i class="fas fa-users-cog me-1"></i> Postulados y Participantes
+                            </a>
+                            @break
+                        @case('ajustar_certificado')
+                            <a href="{{ route('taller.cursos.certificado.edit', $curso->crypt_id) }}" class="btn btn-outline-primary btn-sm py-2 fw-bold border shadow-xs rounded-pill">
+                                <i class="fas fa-certificate me-1"></i> Ajustar Certificado
                             </a>
                             @break
                         @case('aceptar_asignacion')
@@ -188,6 +207,11 @@
                                     onclick="verObservaciones('{{ $curso->crypt_id }}')">
                                 <i class="fas fa-clipboard-list me-1"></i> Ver Observaciones
                             </button>
+                            @break
+                        @case('gestionar_certificacion')
+                            <a href="{{ route('taller.certificacion.panel', $curso->crypt_id) }}" class="btn btn-outline-success btn-sm py-2 fw-bold border shadow-xs rounded-pill">
+                                <i class="fas fa-clipboard-check me-1"></i> Panel de Certificación
+                            </a>
                             @break
                     @endswitch
                 @endforeach

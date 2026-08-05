@@ -23,80 +23,19 @@ Route::get('language/{lang?}', function ($lang = 'en') {
 
 Route::prefix('security')->group(function () {
 
-    Route::get('pa', function () {
 
-        // Ruta al archivo PDF
-        $pdfFile = '8.pdf';
-        // Número de página que deseas convertir (empezando desde 0)
-        $pageNumber = 0; // Cambia esto al número de página deseada
-        // Crear un objeto Imagick
-        $imagick = new Imagick();
-
-        // Leer la página específica del PDF
-        $imagick->setResolution(300, 300); // Establecer la resolución (opcional)
-        $imagick->readImage("{$pdfFile}[{$pageNumber}]");
-
-        // Opcional: configurar el formato de salida
-        $imagick->setImageFormat('png'); // Cambia 'png' a 'jpeg' o el formato que necesites
-        // Guardar la imagen resultante
-        $outputFile = '88.png';
-
-        /*
-          $fp = fopen('ddd.png', 'x');
-          fwrite($fp, base64_decode($value));
-          fclose($fp);
-         */
-        //header("Content-type: image/png");
-        return '<img src="data:image/png;base64,' . base64_encode($imagick->getImageBlob()) . '">';
-        //dd(base64_encode($imagick->getImageBlob()));
-        //$imagick->writeImage($outputFile);
-        // Limpiar recursos
-        $imagick->clear();
-        $imagick->destroy();
-
-        return "La página $pageNumber del PDF ha sido convertida a imagen y guardada como $outputFile.";
-
-        $fp_pdf = fopen('aa.pdf', 'rb');
-
-        $img = new imagick(); // [0] can be used to set page number
-        $img->setResolution(300, 300);
-        //$img->readImageFile($fp_pdf, ["2"]);
-        $img->readImageFile($fp_pdf, "2");
-        $img->setImageFormat("png");
-        $img->setImageCompression(imagick::COMPRESSION_JPEG);
-        $img->setImageCompressionQuality(90);
-
-        $img->setImageUnits(imagick::RESOLUTION_PIXELSPERINCH);
-
-        //  $data = $img->getImageBlob();
-
-        $img->writeImage("rttr.png");
-
-        /*
-          $parseador = new \Smalot\PdfParser\Parser();
-
-          $nombreDocumento = "aa.pdf";
-          $documento = $parseador->parseFile($nombreDocumento);
-
-          $paginas = $documento->getPages();
-          foreach ($paginas as $indice => $pagina) {
-          printf("<h1>Página #%02d</h1>", $indice + 1);
-          $texto = $pagina->getText();
-          echo "<pre>";
-          echo $texto;
-          echo "</pre>";
-          }
-         */
-    })->name('pas');
-    
-    
     Route::match(['get', 'post'], 'photo', [Modules\Security\Http\Controllers\SecurityController::class, 'photo'])->name('photo');
     
-    Route::group(array('middleware' => array(\Modules\Security\Http\Middleware\SetLanguage::class)), function () {
-        Route::match(['get', 'post'], 'login', [Modules\Security\Http\Controllers\SecurityController::class, 'login'])->name('login');
-        Route::match(['get', 'post', 'put'], 'recovery/{token?}', [Modules\Security\Http\Controllers\SecurityController::class, 'recovery'])->name('recovery');        
+    // Rate-limiting: máximo 10 intentos por minuto por IP en rutas de autenticación
+    Route::middleware(['throttle:10,1'])->group(function () {
+        Route::group(array('middleware' => array(\Modules\Security\Http\Middleware\SetLanguage::class)), function () {
+            Route::match(['get', 'post'], 'login', [Modules\Security\Http\Controllers\SecurityController::class, 'login'])->name('login');
+            Route::match(['get', 'post', 'put'], 'recovery/{token?}', [Modules\Security\Http\Controllers\SecurityController::class, 'recovery'])->name('recovery');
+            Route::match(['get', 'post', 'put'], 'register', [Modules\Security\Http\Controllers\SecurityController::class, 'register'])->name('register');
+        });
+        Route::get('captcha/{seed?}', [Modules\Security\Http\Controllers\SecurityController::class, 'captcha'])->name('captcha');
     });
-    Route::get('captcha/{seed?}', [Modules\Security\Http\Controllers\SecurityController::class, 'captcha'])->name('captcha');
+
 
     Route::group(array('middleware' => array('auth', \Modules\Security\Http\Middleware\CheckSecurity::class)), function () {
         //Route::get('/usuario/perfil/seleccionar', [Modules\Security\Http\Controllers\SecurityController::class, 'showProfileSelection'])->name('usuario.mostrarPerfilSeleccion');

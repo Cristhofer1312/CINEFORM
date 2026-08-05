@@ -1,6 +1,6 @@
 @extends('layouts.kaiadmin-menu')
 
-@section('title', 'Contenido del Curso')
+@section('title', 'Actividades del Curso')
 
 {{--
 Vista: CursoContenido
@@ -22,7 +22,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
             <div class="col-lg-4 order-lg-2 mb-4">
                 <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                     <div class="card-header bg-primary py-4 px-4 text-white border-0">
-                        <h5 class="mb-1 fw-bold text-white"><i class="fas fa-list-ul me-2"></i> Contenido del Curso</h5>
+                        <h5 class="mb-1 fw-bold text-white"><i class="fas fa-list-ul me-2"></i> Actividades del Curso</h5>
                         <p class="mb-0 small opacity-75 text-white">{{ $curso->nombre }}</p>
                     </div>
                     <div class="card-body p-3 bg-light">
@@ -140,35 +140,43 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                             @endphp
 
                             <!-- Encabezado Estilizado -->
-                            <div class="row align-items-center mb-5 g-3">
-                                <div class="col-md-9">
+                            <div class="row mb-4 g-3 d-flex justify-content-between align-items-start mt-1">
+                                <div class="col-md-8">
 
-                                    <div class="d-flex flex-wrap gap-3 mt-3">
-                                        <div class="px-3 py-2 bg-light border rounded-3 d-flex align-items-center">
-                                            <i class="fas fa-tag text-primary me-2"></i>
-                                            <span class="small fw-bold">{{ ucfirst($tipo) }}</span>
+                                    <div class="d-flex flex-wrap gap-3">
+                                        <div class="px-4 py-2 bg-light border rounded-3 d-flex align-items-center shadow-sm" style="background: linear-gradient(to bottom, #f8f9fa, #e9ecef);">
+                                            <i class="fas fa-tag text-dark me-2"></i>
+                                            <span class="fw-bold text-dark">{{ ucfirst($tipo) }}</span>
                                         </div>
 
-                                        <div class="px-3 py-2 bg-light border rounded-3 d-flex align-items-center">
-                                            <i class="far fa-clock me-2"></i>
-                                            <span class="small fw-bold" style="font-size: 0.95rem; line-height: 1.2;">{{ $contenidoActual->fecha_contenido->format('d/m/Y') }}</span>
+                                        @if($contenidoActual->fecha_contenido)
+                                        <div class="px-4 py-2 bg-light border rounded-3 d-flex align-items-center shadow-sm" style="background: linear-gradient(to bottom, #f8f9fa, #e9ecef);">
+                                            <i class="far fa-clock text-dark me-2"></i>
+                                            <span class="fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.2;">{{ $contenidoActual->fecha_contenido->format('d/m/Y') }}</span>
                                         </div>
+                                        @endif
                                         
                                         @if($contenidoActual->es_evaluacion)
-                                            <div class="px-3 py-2 bg-success bg-opacity-10 border border-success border-opacity-25 rounded-3 d-flex align-items-center shadow-sm">
-                                                <span class="small text-black fw-bold">Ponderación: <span class="text-white">{{ $contenidoActual->ponderacion ?? '0' }}%</span></span>
+                                            <div class="px-4 py-2 bg-success text-white border-0 rounded-3 d-flex align-items-center shadow-sm">
+                                                <span class="fw-bold text-white">Ponderación: {{ $contenidoActual->ponderacion ?? '0' }}%</span>
                                             </div>
                                         @else
-                                            <div class="px-3 py-2 bg-info bg-opacity-10 border border-info border-opacity-25 rounded-3 d-flex align-items-center">
-                                                <span class="small text-black fw-bold">Material didáctico</span>
+                                            <div class="px-4 py-2 text-white border-0 rounded-3 d-flex align-items-center shadow-sm" style="background-color: #3b82f6;">
+                                                <i class="fas fa-times me-2"></i>
+                                                <span class="fw-bold">Material didáctico</span>
                                             </div>
                                         @endif
                                         
                                     </div>
                                 </div>
-                                <div class="col-md-3 text-md-end">
+                                <div class="col-md-4 d-flex flex-column gap-2 align-items-md-end align-items-start mt-3 mt-md-0">
+                                @if(($esFacilitador || $esGestor) && $contenidoActual && !$contenidoActual->es_evaluacion)
+                                        <a href="{{ route('taller.asistencia.consolidado', $curso->crypt_id) }}" class="btn btn-info text-white rounded-pill shadow-sm fw-bold px-4 py-2" style="min-width: 220px; background-color: #5bb4f3; border-color: #5bb4f3;">
+                                            <i class="fas fa-user me-2"></i> Ver Asistencia
+                                        </a>
+                                    @endif
                                     @if($showBtn)
-                                        <a href="{{ $url }}" class="btn {{ $btnClass }} btn-lg rounded-pill shadow-sm btn-action w-100">
+                                        <a href="{{ $url }}" class="btn {{ $btnClass }} text-white rounded-pill shadow-sm fw-bold px-4 py-2" style="min-width: 220px; border-color: #d9534f;">
                                             <i class="fas {{ $btnIcon }} me-2"></i> {{ $btnText }}
                                         </a>
                                     @endif
@@ -208,12 +216,12 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                             @endif
 
                             <!-- Descripción y Detalles -->
-                            <div class="card bg-light border-0 rounded-4 mt-5">
+                            <div class="card border-0 rounded-4 mt-4 mb-2 shadow-sm" style="background-color: #f8f9fa;">
                                 <div class="card-body p-4">
-                                    <h5 class="fw-bold mb-3 text-primary d-flex align-items-center">
+                                    <h5 class="fw-bold mb-3 d-flex align-items-center" style="color: #3b82f6;">
                                         <i class="fas fa-info-circle me-2"></i> Descripción
                                     </h5>
-                                    <div class="text-muted" style="font-size: 1rem; line-height: 1.7;">
+                                    <div class="text-dark" style="font-size: 1rem; line-height: 1.7;">
                                         {!! nl2br(e($contenidoActual->descripcion)) !!}
                                     </div>
                                 </div>

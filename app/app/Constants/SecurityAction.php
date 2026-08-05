@@ -23,6 +23,11 @@ class SecurityAction
     const GESTIONAR_PERMISOS = 11; // Asignar / revocar acciones sobre los perfiles del sistema
     const SEGURIDAD_USUARIO = 12; // Cambiar credenciales de seguridad (contraseña) de otro usuario
     const ASIGNAR_PERFIL = 20; // Asignar o quitar perfiles a usuarios desde el panel administrativo
+    const MARCAR_ASISTENCIA = 22;    // Marcar propia asistencia vía link/QR
+    const GESTIONAR_ASISTENCIA = 23; // Ver listas, generar tokens, anular/restaurar, marcar manual
+    const POSTULARSE_FACILITADOR = 24; // Para que el participante vea el landing y se postule a facilitador
+    const GESTIONAR_POSTULACIONES_FACILITADOR = 25; // Para que el coordinador gestione los requisitos y apruebe/rechace postulaciones
+    const VER_ESTADISTICAS = 26; // Para consultar la interfaz de estadísticas de cursos
 
     /**
      * Nombres amigables para mostrar en la interfaz (Checkboxes).
@@ -46,6 +51,11 @@ class SecurityAction
             self::VER_PARTICIPANTES => 'Ver Participantes Inscritos',
             self::CANCELAR_INSCRIPCION => 'Cancelar Inscripciones de Participantes',
             self::ASIGNAR_PERFIL => 'Asignar Perfiles a Usuarios',
+            self::MARCAR_ASISTENCIA => 'Marcar Asistencia Propia',
+            self::GESTIONAR_ASISTENCIA => 'Gestionar Asistencia de Cursos',
+            self::POSTULARSE_FACILITADOR => 'Postularse a Facilitador',
+            self::GESTIONAR_POSTULACIONES_FACILITADOR => 'Gestionar Postulaciones a Facilitador',
+            self::VER_ESTADISTICAS => 'Consultar Estadísticas de Cursos',
         ];
     }
 
@@ -71,6 +81,11 @@ class SecurityAction
             self::VER_PARTICIPANTES => 'Permite ver el listado completo de participantes inscritos en el curso.',
             self::CANCELAR_INSCRIPCION => 'Permite retirar participantes de un curso. Solo efectivo en estados donde las inscripciones están activas o el curso está en progreso.',
             self::ASIGNAR_PERFIL => 'Permite buscar usuarios por cédula y asignar o quitar perfiles/roles desde el panel administrativo.',
+            self::MARCAR_ASISTENCIA => 'Permite al participante registrar su asistencia a las sesiones de clase mediante enlace o código QR.',
+            self::GESTIONAR_ASISTENCIA => 'Permite ver listas de asistencia, generar enlaces/QR, anular o restaurar registros, y marcar asistencia manualmente por otros participantes.',
+            self::POSTULARSE_FACILITADOR => 'Permite a los participantes que no son facilitadores postularse entregando los recaudos necesarios.',
+            self::GESTIONAR_POSTULACIONES_FACILITADOR => 'Permite a los coordinadores gestionar los requisitos y aprobar o rechazar las postulaciones de facilitador.',
+            self::VER_ESTADISTICAS => 'Permite consultar los indicadores y gráficos de la interfaz de estadísticas de cursos.',
         ];
     }
 
@@ -96,6 +111,11 @@ class SecurityAction
             self::VER_PARTICIPANTES => 'view_participants',
             self::CANCELAR_INSCRIPCION => 'cancel_enrollment',
             self::ASIGNAR_PERFIL => 'assign',
+            self::MARCAR_ASISTENCIA => 'mark_attendance',
+            self::GESTIONAR_ASISTENCIA => 'manage_attendance',
+            self::POSTULARSE_FACILITADOR => 'apply_facilitator',
+            self::GESTIONAR_POSTULACIONES_FACILITADOR => 'manage_facilitator_applications',
+            self::VER_ESTADISTICAS => 'view_statistics',
             default => '',
         };
     }
@@ -122,6 +142,11 @@ class SecurityAction
             'view_participants' => self::VER_PARTICIPANTES,
             'cancel_enrollment' => self::CANCELAR_INSCRIPCION,
             'assign' => self::ASIGNAR_PERFIL,
+            'mark_attendance' => self::MARCAR_ASISTENCIA,
+            'manage_attendance' => self::GESTIONAR_ASISTENCIA,
+            'apply_facilitator' => self::POSTULARSE_FACILITADOR,
+            'manage_facilitator_applications' => self::GESTIONAR_POSTULACIONES_FACILITADOR,
+            'view_statistics' => self::VER_ESTADISTICAS,
             default => 0, // Desconocido
         };
     }

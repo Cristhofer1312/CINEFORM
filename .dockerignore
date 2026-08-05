@@ -1,0 +1,15 @@
+```
+.git
+.vscode
+.devcontainer
+node_modules
+**/node_modules
+vendor
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+app/.env
+*.log
+```
+w
