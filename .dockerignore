@@ -1,4 +1,4 @@
-```
+
 .git
 .vscode
 .devcontainer
@@ -11,5 +11,3 @@ storage/framework/sessions/*
 storage/framework/views/*
 app/.env
 *.log
-```
-w
