@@ -34,7 +34,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: laravel
-      POSTGRES_PASSWORD: CAMBIA_ESTA_CLAVE_BD
+      POSTGRES_PASSWORD: 123456
       POSTGRES_DB: cineform
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -48,7 +48,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@cineform.gob.ve
       PGADMIN_DEFAULT_PASSWORD: CAMBIA_ESTA_CLAVE_ADMIN
     ports:
-      - "127.0.0.1:8081:80"
+      - "192.168.4.27:8081:80"
     depends_on:
       - db
     networks:

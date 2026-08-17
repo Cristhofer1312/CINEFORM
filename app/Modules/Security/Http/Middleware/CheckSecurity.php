@@ -26,19 +26,21 @@ class CheckSecurity {
             App::setLocale(session()->get('language'));
         }
 
-        // Verificar acceso a rutas administrativas 'users.*'
-        // Se usa el sistema RBAC en lugar de un ID de usuario hardcodeado.
-        //
-        // Lógica de resolución:
-        // 1. Intentar con la ruta completa (ej. 'users.asignar_perfil' → Process 6)
-        // 2. Si no hay match, usar solo la base 'users' (ej. 'users.list' → Process 2)
+        // Verificar acceso a rutas administrativas 'users.*' según el sistema RBAC
         $routeName = $request->route()?->getName();
         if ($routeName) {
             $ruta = explode('.', $routeName);
             if ($ruta[0] === 'users') {
+                // 1. Probar la ruta exacta de la petición (ej. 'users.asignar_perfil' o 'users.list')
                 $tienePermiso = hasPermissionRoute($routeName, \App\Constants\SecurityAction::VER);
-                
-                // Fallback: si la ruta exacta no tiene process, buscar por la base
+
+                // 2. Mapeo para sub-rutas AJAX del módulo "Asignar Perfil":
+                // Valida contra el permiso RBAC asignado al proceso 'users.asignar_perfil' para cualquier perfil autorizador (Coordinador, Administrador, etc.)
+                if (!$tienePermiso && in_array($routeName, ['users.search_persona', 'users.assign_profiles'])) {
+                    $tienePermiso = hasPermissionRoute('users.asignar_perfil', \App\Constants\SecurityAction::VER);
+                }
+
+                // 3. Fallback: si la ruta no tiene un proceso específico registrado, probar por el módulo base 'users'
                 if (!$tienePermiso && count($ruta) > 1) {
                     $tienePermiso = hasPermissionRoute($ruta[0], \App\Constants\SecurityAction::VER);
                 }

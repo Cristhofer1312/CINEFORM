@@ -155,7 +155,7 @@
                         <input class="form-check-input ms-0 me-2" type="checkbox" id="checkAceptoCondiciones"
                             style="cursor: pointer; width: 1.25em; height: 1.25em; margin-top: 0.15em;">
                         <label class="form-check-label fw-bold text-dark" for="checkAceptoCondiciones" style="cursor: pointer;">
-                            He leído y acepto los deberes y responsabilidades correspondientes al rol de facilitador.
+                            He leído y acepto los deberes y responsabilidades correspondientes al papel de facilitador.
                         </label>
                     </div>
                     <br>

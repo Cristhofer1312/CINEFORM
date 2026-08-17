@@ -25,8 +25,8 @@ Curso Finalizado (Estado 8)
     │
     ├── Facilitador/Coordinador abre "Panel de Certificación"
     │   └── Ve tabla con: participantes, % asistencia, promedio calificaciones, estado certificación
-    │       ├── Ver detalle por participante: clases asistidas/faltantes + evaluaciones
     │       ├── Aprobar certificación individual → certificado_aprobado = true
+    │       ├── Aprobar TODOS (masivo) → marca todos los pendientes
     │       └── Denegar certificación → certificado_aprobado = false + motivo
     │
     └── Participante ve botón "Emitir Certificado"
@@ -56,10 +56,13 @@ Facilitador / Coordinador (Curso en Estado 8: Finalizado)
     │   │   │   └── Acciones (Aprobar / Denegar / Ver detalle)
     │   │   │
     │   │   └── Fila expandible/modal: detalle individual
-    │   │       ├── Lista de TODAS las clases con ✅/❌ asistencia por cada una
-    │   │       │   (para que el facilitador identifique exactamente cuáles faltó)
-    │   │       ├── % asistencia calculado (asistencias activas / total clases × 100)
+    │   │       ├── Lista de actividades con ✅/❌ asistencia por cada una
     │   │       └── Lista de evaluaciones con nota individual
+    │   │   
+    │   ├── Botón masivo "Aprobar quienes cumplan mínimos"
+    │   │   (ej: asistencia ≥ 100% Y promedio ≥ 60 → configurable)
+    │   │
+    │   └── Boton aprobacion individual "Aprobar un estudiante en especifico"
     │
     └── Al aprobar → se actualiza campo `certificado_aprobado` en inscripciones
         Al denegar → se actualiza con motivo
@@ -104,17 +107,9 @@ Schema::table('taller.inscripciones', function (Blueprint $table) {
     $table->boolean('certificado_aprobado')->nullable()->default(null)
         ->comment('NULL=pendiente, true=aprobado, false=denegado');
     $table->unsignedBigInteger('certificado_aprobado_por')->nullable();
-    $table->foreign('certificado_aprobado_por')->references('id')->on('security.users')->onDelete('set null');
     $table->timestamp('certificado_fecha_aprobacion')->nullable();
     $table->text('certificado_motivo_denegacion')->nullable();
 });
-
-// Backward-compat: marcar como aprobados las inscripciones existentes de cursos finalizados
-// para no bloquear descargas de certificados ya emitidos
-DB::table('taller.inscripciones')
-    ->whereNull('certificado_aprobado')
-    ->where('estado', 'aprobado')
-    ->update(['certificado_aprobado' => true]);
 ```
 
 ---
@@ -172,25 +167,15 @@ public function certificadoAprobadoPor()
 
 #### [NEW] `Modules/Taller/Http/Controllers/CertificacionPanelController.php`
 
-Extiende `BaseController`. Imports necesarios:
-
-```php
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
-use Modules\Taller\Entities\Curso;
-use Modules\Taller\Entities\Inscripcion;
-use Modules\Taller\Entities\Asistencia;
-use App\Constants\SecurityAction;
-```
-
-Métodos:
+Extiende `BaseController`. Métodos:
 
 | Método | Ruta | HTTP | Descripción |
 |--------|------|------|-------------|
-| `index($id_curso)` | `/cursos/{curso}/certificacion` | GET | Landing de revisión: tabla con participantes, asistencia, calificaciones, estado cert. Detalle expandible con clases asistidas/faltantes. |
+| `index($id_curso)` | `/cursos/{curso}/certificacion` | GET | Landing de revisión: tabla con participantes, asistencia, calificaciones, estado cert. |
 | `aprobar(Request, $id_curso, $id_inscripcion)` | `/cursos/{curso}/certificacion/{inscripcion}/aprobar` | POST | Aprueba certificación individual |
 | `denegar(Request, $id_curso, $id_inscripcion)` | `/cursos/{curso}/certificacion/{inscripcion}/denegar` | POST | Deniega certificación con motivo |
+| `aprobarMasivo(Request, $id_curso)` | `/cursos/{curso}/certificacion/aprobar-masivo` | POST | Aprueba todos los pendientes |
+| `aprobarConMinimos(Request, $id_curso)` | `/cursos/{curso}/certificacion/aprobar-minimos` | POST | Aprueba quienes cumplan umbral |
 
 **Detalle del método `index()`:**
 
@@ -224,12 +209,6 @@ public function index($id_curso)
     $asistenciasPorPersona = $asistenciasRaw
         ->groupBy('id_persona')
         ->map(fn($group) => $group->count());
-
-    // Mapa detallado: [id_persona => [id_contenido_curso => true]]
-    // Para mostrar en el panel qué clases asistió y cuáles faltó
-    $asistenciaDetallePorPersona = $asistenciasRaw
-        ->groupBy('id_persona')
-        ->map(fn($group) => $group->pluck('id_contenido_curso')->flip()->keys());
 
     $totalActividades = $actividades->count();
 
@@ -272,7 +251,6 @@ public function index($id_curso)
             'asistencias' => $asistencias,
             'totalActividades' => $totalActividades,
             'porcentajeAsistencia' => $porcentajeAsistencia,
-            'clasesAsistidas' => $asistenciaDetallePorPersona->get($idPersona, collect()),
             'promedio' => $promedio,
         ];
     }
@@ -310,18 +288,6 @@ public function aprobar(Request $request, $id_curso, $id_inscripcion)
         ]);
     }
 
-    // Enviar email de notificación al participante
-    try {
-        Mail::send('taller::emails.certificacion_aprobada', [
-            'inscripcion' => $inscripcion,
-        ], function ($email) use ($inscripcion) {
-            $email->subject('Certificación de Curso - Aprobada');
-            $email->to($inscripcion->persona->user->email);
-        });
-    } catch (\Exception $e) {
-        // No detenemos el proceso si falla el correo
-    }
-
     return back()->with('success', 'Certificación aprobada correctamente.');
 }
 ```
@@ -357,19 +323,54 @@ public function denegar(Request $request, $id_curso, $id_inscripcion)
         ]);
     }
 
-    // Enviar email de notificación al participante
-    try {
-        Mail::send('taller::emails.certificacion_rechazada', [
-            'inscripcion' => $inscripcion,
-        ], function ($email) use ($inscripcion) {
-            $email->subject('Certificación de Curso - Observaciones');
-            $email->to($inscripcion->persona->user->email);
-        });
-    } catch (\Exception $e) {
-        // No detenemos el proceso si falla el correo
+    return back()->with('success', 'Certificación denegada correctamente.');
+}
+```
+
+**Detalle del método `aprobarMasivo()`:**
+
+```php
+public function aprobarMasivo(Request $request, $id_curso)
+{
+    $curso = Curso::findOrFail($id_curso);
+    $this->verificarPermisoGestion($curso);
+
+    $updated = Inscripcion::where('id_curso', $id_curso)
+        ->where('estado', Inscripcion::ESTADO_APROBADO)
+        ->whereNull('certificado_aprobado')
+        ->update([
+            'certificado_aprobado' => true,
+            'certificado_aprobado_por' => auth()->id(),
+            'certificado_fecha_aprobacion' => now(),
+        ]);
+
+    if ($request->ajax()) {
+        return response()->json([
+            'success' => true,
+            'message' => "$updated certificaciones aprobadas masivamente."
+        ]);
     }
 
-    return back()->with('success', 'Certificación denegada correctamente.');
+    return back()->with('success', "$updated certificaciones aprobadas masivamente.");
+}
+```
+
+**Detalle del método `aprobarConMinimos()`:**
+
+```php
+public function aprobarConMinimos(Request $request, $id_curso)
+{
+    $curso = Curso::findOrFail($id_curso);
+    $this->verificarPermisoGestion($curso);
+
+    $minAsistencia = $request->input('min_asistencia', 75); // % mínimo
+    $minPromedio = $request->input('min_promedio', 60);      // Nota mínima
+
+    // Recalcular para cada participante pendiente
+    // ... misma lógica que index() pero filtrando por umbrales
+    // Actualizar solo los que cumplen ambos criterios
+
+    return back()->with('success', "Certificaciones aprobadas para quienes cumplen los mínimos.");
 }
 ```
 
@@ -379,8 +380,7 @@ public function denegar(Request $request, $id_curso, $id_inscripcion)
 private function verificarPermisoGestion(Curso $curso): void
 {
     $personalData = $this->getUsuarioAutenticado()->personalData;
-    $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_ASISTENCIA)
-        || hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
+    $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
     $esFacilitador = $curso->id_persona == $personalData->id_persona;
 
     if (!$esGestor && !$esFacilitador) {
@@ -433,20 +433,7 @@ Modificar el método `descargar()` para agregar la validación de certificación
 +    // 4. Generar PDF
      try {
          $pdfContent = $this->certificadoService->generarPdf($curso, $inscripcion);
- ```
-
-También modificar el método `verificar()` para incluir la validación de certificación aprobada:
-
- ```diff
-  public function verificar($codigo)
-  {
-      // ... parseo de código, búsqueda de curso/persona/inscripción ...
-
--     $valido = $inscripcion && in_array($curso->id_estado, [EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value]);
-+     $valido = $inscripcion
-+         && $inscripcion->certificadoAprobado()
-+         && in_array($curso->id_estado, [EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value]);
- ```
+```
 
 ---
 
@@ -464,6 +451,10 @@ Route::post('/cursos/{curso}/certificacion/{inscripcion}/aprobar', [\Modules\Tal
     ->name('taller.certificacion.aprobar');
 Route::post('/cursos/{curso}/certificacion/{inscripcion}/denegar', [\Modules\Taller\Http\Controllers\CertificacionPanelController::class, 'denegar'])
     ->name('taller.certificacion.denegar');
+Route::post('/cursos/{curso}/certificacion/aprobar-masivo', [\Modules\Taller\Http\Controllers\CertificacionPanelController::class, 'aprobarMasivo'])
+    ->name('taller.certificacion.aprobar-masivo');
+Route::post('/cursos/{curso}/certificacion/aprobar-minimos', [\Modules\Taller\Http\Controllers\CertificacionPanelController::class, 'aprobarConMinimos'])
+    ->name('taller.certificacion.aprobar-minimos');
 ```
 
 ---
@@ -481,10 +472,11 @@ Agregar nueva capacidad `gestionar_certificacion` en el mapa:
      'gestionar' => 'gestion',
      'cerrar_curso' => 'gestion',
      'consultar_asistencia' => 'operativo',
++    'gestionar_certificacion' => 'operativo', // Facilitador accede al panel
  ],
 ```
 
-Y agregar en los casos especiales (después de `ajustar_certificado`, ~línea 140):
+Y también en los casos especiales (después de `ajustar_certificado`, ~línea 140):
 
 ```diff
  // Capacidad de ajustar certificado (Solo para Gestión o Facilitador)
@@ -494,9 +486,9 @@ Y agregar en los casos especiales (después de `ajustar_certificado`, ~línea 14
      }
  }
 
-+// Capacidad de gestionar certificación (Solo Facilitador y Gestor, en Finalizado o Cerrado)
++// Capacidad de gestionar certificación (Solo Facilitador y Gestor, en Finalizado)
 +if ($esGestor || $esOperativo) {
-+    if (in_array($estadoId, [8, 9])) {
++    if ($estadoId == 8) {
 +        $misCapacidades[] = 'gestionar_certificacion';
 +    }
 +}
@@ -513,38 +505,31 @@ Vista principal del landing de revisión de certificación. Layout: `layouts.kai
 **Estructura de la vista:**
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Header: "Panel de Certificación" + Nombre del Curso                │
-│  Badges: Total participantes / Aprobados / Pendientes / Denegados    │
-├─────────────────────────────────────────────────────────────────────┤
-│  [← Volver al Curso]                                                │
-├─────────────────────────────────────────────────────────────────────┤
-│  Tabla de Participantes:                                             │
-│  ┌─────────────┬──────────┬────────────┬────────────┬──────────┐    │
-│  │ Participante │ Asist. % │ Promedio   │ Estado     │ Acciones │    │
-│  ├─────────────┼──────────┼────────────┼────────────┼──────────┤    │
-│  │ Juan Pérez   │ 90%  ■■■ │ 85.50/100 │ 🟡Pendiente│ ✅ ❌    │    │
-│  │ María López  │ 100% ■■■ │ 92.00/100 │ 🟢Aprobado │ ↩ ❌    │    │
-│  │ Luis García  │ 40%  ■░░ │ 45.00/100 │ 🔴Denegado │ ✅ ↩    │    │
-│  └─────────────┴──────────┴────────────┴────────────┴──────────┘    │
-│                                                                      │
-│  Fila expandible (click en participante):                            │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │ CLASES (10 total):                                           │    │
-│  │ ┌──────────────────┬────────┐                                │    │
-│  │ │ Clase 1 - Tema X │  ✅    │  ← asistió                    │    │
-│  │ │ Clase 2 - Tema Y │  ✅    │                                │    │
-│  │ │ Clase 3 - Tema Z │  ❌    │  ← faltó                      │    │
-│  │ │ Clase 4 - Tema W │  ✅    │                                │    │
-│  │ │ ...               │       │                                │    │
-│  │ └──────────────────┴────────┘                                │    │
-│  │ Asistencia: 9/10 = 90%                                       │    │
-│  │                                                              │    │
-│  │ EVALUACIONES:                                                │    │
-│  │ Examen 1: 85 | Trabajo: 90 | Final: 78                      │    │
-│  │ Promedio: 85.50/100                                          │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  Header: "Panel de Certificación" + Nombre del Curso            │
+│  Badges: Total participantes / Aprobados / Pendientes / Denegados│
+├─────────────────────────────────────────────────────────────────┤
+│  Barra de acciones masivas:                                      │
+│  [✅ Aprobar Todos] [🎯 Aprobar con Mínimos ▼] [← Volver]      │
+│                           Modal con inputs:                      │
+│                           - % Asistencia mínima (default 75)     │
+│                           - Nota mínima (default 60)             │
+├─────────────────────────────────────────────────────────────────┤
+│  Tabla de Participantes:                                         │
+│  ┌─────────────┬──────────┬────────────┬────────────┬──────────┐│
+│  │ Participante │ Asist. % │ Promedio   │ Estado     │ Acciones ││
+│  ├─────────────┼──────────┼────────────┼────────────┼──────────┤│
+│  │ Juan Pérez   │ 90%  ■■■ │ 85.50/100 │ 🟡Pendiente│ ✅ ❌ 👁 ││
+│  │ María López  │ 100% ■■■ │ 92.00/100 │ 🟢Aprobado │ ↩ 👁    ││
+│  │ Luis García  │ 40%  ■░░ │ 45.00/100 │ 🔴Denegado │ ↩ 👁    ││
+│  └─────────────┴──────────┴────────────┴────────────┴──────────┘│
+│                                                                  │
+│  Detalle expandible (por participante):                          │
+│  ┌──────────────────────────────────────────────────────────────┐│
+│  │ Actividades:  Tema 1 ✅ | Tema 2 ✅ | Tema 3 ❌ | Tema 4 ✅ ││
+│  │ Evaluaciones: Examen 1: 85 | Trabajo: 90 | Final: 78        ││
+│  └──────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 **Diseño visual:** Reutilizar el estilo de `AsistenciaConsolidado.blade.php` (header, tabla responsive, badges, hover effects). Los porcentajes de asistencia usan barras de progreso con colores semáforo:
@@ -557,7 +542,8 @@ Los promedios usan el mismo esquema de colores.
 **Interacciones JavaScript:**
 - Aprobar/Denegar individual: `fetch()` con AJAX → actualizar fila sin recargar
 - Modal de denegación: SweetAlert con textarea para motivo
-- Fila expandible: toggle con animación slide, muestra detalle de clases con ✅/❌
+- Aprobar masivo: SweetAlert de confirmación → `fetch()` → recargar tabla
+- Detalle expandible: toggle con animación slide
 
 ---
 
@@ -615,6 +601,31 @@ Los promedios usan el mismo esquema de colores.
 
 ---
 
+#### [MODIFY] `Modules/Taller/Resources/views/a/partials/curso-actions/finalizado-estudiante.blade.php`
+
+> **NOTA:** Este archivo actualmente tiene un botón con `href="#"` (no funcional). Aunque el sistema usa `actions-container.blade.php`, lo actualizamos por consistencia por si se usa como fallback en algún contexto.
+
+```blade
+{{-- Estado 8: Finalizado - Estudiante --}}
+{{-- El estudiante puede ver contenidos y emitir su certificado (si fue aprobado) --}}
+
+<a class="btn btn-info w-100 mb-2" href="{{ route('taller.cursos.contenido', ['curso' => $curso->crypt_id]) }}">
+    <i class="fas fa-eye me-2"></i> Ver contenidos
+</a>
+
+@if(isset($inscripcion) && $inscripcion->certificadoAprobado())
+    <a class="btn btn-success w-100 mb-2" href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}">
+        <i class="fas fa-certificate me-2"></i> Emitir Certificado
+    </a>
+@else
+    <button class="btn btn-secondary w-100 mb-2" disabled>
+        <i class="fas fa-lock me-2"></i> Certificado en Revisión
+    </button>
+@endif
+```
+
+---
+
 ## Resumen de Archivos
 
 | Acción | Archivo |
@@ -622,13 +633,12 @@ Los promedios usan el mismo esquema de colores.
 | **[NEW]** | `Modules/Taller/Database/Migrations/YYYY_MM_DD_HHMMSS_add_certificado_aprobado_to_inscripciones.php` |
 | **[NEW]** | `Modules/Taller/Http/Controllers/CertificacionPanelController.php` |
 | **[NEW]** | `Modules/Taller/Resources/views/a/CertificacionPanel.blade.php` |
-| **[NEW]** | `Modules/Taller/Resources/views/emails/certificacion_aprobada.blade.php` |
-| **[NEW]** | `Modules/Taller/Resources/views/emails/certificacion_rechazada.blade.php` |
 | **[MODIFY]** | `Modules/Taller/Entities/Inscripcion.php` (4 campos fillable + 3 helpers + 1 relación + casts) |
-| **[MODIFY]** | `Modules/Taller/Http/Controllers/CertificadoController.php` (validación en `descargar()` + `verificar()`) |
+| **[MODIFY]** | `Modules/Taller/Http/Controllers/CertificadoController.php` (validación adicional en `descargar()`) |
 | **[MODIFY]** | `Modules/Taller/Services/CondicionalEstadoCurso.php` (nueva capacidad `gestionar_certificacion`) |
-| **[MODIFY]** | `Modules/Taller/Routes/web.php` (3 nuevas rutas) |
+| **[MODIFY]** | `Modules/Taller/Routes/web.php` (5 nuevas rutas) |
 | **[MODIFY]** | `Modules/Taller/Resources/views/a/partials/curso-actions/actions-container.blade.php` (botón panel + condicional certificado) |
+| **[MODIFY]** | `Modules/Taller/Resources/views/a/partials/curso-actions/finalizado-estudiante.blade.php` (condicional certificado) |
 
 ---
 
@@ -644,19 +654,18 @@ Este plan reutiliza los siguientes patrones ya implementados:
 | Acciones AJAX con SweetAlert | `actions-container.blade.php` (aprobar/rechazar) | Aprobar/denegar certificación |
 | Capacidades por estado | `CondicionalEstadoCurso::MAPA_CAPACIDADES` | Nueva capacidad `gestionar_certificacion` |
 | Campo boolean nullable (tri-state) | Patrón estándar Laravel | `certificado_aprobado`: NULL/true/false |
-| Envío de email vía closure | `PostulacionFacilitadorController` (Mail::send) | Notificación de aprobación/denegación |
 
 ---
 
 ## Preguntas Abiertas
 
-1. **Estado Cerrado (9):** ✅ RESUELTO — El facilitador/coordinador puede gestionar certificaciones tanto en estado Finalizado (8) como Cerrado (9). La capacidad `gestionar_certificacion` se agrega para ambos estados en `CondicionalEstadoCurso`.
+1. **Estado Cerrado (9):** ¿Debería el facilitador/coordinador poder aprobar certificaciones cuando el curso ya está en estado Cerrado? Actualmente el plan solo permite gestión en estado Finalizado (8). Si se requiere en Cerrado, se agrega `9` al mapa de capacidades.
 
-2. **~~Umbrales por defecto:~~** ELIMINADO — Se removieron las acciones masivas ("Aprobar Todos" / "Aprobar con Mínimos"). El facilitador aprueba/deniega individualmente tras revisar cada participante.
+2. **Umbrales por defecto:** Los valores de "Aprobar con mínimos" (75% asistencia, 60 promedio) ¿deben ser configurables por curso o son valores fijos globales?
 
-3. **Notificación al participante:** ✅ RESUELTO — Se envían emails de notificación al participante cuando su certificación es aprobada o denegada. Se crean 2 vistas de email: `certificacion_aprobada.blade.php` y `certificacion_rechazada.blade.php`. El destinatario se obtiene via `$inscripcion->persona->user->email` (el email vive en `security.users`, NO en `comun.personas`).
+3. **Notificación al participante:** ¿Desean que se envíe un email al participante cuando su certificación es aprobada o denegada? Si sí, se agregarían vistas de email similar al patrón de postulación de facilitador.
 
-4. **Re-aprobación:** ✅ RESUELTO — Sí es posible. El facilitador puede cambiar la decisión de denegado a aprobado en cualquier momento (el botón "Aprobar" aparece en estados pendiente y denegado).
+4. **Re-aprobación:** Si un certificado fue denegado, ¿el facilitador puede cambiar la decisión a aprobado? En el plan actual sí es posible (el botón "Aprobar" aparece en ambos estados pendiente/denegado para el facilitador).
 
 ---
 
@@ -669,15 +678,14 @@ php artisan route:list --path=certificacion
 ```
 
 ### Manual Verification
-1. **Como Facilitador (curso Finalizado):** Verificar que aparece "Panel de Certificación" en el detalle → Abrir panel → Ver tabla con participantes, asistencia, promedio → Expandir fila → Ver detalle de clases asistidas/faltantes con ✅/❌ → Aprobar uno individualmente → Denegar otro con motivo
+1. **Como Facilitador (curso Finalizado):** Verificar que aparece "Panel de Certificación" en el detalle → Abrir panel → Ver tabla con participantes, asistencia, promedio → Aprobar uno individualmente → Denegar otro con motivo
 2. **Como Participante (certificado pendiente):** Verificar que el botón "Emitir Certificado" está bloqueado con mensaje "en revisión"
 3. **Como Participante (certificado aprobado):** Verificar que el botón dorado "Obtener Certificado" funciona y descarga el PDF
 4. **Como Participante (certificado denegado):** Verificar que se muestra el motivo de denegación
-5. **Seguridad:** Verificar que un participante NO puede acceder al panel de certificación (403)
-6. **Descarga directa por URL:** Verificar que intentar descargar el PDF vía URL directa sin certificación aprobada retorna error
-7. **Verificación externa:** Verificar que el endpoint `/verificar/{codigo}` rechaza certificados no aprobados
-8. **Emails:** Verificar que se envía email al aprobar/denegar (revisar logs si no hay SMTP configurado)
-9. **Backward-compat:** Verificar que inscripciones existentes de cursos finalizados mantienen capacidad de descarga
+5. **Aprobación masiva:** Verificar "Aprobar Todos" → Todos los pendientes cambian a aprobados
+6. **Aprobación con mínimos:** Verificar que solo se aprueban quienes cumplan los umbrales
+7. **Seguridad:** Verificar que un participante NO puede acceder al panel de certificación (403)
+8. **Descarga directa por URL:** Verificar que intentar descargar el PDF vía URL directa sin certificación aprobada retorna error
 
 ---
 
@@ -702,9 +710,8 @@ php artisan route:list --path=certificacion
 
 ### 📋 Dependencias a Considerar
 
-1. **Backward-compat:** La migración incluye un UPDATE masivo que marca `certificado_aprobado = true` en todas las inscripciones existentes con estado `aprobado`. Esto preserva la funcionalidad de descarga para cursos ya finalizados.
-2. **Email en `comun.personas`:** La tabla `comun.personas` NO tiene columna `email`. El email vive en `security.users.email`. Se accede via `$inscripcion->persona->user->email`. NOTA: `InscripcionController::store()` línea 53 usa `$user->personalData->email` — este es un bug existente en el código actual.
-3. **FK constraint:** La migración incluye `foreign('certificado_aprobado_por')->references('id')->on('security.users')->onDelete('set null')` consistente con el patrón del proyecto.
-4. **Rutas:** Solo 3 rutas nuevas (panel, aprobar, denegar). Se eliminaron las rutas masivas.
-5. **`finalizado-estudiante.blade.php`:** No existe en el proyecto. El botón del certificado se maneja íntegramente en `actions-container.blade.php`.
-6. **`Calificacion` model:** No existe Eloquent model para `taller.calificaciones`. Se accede via `DB::table()` consistente con el patrón del proyecto.
+1. **La migración debe ejecutarse en la BD existente** sin afectar inscripciones previas. Las 4 nuevas columnas son `nullable`, por lo que inscripciones existentes tendrán `certificado_aprobado = NULL` (pendiente por defecto).
+2. **Cursos ya cerrados (Estado 9):** Los participantes de cursos cerrados que ya descargaron su certificado seguirán funcionando, ya que `CertificadoController::descargar()` valida `certificadoAprobado()` que retorna `false` para `NULL`. **Esto rompe la compatibilidad.** Se necesita una decisión:
+   - **Opción A:** Ejecutar un UPDATE masivo para marcar `certificado_aprobado = true` en todas las inscripciones de cursos con estado 8 o 9 que ya existen.
+   - **Opción B:** En `CertificadoController::descargar()`, permitir descarga si `certificado_aprobado IS NULL AND curso en estado 9 (Cerrado)` como fallback de compatibilidad.
+   - **Recomendación:** Opción A (en la misma migración o seeder dedicado).

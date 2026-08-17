@@ -43,12 +43,13 @@ if (!function_exists('showActions')) {
 
             // Determinar clases extra para opciones marcadas vs desmarcadas para que sea más vistoso
             $bordeExtra = in_array($value, $actions) ? 'border-primary border-2 shadow-sm' : 'border-primary border-opacity-50';
+            $cleanName = preg_replace('/[^a-zA-Z0-9_]/', '', $name);
 
             $html .= '<li class="list-group-item d-flex align-items-start border rounded px-3 py-2 mb-2 bg-white ' . $bordeExtra . '"> 
                         <div class="form-check p-0 m-0 w-100 d-flex">
-                            <input ' . $checked . ' name="permissions[' . $name . '][' . $value . ']" class="form-check-input mt-1 me-2 pointer border-primary" type="checkbox" id="chk_'.$name.'_'.$value.'" /> 
+                            <input ' . $checked . ' name="permissions[' . $name . '][' . $value . ']" class="form-check-input mt-1 me-2 pointer border-primary" type="checkbox" id="chk_'.$cleanName.'_'.$value.'" /> 
                             <div class="flex-grow-1">
-                                <label class="form-check-label fw-bold m-0 text-dark" style="cursor:pointer;" for="chk_'.$name.'_'.$value.'">' . $friendlyName . "</label>
+                                <label class="form-check-label fw-bold m-0 text-dark" style="cursor:pointer;" for="chk_'.$cleanName.'_'.$value.'">' . $friendlyName . "</label>
                                 " . $descriptionLabel . "
                             </div>
                         </div>

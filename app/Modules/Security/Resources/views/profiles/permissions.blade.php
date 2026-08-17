@@ -58,7 +58,7 @@
 
                     <div class="nav flex-column nav-pills nav-secondary nav-pills-no-bd nav-pills-icons" role="tablist" aria-orientation="vertical">
                         @foreach($MODULES as $key=>$value)
-                        <a class="nav-link {{$key==0 ? 'active':''}}"  data-bs-toggle="pill" href="#v-{{$value->crypt_id}}" role="tab" aria-controls="v-pills-profile-icons" aria-selected="false" tabindex="-1">
+                        <a class="nav-link {{$key==0 ? 'active':''}}"  data-bs-toggle="pill" href="#v-mod-{{$value->id}}" role="tab" aria-controls="v-pills-profile-icons" aria-selected="false" tabindex="-1">
                             <i class="fa fa-{{$value->icon}}"></i>
                             {{$value->name}}
                         </a>
@@ -71,7 +71,7 @@
                 <div class="col-7 col-md-11">
                     <div class="tab-content" >
                         @foreach($MODULES as $key=>$value)
-                        <div class="tab-pane  {{$key==0 ? 'active':'fade'}}" id="v-{{$value->crypt_id}}" role="tabpanel" aria-labelledby="v-pills-home-tab-icons">
+                        <div class="tab-pane  {{$key==0 ? 'show active':'fade'}}" id="v-mod-{{$value->id}}" role="tabpanel" aria-labelledby="v-pills-home-tab-icons">
                             <div class="row mt-3">
                                 <div class="col-12 col-md-12 text-center">
                                     <h1>{{$value->name}}</h1>
@@ -80,11 +80,10 @@
                                 <div class="col-12 col-md-12 ">
 
 
-                                    <ul class="nav nav-pills nav-secondary nav-pills-no-bd" id="pills-tab" role="tablist">
+                                    <ul class="nav nav-pills nav-secondary nav-pills-no-bd" id="pills-tab-mod-{{$value->id}}" role="tablist">
                                         @foreach($value->getMenus as $key2=>$value2)
                                         <li class="nav-item" role="presentation">
-                                            {{-- Fix #7: ID combinado módulo+menú para evitar colisiones --}}
-                                            <a class="nav-link {{$key2==0? 'active':''}}" id="pills-tab-{{$value->crypt_id}}-{{$value2->crypt_id}}" data-bs-toggle="pill" href="#pills-{{$value->crypt_id}}-{{$value2->crypt_id}}" role="tab" aria-controls="pills-{{$value->crypt_id}}-{{$value2->crypt_id}}" aria-selected="true">
+                                            <a class="nav-link {{$key2==0? 'active':''}}" id="pills-tab-{{$value->id}}-{{$value2->id}}" data-bs-toggle="pill" href="#pills-{{$value->id}}-{{$value2->id}}" role="tab" aria-controls="pills-{{$value->id}}-{{$value2->id}}" aria-selected="true">
                                                 {{$value2->name}}
                                             </a>
                                         </li>
@@ -92,10 +91,9 @@
                                     </ul>
 
 
-                                    <div class="tab-content mt-2 mb-3" id="pills-tabContent">
+                                    <div class="tab-content mt-2 mb-3" id="pills-tabContent-mod-{{$value->id}}">
                                         @foreach($value->getMenus as $key2=>$value2)
-                                        {{-- Fix #7: ID combinado módulo+menú para que coincida con el tab link --}}
-                                        <div class="tab-pane {{$key2==0? 'active':'fade'}}" id="pills-{{$value->crypt_id}}-{{$value2->crypt_id}}" role="tabpanel" aria-labelledby="pills-tab-{{$value->crypt_id}}-{{$value2->crypt_id}}">
+                                        <div class="tab-pane {{$key2==0? 'show active':'fade'}}" id="pills-{{$value->id}}-{{$value2->id}}" role="tabpanel" aria-labelledby="pills-tab-{{$value->id}}-{{$value2->id}}">
                                             <div class="list-group list-group-flush">
                                                 @foreach($value2->getProcess as $key3=>$value3)
                                                     @php

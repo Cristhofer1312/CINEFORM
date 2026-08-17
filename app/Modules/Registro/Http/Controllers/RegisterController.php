@@ -24,7 +24,7 @@ class RegisterController extends Controller
     public function index()
     {
         $documentTypes = DB::table('security.document_types')->get();
-        $genders       = DB::table('security.genders')->get();
+        $genders = DB::table('security.genders')->get();
 
         return view('registro::register', compact('documentTypes', 'genders'));
     }
@@ -98,7 +98,7 @@ class RegisterController extends Controller
             'password' => 'required|min:6|confirmed',
             'tipo_dni' => 'required',
             'dni' => [
-                'required', 
+                'required',
                 Rule::unique(PersonalData::class, 'dni')
             ],
             /* 'pasaporte' => [
@@ -106,7 +106,7 @@ class RegisterController extends Controller
                 Rule::unique(PersonalData::class, 'pasaporte')
             ], */
             'rif' => [
-                'nullable', 
+                'nullable',
                 Rule::unique(PersonalData::class, 'rif')
             ],
             'genero' => 'required',
@@ -138,15 +138,15 @@ class RegisterController extends Controller
         try {
             // 1. Crear el usuario
             $user = new User([
-                'username' => strtolower($request->username), 
-                'email'    => strtolower($request->email),
+                'username' => strtolower($request->username),
+                'email' => strtolower($request->email),
                 'password' => Hash::make($request->password),
             ]);
-            
+
             // Campos de auditoría y activación requeridos por el Módulo de Seguridad
             $user->register_date = now();
             $user->ip = $request->ip();
-            $user->active = 0; // activo por defecto (según lógica detected en SecurityController)
+            $user->active = 1;
             $user->save();
 
             // Marcar código como procesado
@@ -177,10 +177,10 @@ class RegisterController extends Controller
                 'segundo_nombre' => $request->segundo_nombre,
                 'primer_apellido' => $request->primer_apellido,
                 'segundo_apellido' => $request->segundo_apellido,
-                'telefono'          => $request->telefono,
+                'telefono' => $request->telefono,
                 'telefono_opcional' => $request->telefono_opcional,
-                'id_pais'           => 238, // Venezuela por defecto
-                'id_estado'         => $request->id_estado,
+                'id_pais' => 210, // Venezuela por defecto
+                'id_estado' => $request->id_estado,
                 'id_municipio' => $request->id_municipio,
                 'id_parroquia' => $request->id_parroquia,
                 'direccion' => $request->direccion,
@@ -202,8 +202,7 @@ class RegisterController extends Controller
 
             return redirect()->route('login')->with('success', 'Registro completado de forma exitosa. Ahora puede iniciar sesión.');
 
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Ocurrió un error en el registro: ' . $e->getMessage())->withInput();
         }

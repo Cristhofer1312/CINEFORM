@@ -267,6 +267,7 @@
     </div>
 </div>
 
+
 @push('styles')
 <style>
     .bg-primary-soft { background-color: rgba(30, 58, 138, 0.05); }
@@ -677,7 +678,7 @@
             }
         });
     }
-
+,
     document.addEventListener('DOMContentLoaded', function () {
         // Inicializar tooltips y listeners de botones por clase
         document.querySelectorAll('.inscribir-btn').forEach(btn => {

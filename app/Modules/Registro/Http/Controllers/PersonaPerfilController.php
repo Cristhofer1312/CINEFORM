@@ -19,18 +19,35 @@ class PersonaPerfilController extends Controller
     public function searchByDni($dni)
     {
         try {
+            $dniClean = preg_replace('/[^0-9]/', '', $dni);
+
             $persona = PersonalData::with('especializaciones')
                 ->where('dni', $dni)
+                ->when(!empty($dniClean), function ($q) use ($dniClean) {
+                    $q->orWhere('dni', $dniClean);
+                })
                 ->first();
 
             if (!$persona) {
-                return response()->json(['success' => false, 'message' => 'Persona no encontrada con esa cédula'], 404);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Persona no encontrada con la cédula ' . $dni
+                ], 200);
             }
 
             // Cargar perfiles actuales de forma segura
             $perfilesActuales = [];
+            $hasUser = false;
+
             if ($persona->user) {
-                $perfilesActuales = $persona->user->perfiles()->pluck('id')->toArray();
+                $hasUser = true;
+                $perfilesActuales = $persona->user->perfiles->pluck('id')->map(fn($id) => (int)$id)->toArray();
+            } else if ($persona->user_id) {
+                $user = \Modules\Security\Entities\User::find($persona->user_id);
+                if ($user) {
+                    $hasUser = true;
+                    $perfilesActuales = $user->perfiles->pluck('id')->map(fn($id) => (int)$id)->toArray();
+                }
             }
 
             return response()->json([
@@ -38,6 +55,7 @@ class PersonaPerfilController extends Controller
                 'data' => [
                     'id_persona'       => $persona->id_persona,
                     'nombre_completo'  => $persona->nombre_completo,
+                    'has_user'         => $hasUser,
                     'especializaciones'=> $persona->especializaciones->pluck('nombre'),
                     'perfiles_actuales'=> $perfilesActuales,
                 ]

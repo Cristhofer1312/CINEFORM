@@ -199,14 +199,20 @@
             const loadingSpinner = document.getElementById('loading_spinner');
             const formAssign = document.getElementById('form_assign_profiles');
 
+            function showAlert(title, text, icon) {
+                if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+                    Swal.fire(title, text, icon);
+                } else if (typeof swal !== 'undefined') {
+                    swal(title, text, icon);
+                } else {
+                    alert(`${title}: ${text}`);
+                }
+            }
+
             function search() {
                 const dni = dniInput.value.trim();
                 if (!dni) {
-                    if (typeof swal !== 'undefined') {
-                        swal("Atención", "Por favor ingrese una cédula", "warning");
-                    } else {
-                        alert("Por favor ingrese una cédula");
-                    }
+                    showAlert("Atención", "Por favor ingrese una cédula", "warning");
                     return;
                 }
 
@@ -217,8 +223,10 @@
 
                 // Cache-buster para evitar que el navegador devuelva respuestas GET cacheadas
                 const timestamp = new Date().getTime();
-                fetch(`{{ url('usuarios/search-persona') }}/${dni}?_t=${timestamp}`)
-                    .then(response => response.json())
+                fetch(`{{ url('usuarios/search-persona') }}/${encodeURIComponent(dni)}?_t=${timestamp}`)
+                    .then(response => {
+                        return response.json();
+                    })
                     .then(result => {
                         loadingSpinner.style.display = 'none';
                         if (result.success) {
@@ -241,33 +249,36 @@
                             }
 
                             // Marcar perfiles actuales
+                            const perfilesActuales = (data.perfiles_actuales || []).map(Number);
                             const checkboxes = document.querySelectorAll('.profile-checkbox');
                             checkboxes.forEach(cb => {
-                                cb.checked = data.perfiles_actuales.includes(parseInt(cb.value));
+                                cb.checked = perfilesActuales.includes(parseInt(cb.value, 10));
                             });
 
                             displayArea.style.display = 'block';
 
-                            // Notificación de éxito al encontrar
-                            $.notify({
-                                icon: 'fas fa-check-circle',
-                                title: 'Persona Encontrada',
-                                message: `Se cargaron los datos de ${data.nombre_completo}`,
-                            }, {
-                                type: 'success',
-                                placement: { from: "bottom", align: "right" },
-                                time: 1000,
-                            });
+                            // Notificación de éxito al encontrar (protegida si $.notify no está definido)
+                            if (typeof $ !== 'undefined' && typeof $.notify === 'function') {
+                                $.notify({
+                                    icon: 'fas fa-check-circle',
+                                    title: 'Persona Encontrada',
+                                    message: `Se cargaron los datos de ${data.nombre_completo}`,
+                                }, {
+                                    type: 'success',
+                                    placement: { from: "bottom", align: "right" },
+                                    time: 1000,
+                                });
+                            }
 
                         } else {
                             notFoundArea.style.display = 'block';
-                            Swal.fire("No Encontrado", result.message || "No se hallaron registros con esa cédula", "info");
+                            showAlert("No Encontrado", result.message || "No se hallaron registros con esa cédula", "info");
                         }
                     })
                     .catch(error => {
-                        console.error('Error:', error);
+                        console.error('Error en búsqueda:', error);
                         loadingSpinner.style.display = 'none';
-                        Swal.fire("Error", "Ocurrió un error al procesar la búsqueda. Verifique su conexión.", "error");
+                        showAlert("Error", "Ocurrió un error al procesar la búsqueda. Verifique su conexión.", "error");
                     });
             }
 
@@ -281,49 +292,57 @@
                 const btnSave = document.getElementById('btn_save');
                 const originalContent = btnSave.innerHTML;
 
-                // Confirmación antes de guardar
-                Swal.fire({
-                    title: "¿Está seguro?",
-                    text: "Se actualizarán los perfiles de acceso para este usuario.",
-                    icon: "warning",
-                    showCancelButton: true,
-                    confirmButtonColor: '#28a745',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Sí, asignar',
-                    cancelButtonText: 'Cancelar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        btnSave.disabled = true;
-                        btnSave.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
+                const executeSubmit = () => {
+                    btnSave.disabled = true;
+                    btnSave.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Guardando...';
 
-                        const formData = new FormData(formAssign);
+                    const formData = new FormData(formAssign);
 
-                        fetch(`{{ route('users.assign_profiles') }}`, {
-                            method: 'POST',
-                            body: formData,
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest'
+                    fetch(`{{ route('users.assign_profiles') }}`, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                        .then(response => response.json())
+                        .then(result => {
+                            btnSave.disabled = false;
+                            btnSave.innerHTML = originalContent;
+
+                            if (result.success) {
+                                showAlert("¡Guardado!", result.message, "success");
+                            } else {
+                                showAlert("Error", result.message, "error");
                             }
                         })
-                            .then(response => response.json())
-                            .then(result => {
-                                btnSave.disabled = false;
-                                btnSave.innerHTML = originalContent;
+                        .catch(error => {
+                            console.error('Error al guardar:', error);
+                            btnSave.disabled = false;
+                            btnSave.innerHTML = originalContent;
+                            showAlert("Error", "Ocurrió un error al guardar los perfiles", "error");
+                        });
+                };
 
-                                if (result.success) {
-                                    Swal.fire("¡Guardado!", result.message, "success");
-                                } else {
-                                    Swal.fire("Error", result.message, "error");
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                btnSave.disabled = false;
-                                btnSave.innerHTML = originalContent;
-                                Swal.fire("Error", "Ocurrió un error al guardar los perfiles", "error");
-                            });
-                    }
-                });
+                // Confirmación antes de guardar
+                if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+                    Swal.fire({
+                        title: "¿Está seguro?",
+                        text: "Se actualizarán los perfiles de acceso para este usuario.",
+                        icon: "warning",
+                        showCancelButton: true,
+                        confirmButtonColor: '#28a745',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'Sí, asignar',
+                        cancelButtonText: 'Cancelar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            executeSubmit();
+                        }
+                    });
+                } else if (confirm("¿Está seguro de actualizar los perfiles para este usuario?")) {
+                    executeSubmit();
+                }
             });
         });
     </script>

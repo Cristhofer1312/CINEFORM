@@ -164,11 +164,20 @@ class CursoController extends BaseController
 
             $query->where(function ($q) use ($idEstadoUsuario, $idPersonaActual) {
                 // Bloque 1: Cursos públicos cuyo estado ACTUAL es Inscripción (6)
-                // Se usa la columna id_estado de la tabla cursos (sincronizada por agregarEstado())
-                // en lugar de buscar en el historial de curso_estado, ya que un curso que pasó
-                // por estado 6 pero ahora está en 7 (En Curso) no debe mostrarse como disponible.
+                // El estado actual se determina por el último registro en taller.curso_estado
                 $q->where(function ($qPublico) use ($idEstadoUsuario) {
-                    $qPublico->where('id_estado', \App\Enums\EstadoCurso::INSCRIPCION->value);
+                    // Filtrar por estado actual = Inscripción usando la tabla pivote curso_estado
+                    $qPublico->whereExists(function ($sub) {
+                        $sub->select(DB::raw(1))
+                            ->from('taller.curso_estado as ce_actual')
+                            ->whereColumn('ce_actual.id_curso', 'taller.cursos.id_curso')
+                            ->where('ce_actual.id_estado', \App\Enums\EstadoCurso::INSCRIPCION->value)
+                            ->whereRaw('ce_actual.created_at = (
+                                SELECT MAX(ce_max.created_at)
+                                FROM taller.curso_estado AS ce_max
+                                WHERE ce_max.id_curso = taller.cursos.id_curso
+                            )');
+                    });
 
                     // REGLA DE ALCANCE: Nacional o Localidad Coincidente
                     $qPublico->where(function($qAlcance) use ($idEstadoUsuario) {
@@ -199,9 +208,20 @@ class CursoController extends BaseController
             });
         }
 
-        // Filtro por estado específico (usa la columna id_estado de cursos, que refleja el estado actual)
+        // Filtro por estado específico (usa la tabla pivote curso_estado para determinar el estado actual)
         if ($request->has('id_estado') && !empty($request->id_estado)) {
-            $query->where('id_estado', $request->id_estado);
+            $idEstadoFiltro = $request->id_estado;
+            $query->whereExists(function ($sub) use ($idEstadoFiltro) {
+                $sub->select(DB::raw(1))
+                    ->from('taller.curso_estado as ce_filtro')
+                    ->whereColumn('ce_filtro.id_curso', 'taller.cursos.id_curso')
+                    ->where('ce_filtro.id_estado', $idEstadoFiltro)
+                    ->whereRaw('ce_filtro.created_at = (
+                        SELECT MAX(ce_m.created_at)
+                        FROM taller.curso_estado AS ce_m
+                        WHERE ce_m.id_curso = taller.cursos.id_curso
+                    )');
+            });
         }
 
         $cursos = $query->orderBy('fecha_inicio', 'desc')
