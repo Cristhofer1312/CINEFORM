@@ -42,7 +42,7 @@ class CatalogoController extends BaseController
     {
         $request->validate([
             'nombre'      => 'required|string|max:100',
-            'abreviatura' => 'required|string|max:4|unique:' . ActividadFormativa::class . ',abreviatura',
+            'abreviatura' => 'required|string|max:4|unique:taller.actividades_formativas,abreviatura',
         ], [
             'nombre.required'           => 'El nombre de la actividad es obligatorio.',
             'abreviatura.required'      => 'La abreviatura es obligatoria.',
@@ -67,7 +67,7 @@ class CatalogoController extends BaseController
     {
         $request->validate([
             'nombre'      => 'required|string|max:100',
-            'abreviatura' => 'required|string|max:4|unique:' . ActividadFormativa::class . ',abreviatura,' . $actividad->id_actividad_formativa . ',id_actividad_formativa',
+            'abreviatura' => 'required|string|max:4|unique:taller.actividades_formativas,abreviatura,' . $actividad->id_actividad_formativa . ',id_actividad_formativa',
         ], [
             'nombre.required'      => 'El nombre de la actividad es obligatorio.',
             'abreviatura.required' => 'La abreviatura es obligatoria.',
@@ -111,7 +111,7 @@ class CatalogoController extends BaseController
     {
         $request->validate([
             'nombre'      => 'required|string|max:100',
-            'abreviatura' => 'required|string|max:4|unique:' . Aspecto::class . ',abreviatura',
+            'abreviatura' => 'required|string|max:4|unique:taller.aspectos,abreviatura',
         ], [
             'nombre.required'      => 'El nombre del aspecto es obligatorio.',
             'abreviatura.required' => 'La abreviatura es obligatoria.',
@@ -136,7 +136,7 @@ class CatalogoController extends BaseController
     {
         $request->validate([
             'nombre'      => 'required|string|max:100',
-            'abreviatura' => 'required|string|max:4|unique:' . Aspecto::class . ',abreviatura,' . $aspecto->id_aspecto . ',id_aspecto',
+            'abreviatura' => 'required|string|max:4|unique:taller.aspectos,abreviatura,' . $aspecto->id_aspecto . ',id_aspecto',
         ], [
             'nombre.required'      => 'El nombre del aspecto es obligatorio.',
             'abreviatura.required' => 'La abreviatura es obligatoria.',
