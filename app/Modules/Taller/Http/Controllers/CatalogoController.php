@@ -4,6 +4,7 @@ namespace Modules\Taller\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Modules\Taller\Entities\Aspecto;
 use Modules\Taller\Entities\ActividadFormativa;
 use App\Constants\SecurityAction;
@@ -42,7 +43,7 @@ class CatalogoController extends BaseController
     {
         $request->validate([
             'nombre'      => 'required|string|max:100',
-            'abreviatura' => 'required|string|max:4|unique:taller.actividades_formativas,abreviatura',
+            'abreviatura' => ['required', 'string', 'max:4', Rule::unique(ActividadFormativa::class, 'abreviatura')],
         ], [
             'nombre.required'           => 'El nombre de la actividad es obligatorio.',
             'abreviatura.required'      => 'La abreviatura es obligatoria.',
@@ -51,13 +52,13 @@ class CatalogoController extends BaseController
         ]);
 
         ActividadFormativa::create([
-            'nombre'      => strtoupper(trim($request->nombre)),
+            'nombre'      => ucwords(strtolower(trim($request->nombre))),
             'abreviatura' => strtoupper(trim($request->abreviatura)),
             'status'      => 'Activo',
         ]);
 
         return redirect()->route('taller.catalogos.index')
-            ->with('success_actividad', 'Actividad Formativa "' . strtoupper($request->nombre) . '" creada exitosamente.');
+            ->with('success_actividad', 'Actividad Formativa "' . ucwords(strtolower($request->nombre)) . '" creada exitosamente.');
     }
 
     /**
@@ -67,7 +68,7 @@ class CatalogoController extends BaseController
     {
         $request->validate([
             'nombre'      => 'required|string|max:100',
-            'abreviatura' => 'required|string|max:4|unique:taller.actividades_formativas,abreviatura,' . $actividad->id_actividad_formativa . ',id_actividad_formativa',
+            'abreviatura' => ['required', 'string', 'max:4', Rule::unique(ActividadFormativa::class, 'abreviatura')->ignore($actividad->id_actividad_formativa, 'id_actividad_formativa')],
         ], [
             'nombre.required'      => 'El nombre de la actividad es obligatorio.',
             'abreviatura.required' => 'La abreviatura es obligatoria.',
@@ -76,7 +77,7 @@ class CatalogoController extends BaseController
         ]);
 
         $actividad->update([
-            'nombre'      => strtoupper(trim($request->nombre)),
+            'nombre'      => ucwords(strtolower(trim($request->nombre))),
             'abreviatura' => strtoupper(trim($request->abreviatura)),
         ]);
 
@@ -111,7 +112,7 @@ class CatalogoController extends BaseController
     {
         $request->validate([
             'nombre'      => 'required|string|max:100',
-            'abreviatura' => 'required|string|max:4|unique:taller.aspectos,abreviatura',
+            'abreviatura' => ['required', 'string', 'max:4', Rule::unique(Aspecto::class, 'abreviatura')],
         ], [
             'nombre.required'      => 'El nombre del aspecto es obligatorio.',
             'abreviatura.required' => 'La abreviatura es obligatoria.',
@@ -136,7 +137,7 @@ class CatalogoController extends BaseController
     {
         $request->validate([
             'nombre'      => 'required|string|max:100',
-            'abreviatura' => 'required|string|max:4|unique:taller.aspectos,abreviatura,' . $aspecto->id_aspecto . ',id_aspecto',
+            'abreviatura' => ['required', 'string', 'max:4', Rule::unique(Aspecto::class, 'abreviatura')->ignore($aspecto->id_aspecto, 'id_aspecto')],
         ], [
             'nombre.required'      => 'El nombre del aspecto es obligatorio.',
             'abreviatura.required' => 'La abreviatura es obligatoria.',

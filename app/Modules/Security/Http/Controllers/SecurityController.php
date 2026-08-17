@@ -18,6 +18,7 @@ use File;
 use Response;
 use App\Helpers\LockDB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\Str;
 
@@ -536,8 +537,10 @@ class SecurityController extends Controller
 
     public function seleccionarPerfil($id_rol)
     {
-        // El id_rol viene encriptado desde la vista (crypt_id)
-        $id_rol = Encryptor::decrypt($id_rol);
+        // El id_rol puede venir encriptado o ya descifrado por DecryptIds
+        if (!is_numeric($id_rol)) {
+            $id_rol = Encryptor::decrypt($id_rol);
+        }
 
         // Seguridad: Verificar que el usuario realmente tiene asignado este perfil
         $tienePerfil = Auth::user()->perfiles()->where('security.profiles.id', $id_rol)->exists();
