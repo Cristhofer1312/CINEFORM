@@ -37,20 +37,14 @@ class DatabaseSeeder extends Seeder
             ProfilePermissionsSeeder::class,
             AdminPermissionsSeeder::class,
 
-            // Datos de persona (requerido por CursoEjemploSeeder)
+            // Datos de persona
             PersonasSeeder::class,
-
-            // Datos de ejemplo
-            CursoEjemploSeeder::class,
 
             // Funcionalidades Adicionales (después de roles/permisos base)
             PostulacionFacilitadorPermissionsSeeder::class,
 
             // Permisos de la interfaz de Estadísticas
             EstadisticasPermissionsSeeder::class,
-
-            // Data de prueba para Certificación
-            CertificacionTestDataSeeder::class,
         ]);
     }
 }

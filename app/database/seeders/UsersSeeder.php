@@ -18,14 +18,6 @@ class UsersSeeder extends Seeder
                 'register_date' => now(),
                 'active' => 1,
                 'ip' => '127.0.0.1',
-            ],
-            [
-                'username' => 'participante',
-                'email' => 'participante@cineform.com',
-                'password' => Hash::make('123'),
-                'register_date' => now(),
-                'active' => 1,
-                'ip' => '127.0.0.1',
             ]
         ]);
     }

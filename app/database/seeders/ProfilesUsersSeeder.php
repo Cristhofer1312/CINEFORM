@@ -14,9 +14,6 @@ class ProfilesUsersSeeder extends Seeder
             ['id_rol' => 2, 'id_users' => 1, 'status' => 1, 'creado_por' => 1, 'creado_en' => now()],
             ['id_rol' => 3, 'id_users' => 1, 'status' => 1, 'creado_por' => 1, 'creado_en' => now()],
             ['id_rol' => 4, 'id_users' => 1, 'status' => 1, 'creado_por' => 1, 'creado_en' => now()],
-            
-            // Perfil para el nuevo usuario 'participante' (ID 2)
-            ['id_rol' => 3, 'id_users' => 2, 'status' => 1, 'creado_por' => 1, 'creado_en' => now()],
         ]);
     }
 }
