@@ -36,7 +36,7 @@ class Curso extends Model
         'id_actividad_formativa',
         'id_aspecto',
         'id_modalidad_especial',
-        'id_estado',
+
         'id_persona',
         'descripcion',
         'nivel',
@@ -215,9 +215,8 @@ class Curso extends Model
             'updated_at' => now()
         ]);
 
-        // 2. Sincronizar el estado actual en la tabla principal de cursos
-        $this->id_estado = $idEstado;
-        $this->save();
+        // Refrescar la relación para que estado_actual devuelva el nuevo estado
+        $this->unsetRelation('estados');
 
         return $this;
     }

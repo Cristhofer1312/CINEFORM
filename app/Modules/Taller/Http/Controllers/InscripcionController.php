@@ -88,7 +88,7 @@ class InscripcionController extends BaseController
         }
 
         // Validar cupos y estado
-        $estadoActualId = $curso->estado_actual?->id_estado ?? $curso->id_estado;
+        $estadoActualId = $curso->estado_actual?->id_estado ?? 0;
         if ($estadoActualId != EstadoCurso::INSCRIPCION->value) {
             return redirect()->back()->with('error', 'El curso no se encuentra en estado de inscripción.');
         }

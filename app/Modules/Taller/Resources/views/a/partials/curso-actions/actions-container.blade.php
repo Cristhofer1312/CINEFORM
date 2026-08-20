@@ -13,7 +13,7 @@
 <div class="actions-wrapper">
     
     <!-- ZONA 0: ESTADO DE POSTULACIÓN (Para el Participante) -->
-    @if(isset($inscripcion) && $inscripcion && $curso->id_estado <= 6)
+    @if(isset($inscripcion) && $inscripcion && ($curso->estado_actual->id_estado ?? 0) <= 6)
         <div class="postulation-status-zone mb-4">
             <div class="card border-0 shadow-xs rounded-4 overflow-hidden border-start border-4 
                 {{ $inscripcion->esPostulado() ? 'border-primary bg-primary-soft' : '' }}
@@ -144,7 +144,7 @@
                             </a>
                             @break
                         @case('aceptar_asignacion')
-                            <button class="btn btn-success btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="aceptarCursoFacilitador('{{ $curso->crypt_id }}')">
+                            <button class="btn btn-success btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="aceptarCursoFacilitador('{{ $curso->crypt_id }}', this)">
                                 <i class="fas fa-check-circle me-1"></i> Aceptar Asignación
                             </button>
                             @break

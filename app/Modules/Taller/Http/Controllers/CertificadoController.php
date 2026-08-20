@@ -29,7 +29,7 @@ class CertificadoController extends BaseController
         $curso = Curso::findOrFail($id_curso);
 
         // 1. Validar estado del curso (Finalizado o Cerrado)
-        if (!in_array($curso->id_estado, [EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value])) {
+        if (!in_array($curso->estado_actual->id_estado ?? 0, [EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value])) {
             return redirect()->back()->with('error', 'El certificado aún no está disponible para este curso.');
         }
 
@@ -135,7 +135,7 @@ class CertificadoController extends BaseController
 
         $valido = $inscripcion
             && $inscripcion->certificadoAprobado()
-            && in_array($curso->id_estado, [EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value]);
+            && in_array($curso->estado_actual->id_estado ?? 0, [EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value]);
 
         return view('taller::certificados.verificar', [
             'valido' => $valido,

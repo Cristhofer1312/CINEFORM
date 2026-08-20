@@ -49,7 +49,7 @@ class CursoDetalleController extends BaseController
         }
 
         $capacidades = $condicional->obtenerCapacidades(
-            $curso->estado_actual->id_estado ?? $curso->id_estado ?? 0,
+            $curso->estado_actual->id_estado ?? 0,
             $esParticipante,
             $esOperativo,
             $datosUsuario['esGestor'],
@@ -158,7 +158,7 @@ class CursoDetalleController extends BaseController
     private function calcularPromedioEstudiante(Curso $curso, ?int $idPersona, $inscripcion): array
     {
         $estadosPromedio = [7, 8, 9];
-        $estadoId = $curso->estado_actual->id_estado ?? $curso->id_estado ?? 0;
+        $estadoId = $curso->estado_actual->id_estado ?? 0;
         $debeMostrarPromedio = in_array($estadoId, $estadosPromedio);
 
         $datosPromedio = [

@@ -120,7 +120,7 @@
                                                 @endif
                                             </div>
                                             <div class="d-flex gap-2">
-                                                @if(in_array($curso->id_estado, [8, 9]))
+                                                @if(in_array($curso->estado_actual->id_estado ?? 0, [8, 9]))
                                                     <a href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}" 
                                                        class="btn btn-sm btn-outline-primary" 
                                                        data-bs-toggle="tooltip" 

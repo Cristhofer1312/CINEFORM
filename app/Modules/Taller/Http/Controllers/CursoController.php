@@ -77,6 +77,33 @@ class CursoController extends BaseController
             $curso = Curso::findOrFail($id);
             $nuevoEstado = (int) $request->id_estado;
 
+            // Validación RBAC: el cambio a estado 4 (EDICión) requiere
+            // permiso RESPONDER_CURSO y que el curso pertenezca al facilitador
+            if ($nuevoEstado === EstadoCurso::EDICION->value) {
+                if (!hasPermissionRoute('taller.cursos.index', SecurityAction::RESPONDER_CURSO)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No tienes permiso para aceptar asignaciones de cursos.'
+                    ], 403);
+                }
+
+                $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
+                if (!$esGestor && $curso->id_persona !== Auth::user()->personalData->id_persona) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No puedes aceptar cursos que no te pertenecen.'
+                    ], 403);
+                }
+
+                $estadoActualId = $curso->estado_actual?->id_estado;
+                if ($estadoActualId !== EstadoCurso::POR_ACEPTAR->value) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Solo puedes aceptar cursos en estado "Por Aceptar".'
+                    ], 422);
+                }
+            }
+
             // Validación RBAC: el cambio de estado 5 → 6 (Aprobar → Inscripciones)
             // requiere el permiso específico de APROBAR_CURSO
             if ($nuevoEstado === EstadoCurso::INSCRIPCION->value) {

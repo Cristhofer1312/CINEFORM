@@ -73,14 +73,6 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
         Route::put('/cursos-asignados/{curso}', [EditarCursoController::class, 'update'])
             ->name('taller.cursos.update');
 
-        // Ruta para aceptar un curso (cambiar a estado Aceptado)
-        Route::post('/cursos/{curso}/aceptar', [CursoAsignadoController::class, 'aceptar'])
-            ->name('taller.cursos.aceptar');
-
-        // Ruta para aceptar un curso y actualizar su estado a 6 (Aceptado)
-        Route::post('/cursos/{curso}/aceptar-estado', [CursoAsignadoController::class, 'aceptarCurso'])
-            ->name('taller.cursos.aceptar-estado');
-
         // Requisitos del curso
         Route::get('/cursos/{curso}/requisitos/crear', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'create'])
             ->name('taller.cursos.requisitos.create');

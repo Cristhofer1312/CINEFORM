@@ -554,8 +554,8 @@
     function finalizarCurso(id) { processStatusAction(8, 'Curso Finalizado', 'Programa concluido.'); }
     function cerrarCurso(id) { processStatusAction(9, 'Curso Cerrado', 'Programa archivado.'); }
 
-    function aceptarCursoFacilitador(id) {
-        if(event) event.target.disabled = true;
+    function aceptarCursoFacilitador(id, btn) {
+        if(btn) btn.disabled = true;
         processStatusAction(4, 'Aceptado', 'Has aceptado la asignación.');
     }
 
@@ -678,7 +678,7 @@
             }
         });
     }
-,
+
     document.addEventListener('DOMContentLoaded', function () {
         // Inicializar tooltips y listeners de botones por clase
         document.querySelectorAll('.inscribir-btn').forEach(btn => {
