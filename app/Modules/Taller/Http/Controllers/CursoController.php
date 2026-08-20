@@ -545,4 +545,110 @@ class CursoController extends BaseController
             ], 500);
         }
     }
+    /**
+     * Reasigna el facilitador de un curso.
+     * Solo coordinadores (GESTIONAR_CURSO) pueden ejecutar esta acción.
+     * Solo permitido en estados 1-5 (antes de Inscripción).
+     *
+     * @param  Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function reasignarFacilitador(Request $request, $id)
+    {
+        try {
+            // Verificar permiso de gestión
+            if (!hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tienes permiso para reasignar facilitadores.'
+                ], 403);
+            }
+
+            $curso = Curso::with('estados')->findOrFail($id);
+
+            // Validar estado del curso: solo estados 1-5
+            $estadoActualId = $curso->estado_actual?->id_estado ?? 0;
+            $estadosPermitidos = [
+                EstadoCurso::POR_ACEPTAR->value,
+                EstadoCurso::RECHAZADO->value,
+                EstadoCurso::DECLINADO->value,
+                EstadoCurso::EDICION->value,
+                EstadoCurso::APROBACION->value,
+            ];
+
+            if (!in_array($estadoActualId, $estadosPermitidos)) {
+                $estadoNombre = EstadoCurso::tryFrom($estadoActualId)?->label() ?? 'Desconocido';
+                return response()->json([
+                    'success' => false,
+                    'message' => "No se puede reasignar el facilitador. El curso está en estado \"$estadoNombre\"."
+                ], 422);
+            }
+
+            // Validar que se envió id_persona
+            $nuevoIdPersona = $request->id_persona;
+            if (!$nuevoIdPersona) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Debe seleccionar un facilitador.'
+                ], 422);
+            }
+
+            // Validar que no es el mismo facilitador
+            if ((int) $nuevoIdPersona === (int) $curso->id_persona) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El facilitador seleccionado ya es el facilitador actual del curso.'
+                ], 422);
+            }
+
+            // Validar que la persona existe
+            $nuevaPersona = PersonalData::find($nuevoIdPersona);
+            if (!$nuevaPersona) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La persona seleccionada no fue encontrada.'
+                ], 404);
+            }
+
+            // Guardar referencia al facilitador anterior para la observación
+            $facilitadorAnterior = $curso->persona;
+            $nombreAnterior = $facilitadorAnterior
+                ? $facilitadorAnterior->primer_nombre . ' ' . $facilitadorAnterior->primer_apellido
+                : 'No asignado';
+            $nombreNuevo = $nuevaPersona->primer_nombre . ' ' . $nuevaPersona->primer_apellido;
+
+            DB::beginTransaction();
+
+            // Actualizar el facilitador
+            $curso->update([
+                'id_persona'      => $nuevoIdPersona,
+                'actualizado_por' => Auth::id(),
+            ]);
+
+            // Volver al estado POR_ACEPTAR para que el nuevo facilitador acepte
+            $curso->agregarEstado(EstadoCurso::POR_ACEPTAR->value);
+
+            // Registrar observación automática del cambio
+            ObservacionCurso::create([
+                'id_curso'    => $curso->id_curso,
+                'observacion' => "Facilitador reasignado de \"$nombreAnterior\" a \"$nombreNuevo\".",
+                'creado_por'  => Auth::id(),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Facilitador reasignado exitosamente a $nombreNuevo. El curso ha vuelto al estado \"Por Aceptar\"."
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al reasignar el facilitador: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

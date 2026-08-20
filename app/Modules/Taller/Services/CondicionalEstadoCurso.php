@@ -24,22 +24,30 @@ class CondicionalEstadoCurso
         1 => [ // Por Aceptar
             'aceptar_asignacion' => 'operativo',
             'rechazar_asignacion' => 'operativo',
+            'reasignar_facilitador' => 'gestion',
+            'gestionar' => 'gestion',
+        ],
+        2 => [ // Rechazado
+            'reasignar_facilitador' => 'gestion',
             'gestionar' => 'gestion',
         ],
         3 => [ // Declinado
             'ver_motivo'       => 'operativo',
             'editar'           => 'operativo',
             'enviar_aprobacion' => 'operativo',
+            'reasignar_facilitador' => 'gestion',
             'gestionar'        => 'gestion',
         ],
         4 => [ // En Edición
             'editar' => 'operativo',
             'enviar_aprobacion' => 'operativo',
+            'reasignar_facilitador' => 'gestion',
             'gestionar' => 'gestion',
         ],
         5 => [ // En Aprobación
             'aprobar'     => 'gestion',
             'rechazar'    => 'gestion',
+            'reasignar_facilitador' => 'gestion',
             'en_revision' => 'operativo',
         ],
         6 => [ // Inscripciones

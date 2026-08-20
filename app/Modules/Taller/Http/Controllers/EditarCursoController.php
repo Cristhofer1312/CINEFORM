@@ -134,6 +134,16 @@ class EditarCursoController extends BaseController
                 }
             }
 
+            // Bloquear cambio de facilitador si el curso está en estado >= 6 (Inscripción en adelante)
+            if (isset($updateData['id_persona']) && (int) $updateData['id_persona'] !== (int) $curso->id_persona) {
+                $estadoActual = $curso->estado_actual->id_estado ?? 0;
+                if ($estadoActual >= EstadoCurso::INSCRIPCION->value) {
+                    return back()->withInput()->withErrors([
+                        'id_persona' => 'No se puede cambiar el facilitador de un curso en estado "' . (EstadoCurso::tryFrom($estadoActual)?->label() ?? 'Desconocido') . '".'
+                    ]);
+                }
+            }
+
             // El campo es_nacional es un checkbox, se maneja aparte
             if ($request->has('es_nacional_present')) { // Un campo oculto para saber que el checkbox existe en el form
                  $updateData['es_nacional'] = $request->has('es_nacional');

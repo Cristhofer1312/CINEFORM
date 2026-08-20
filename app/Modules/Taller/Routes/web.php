@@ -126,6 +126,10 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
         Route::put('/cursos/{curso}/finalizar', [CursoController::class, 'finalizarEdicion'])
             ->name('taller.cursos.finalizarEdicion');
 
+        // Ruta para reasignar el facilitador de un curso
+        Route::put('/cursos/{curso}/reasignar-facilitador', [CursoController::class, 'reasignarFacilitador'])
+            ->name('taller.cursos.reasignarFacilitador');
+
         // Rutas de Calificaciones
         Route::get('/cursos/{curso}/contenido/{contenido}/calificar', [\Modules\Taller\Http\Controllers\CalificacionController::class, 'index'])
             ->name('taller.calificaciones.index');
