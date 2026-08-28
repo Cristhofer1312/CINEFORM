@@ -40,6 +40,7 @@ class StoreCursoRequest extends FormRequest
             'horas'                 => 'nullable|integer|min:1',
             'cantidad_cupos'        => 'required|integer|min:1',
             'telegram'              => 'nullable|url|max:255',
+            'direccion_corta'       => 'required|string|max:150',
             'es_nacional'           => 'nullable',
             'fecha_inicio'          => 'required|date',
             'fecha_fin'             => 'required|date|after_or_equal:fecha_inicio',
@@ -80,6 +81,7 @@ class StoreCursoRequest extends FormRequest
             'cantidad_cupos.required' => 'Debe indicar la cantidad de cupos disponibles.',
             'cantidad_cupos.min'      => 'La cantidad de cupos debe ser al menos 1.',
             'telegram.url'          => 'El enlace de Telegram debe ser una URL válida.',
+            'direccion_corta.required' => 'La dirección del curso es obligatoria.',
             'contenidos.*.titulo.required_with' => 'Cada contenido debe tener un título.',
         ];
     }

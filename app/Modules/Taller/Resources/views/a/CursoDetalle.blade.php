@@ -227,6 +227,12 @@
                                         </div>
                                     @endif
                                 </div>
+                                @if($curso->direccion_corta)
+                                <div class="list-group-item border-0 px-0 py-3 d-flex flex-column border-bottom-light">
+                                    <span class="text-muted small fw-bold text-uppercase mb-2"><i class="fas fa-map-pin me-2 text-primary opacity-50"></i> Dirección</span>
+                                    <span class="fw-bold text-dark">{{ $curso->direccion_corta }}</span>
+                                </div>
+                                @endif
                                 <div class="list-group-item border-0 px-0 py-3 d-flex justify-content-between align-items-center border-bottom-light">
                                     <span class="text-muted small fw-bold text-uppercase"><i class="fas fa-users me-2 text-warning opacity-50"></i> Cupos</span>
                                     @if($curso->cantidad_cupos !== null)

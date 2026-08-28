@@ -81,6 +81,7 @@ class CrearCursoController extends BaseController
                 'horas' => $validatedData['horas'] ?? null,
                 'cantidad_cupos' => $validatedData['cantidad_cupos'] ?? null,
                 'telegram' => $validatedData['telegram'] ?? null,
+                'direccion_corta' => $validatedData['direccion_corta'],
                 'es_nacional' => $request->has('es_nacional'),
                 'fecha_inicio' => $validatedData['fecha_inicio'],
                 'fecha_fin' => $validatedData['fecha_fin'],

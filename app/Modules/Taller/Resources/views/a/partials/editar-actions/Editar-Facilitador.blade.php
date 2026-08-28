@@ -110,6 +110,17 @@
                             </div>
                             @endif
 
+                            @if($curso->direccion_corta)
+                            <div class="col-12">
+                                <label class="text-muted small fw-bold mb-2 d-flex align-items-center">
+                                    <i class="fas fa-map-pin me-2 opacity-50 text-primary"></i> DIRECCIÓN DEL CURSO
+                                </label>
+                                <div class="form-control border-2 shadow-none rounded-3 bg-white fw-bold py-3 border-light-2" style="height: auto; min-height: 48px;">
+                                    {{ $curso->direccion_corta }}
+                                </div>
+                            </div>
+                            @endif
+
                             <!-- Fila 2: Métricas Rápidas -->
                             <div class="col-md-3">  
                                 <label class="text-muted small fw-bold mb-2 d-flex align-items-center text-truncate">

@@ -348,9 +348,8 @@ Orquestados por `DatabaseSeeder.php`:
 | 18 | ActividadesFormativasSeeder | 7 tipos (Taller, Foro, Simposio, etc.) |
 | 19 | ModalidadesEspecialesSeeder | Niño, Adolescente, Adulto |
 | 20 | AspectosSeeder | 26 aspectos cinematográficos |
-| 21 | CursoEjemploSeeder | Curso demo con contenidos (existente) |
-| 22 | PersonasSeeder | Datos de persona demo |
-| 23-25 | (Otros) | Seeders adicionales |
+| 21 | PersonasSeeder | Datos de persona demo |
+| 22-24 | (Otros) | Seeders adicionales |
 
 ---
 

@@ -45,9 +45,6 @@ class DatabaseSeeder extends Seeder
 
             // Permisos de la interfaz de Estadísticas
             EstadisticasPermissionsSeeder::class,
-
-            // Datos de prueba
-            CursoEjemploSeeder::class,
         ]);
     }
 }

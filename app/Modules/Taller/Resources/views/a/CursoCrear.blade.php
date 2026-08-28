@@ -82,6 +82,17 @@
                                 />
                             </div>
 
+                            <div class="col-md-12">
+                                <x-taller.input 
+                                    label="DIRECCIÓN CORTA" 
+                                    icon="fas fa-map-pin" 
+                                    name="direccion_corta" 
+                                    :value="old('direccion_corta')" 
+                                    placeholder="Ej: Calle 15, Edificio Colgate piso 3, Aula 3" 
+                                    required 
+                                />
+                            </div>
+
                             <!-- Facilitador Responsable -->
                             <div class="col-md-7">
                                 <label class="text-muted small fw-bold mb-2 d-flex align-items-center">

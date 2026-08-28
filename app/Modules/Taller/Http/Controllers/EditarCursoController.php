@@ -151,10 +151,13 @@ class EditarCursoController extends BaseController
                  $updateData['es_nacional'] = true;
             }
 
-            // Requisito: Solo el coordinador puede editar el campo Telegram
+            // Requisito: Solo el coordinador puede editar el campo Telegram y Dirección Corta
             if (hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
                 if ($request->has('telegram')) {
                     $updateData['telegram'] = $validatedData['telegram'];
+                }
+                if ($request->has('direccion_corta')) {
+                    $updateData['direccion_corta'] = $validatedData['direccion_corta'];
                 }
             }
 

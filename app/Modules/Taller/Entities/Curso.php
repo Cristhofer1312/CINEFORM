@@ -47,6 +47,7 @@ class Curso extends Model
         'horas',
         'cantidad_cupos',
         'telegram',
+        'direccion_corta',
         'es_nacional',
         'creado_por',
         'actualizado_por',

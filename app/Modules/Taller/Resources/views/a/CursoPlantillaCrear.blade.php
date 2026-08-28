@@ -40,14 +40,6 @@
                                         <div id="collapsePlantilla" class="accordion-collapse collapse show">
                                             <div class="accordion-body py-2 px-3">
                                                 <input type="file" class="form-control form-control-sm" name="plantilla" accept="image/*" onchange="previewImage(this)">
-                                                
-                                                {{-- Miniatura para indicar que ya hay una imagen guardada --}}
-                                                @if(!empty($plantillaUrl))
-                                                <div class="text-center mt-2 p-2 border rounded bg-light">
-                                                    <img src="{{ $plantillaUrl }}" alt="Plantilla guardada" class="img-fluid border" style="max-height:50px;">
-                                                    <div class="small text-muted mt-1">Plantilla usada actualmente</div>
-                                                </div>
-                                                @endif
                                             </div>
                                         </div>
                                     </div>

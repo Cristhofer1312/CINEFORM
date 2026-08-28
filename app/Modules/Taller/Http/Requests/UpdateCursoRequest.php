@@ -45,6 +45,7 @@ class UpdateCursoRequest extends FormRequest
             'horas'                 => 'nullable|integer|min:1',
             'cantidad_cupos'        => 'sometimes|integer|min:1',
             'telegram'              => 'nullable|url|max:255',
+            'direccion_corta'       => 'nullable|string|max:150',
             'es_nacional'           => 'nullable',
             'fecha_inicio'          => 'sometimes|required|date',
             'fecha_fin'             => 'sometimes|required|date|after_or_equal:fecha_inicio',
