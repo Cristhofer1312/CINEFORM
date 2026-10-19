@@ -3,7 +3,7 @@
 @section('content')
 <div class="row justify-content-center">
     <div class="col-lg-10">
-        <div class="d-flex justify-content-between align-items-end mb-4 px-2">
+        <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4 px-2">
             <div>
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb mb-1 p-0 bg-transparent" style="font-size: 0.8rem;">
@@ -111,7 +111,7 @@
             <div class="row justify-content-center mt-4 pb-5">
                 <div class="col-lg-6">
                     <div class="card border shadow rounded-pill overflow-hidden bg-white">
-                        <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                        <div class="card-body p-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
                             <a href="{{ route('taller.cursos.show', $curso->id_curso) }}"
                                 class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2">
                                 Cancelar

@@ -58,8 +58,15 @@ class CursoDetalleController extends BaseController
             $puedeVerParticipantes
         );
 
+        $satisfaccion = app(\Modules\Taller\Services\SatisfaccionCursoService::class);
+
+        $contextoSatisfaccion = [
+            'disponible' => $satisfaccion->cursoPermiteEncuesta($curso) && $datosCurso['inscripcion'] !== null,
+            'respondida' => $datosCurso['inscripcion'] ? $satisfaccion->yaRespondio($datosCurso['inscripcion']) : false,
+        ];
+
         return view('taller::a.CursoDetalle', array_merge(
-            compact('curso', 'capacidades', 'puedeCancelarInscripciones', 'puedeVerParticipantes'),
+            compact('curso', 'capacidades', 'puedeCancelarInscripciones', 'puedeVerParticipantes', 'contextoSatisfaccion'),
             $datosUsuario,
             $datosCurso
         ));
@@ -89,19 +96,13 @@ class CursoDetalleController extends BaseController
         $rechazados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_RECHAZADO);
         $denegados  = $curso->inscripciones->where('estado', Inscripcion::ESTADO_DENEGADO);
 
-        // Soporte para estados legacy si existen
-        $inscripcionesActivas = $aprobados->merge($curso->inscripciones->where('estado', 'activa'));
-        $inscripcionesRechazadas = $denegados->merge($curso->inscripciones->where('estado', 'rechazada'));
-
         return view('taller::a.CursoParticipantes', compact(
             'curso', 
             'puedeCancelarInscripciones',
             'postulados',
             'aprobados',
             'rechazados',
-            'denegados',
-            'inscripcionesActivas',
-            'inscripcionesRechazadas'
+            'denegados'
         ));
     }
 
@@ -135,6 +136,7 @@ class CursoDetalleController extends BaseController
         $inscripcion = $idPersona
             ? Inscripcion::where('id_curso', $curso->id_curso)
                 ->where('id_persona', $idPersona)
+                ->where('estado', Inscripcion::ESTADO_APROBADO)
                 ->first()
             : null;
 

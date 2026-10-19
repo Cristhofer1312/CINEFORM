@@ -2,28 +2,54 @@
 
 @section('content')
 
-<div class="col-md-12">
-    <div class="card">
-        <div class="card-header">
-            <div class="card-head-row">
-                <h4 class="card-title">{{__('Profiles')}}</h4>
-                <div class="card-tools">
-                    <button onClick="closeCard(this)" class="btn btn-icon btn-link btn-primary btn-xs">
-                        <span class="fa fa-times"></span>
-                    </button>
+    {{-- Alertas --}}
+    @if(session('success'))
+        <div class="alert alert-success shadow-sm" role="alert">
+            <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+        </div>
+    @endif
+    @if($errors->any())
+        <div class="alert alert-danger shadow-sm" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <ul class="mb-0 mt-1 ps-3">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-head-row">
+                    <h4 class="card-title">
+                        <i class="fas fa-users me-2 text-primary"></i>{{__('Profiles')}}
+                    </h4>
+                    <div class="card-tools">
+                        <a href="{{ route('profiles.create') }}" class="btn btn-icon btn-primary btn-round">
+                            <span class="fa fa-plus"></span>
+                        </a>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-12 offset-md-4 col-md-4 offset-lg-3  col-lg-6">
-                    <table id="table1" class="table table-hover table-striped">
-                        <thead class="table-light">
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-12 col-md-5 col-lg-4">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="search" placeholder="{{__('Search')}}..." autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table id="table1" class="table table-bordered table-head-bg-primary table-bordered-bd-primary">
+                        <thead>
                             <tr>
                                 <th>{{__('ID')}}</th>
                                 <th>{{__('Name')}}</th>
-                                <th>{{__('Actions')}}</th>
-
+                                <th>{{__('Status')}}</th>
+                                <th class="text-center">{{__('Actions')}}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -33,65 +59,66 @@
             </div>
         </div>
     </div>
-</div>
 
+    <script type="text/javascript">
+        document.addEventListener("DOMContentLoaded", function (event) {
+            var searchTimer = null;
 
-<script type="text/javascript">
+            table1 = $('#table1').DataTable({
+                "paging": true,
+                "lengthChange": false,
+                "searching": false,
+                "ordering": true,
+                "info": true,
+                "autoWidth": false,
+                "responsive": true,
+                "order": [[0, 'desc']],
 
-    document.addEventListener("DOMContentLoaded", function (event) {
-
-        $("#frm1").validate({
-            errorPlacement: function (error, element) {
-                element.parents('.form-floating').after(error);
-            }
-        });
-
-
-        table1 = $('#table1').DataTable({
-            "paging": true,
-            "lengthChange": false,
-            "searching": true,
-            "ordering": true,
-            "info": true,
-            "autoWidth": false,
-            "responsive": true,
-            "order": [[0, 'desc']],
-
-            ajax: {
-                url: "{{route('profiles.list')}}",
-                data: function (d) {
-                    d.search = $('#search').val()
+                ajax: {
+                    url: "{{route('profiles.list')}}",
+                    data: function (d) {
+                        d.search = $('#search').val();
+                    }
+                },
+                serverSide: true,
+                processing: true,
+                columns: [
+                    {data: 'DT_RowIndex'},
+                    {data: 'name'},
+                    {data: 'status'},
+                    {data: 'action', className: 'text-center'},
+                ],
+                language: {
+                    url: "{{url('/')}}/template/kaiadmin/assets/js/plugin/datatables/{{app()->getLocale()}}.json"
                 }
-            },
-            initComplete: function () {
-                $("#table1_filter").removeClass('dataTables_filter').html('<div class="col-12  col-md-12  col-lg-12"><div class="form-floating form-floating-custom mb-2">{{html()->input("text", "search", "")->class("form-control")->placeholder("")->maxlength(20)}}<label for="search">{{__("Search")}}</label><div onClick="table1.draw();" class="icon-right"><i class="fa fa-search"></i></div></div></div>');
-                $("#table1_filter").parent().siblings().eq(0).html('<a href="{{route("profiles.create")}}"  class="btn btn-large btn-info"> <i class="fa fa-plus"></i> {{__("New Profile")}}</a>');
-            },
-            serverSide: true,
-            processing: true,
+            });
 
-            rowCallback: function (row, data) {
-                //$(row).addClass(data.class);
-            },
-            columns: [
-                {data: 'DT_RowIndex'},
-                {data: 'name'},
-                {data: 'action'},
-            ],
-            language: {
-                url: "{{url('/')}}/template/kaiadmin/assets/js/plugin/datatables/{{app()->getLocale()}}.json"
-            }
+            $('#search').on('keyup', function () {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(function () { table1.draw(); }, 400);
+            });
 
-
+            $('#table1').on('click', '.btn-toggle', function (e) {
+                e.preventDefault();
+                var url = $(this).attr('href');
+                var deact = $(this).data('action') === 'deactivate';
+                Swal.fire({
+                    title: deact ? "{{__('Deactivate')}}" : "{{__('Activate')}}",
+                    html: deact
+                        ? "{{__('Are you sure you want to deactivate this profile?')}}"
+                        : "{{__('Are you sure you want to activate this profile?')}}",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: deact ? "{{__('Yes, deactivate')}}" : "{{__('Yes, activate')}}",
+                    cancelButtonText: "{{__('Cancel')}}",
+                    confirmButtonColor: deact ? '#F25961' : '#31CE36',
+                    cancelButtonColor: '#6861CE'
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        window.location.href = url;
+                    }
+                });
+            });
         });
-
-
-
-
-
-
-
-    });
-
-</script>
+    </script>
 @endsection

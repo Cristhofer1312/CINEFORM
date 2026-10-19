@@ -26,7 +26,21 @@
                                             <li class="breadcrumb-item active text-primary fw-bold" aria-current="page">Ficha Técnica</li>
                                         </ol>
                                     </nav>
-                                    <h2 class="fw-bold text-dark mb-0">{{ $curso->nombre }}</h2>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <h2 class="fw-bold text-dark mb-0">{{ $curso->nombre }}</h2>
+                                        {{-- Estado de la configuración del certificado.
+                                             Derivado de los archivos en disco por
+                                             Curso::estadoCertificado(), no del ciclo de vida del curso. --}}
+                                        @php($estadoCertificado = $curso->estado_certificado)
+                                        <span class="badge rounded-pill
+                                            {{ $estadoCertificado->color() === 'success' ? 'bg-success-soft text-success border border-success' : 'bg-danger text-white' }}
+                                            px-3 py-2 fw-bold"
+                                              style="font-size: 0.7rem;"
+                                              title="{{ $estadoCertificado->detalle() }}">
+                                            <i class="fas {{ $estadoCertificado->icono() }} me-1"></i>
+                                            {{ $estadoCertificado->label() }}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                                 
@@ -96,7 +110,7 @@
 
                     <!-- Lista de Contenidos: Estilo Learning Path -->
                     <div class="card border-0 shadow-card rounded-4 overflow-hidden mb-4">
-                        <div class="card-header bg-white py-4 px-4 border-bottom d-flex justify-content-between align-items-center">
+                        <div class="card-header bg-white py-4 px-4 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <h5 class="fw-bold mb-0 text-dark">
                                 <i class="fas fa-layer-group me-2 text-primary opacity-50"></i> Itinerario del Programa
                             </h5>
@@ -106,7 +120,7 @@
                         </div>
                         <div class="card-body p-4 pt-1">
                             @if($curso->contenidos && $curso->contenidos->count() > 0)
-                                <div class="curriculum-scroll-container pe-2" style="max-height: 450px; overflow-y: auto; scroll-behavior: smooth; overscroll-behavior: contain;">
+                                <div class="curriculum-scroll-container pe-2" style="max-height: min(450px, 60vh); overflow-y: auto; scroll-behavior: smooth; overscroll-behavior: contain;">
                                     <div class="curriculum-path mt-3 position-relative ps-5 pb-2">
                                         <!-- Línea de conexión vertical -->
                                         <div class="path-line position-absolute h-100 bg-light rounded-pill" style="width: 4px; left: 42px; top: 0; opacity: 0.5;"></div>
@@ -140,6 +154,9 @@
                                                             @if($contenido->fecha_contenido)
                                                                 <span class="badge bg-white text-primary border rounded-pill px-3 py-2 fw-bold" style="font-size: 0.75rem;">
                                                                     {{ $contenido->fecha_contenido->format('d/m/Y') }}
+                                                                    @if(!$contenido->es_evaluacion && $contenido->hora_inicio && $contenido->hora_fin)
+                                                                        • {{ \Carbon\Carbon::parse($contenido->hora_inicio)->format('H:i') }} - {{ \Carbon\Carbon::parse($contenido->hora_fin)->format('H:i') }}
+                                                                    @endif
                                                                 </span>
                                                             @endif
                                                             @if($contenido->es_evaluacion)
@@ -388,7 +405,7 @@
                 <i class="fas fa-clipboard-list fa-3x text-warning mb-3"></i>
                 <h4 class="fw-bold text-dark">Historial de Revisiones</h4>
                 <p class="text-muted small mb-3">Selecciona una observación para ver el detalle completo.</p>
-                <div style="max-height: 350px; overflow-y: auto; padding-right: 4px;">
+                <div style="max-height: min(350px, 60vh); overflow-y: auto; padding-right: 4px;">
                     ${tarjetasHtml}
                 </div>
                 <small class="text-muted d-block mt-3 opacity-50">${observacionesCurso.length} observación(es) registrada(s)</small>

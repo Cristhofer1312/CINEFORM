@@ -93,6 +93,11 @@ class User extends Authenticatable
         return $this->attributes['phone'] ?? $this->personalData?->telefono ?? '';
     }
 
+    public function getAddressAttribute()
+    {
+        return $this->attributes['address'] ?? $this->personalData?->direccion ?? '';
+    }
+
     public function getDocumentTypeIdAttribute()
     {
         return $this->attributes['document_type_id'] ?? $this->personalData?->tipo_dni ?? null;
@@ -105,9 +110,7 @@ class User extends Authenticatable
 
     public function getCellPhoneAttribute()
     {
-        $country = $this->country;
-        $phone = $this->phone;
-        return ($country && $country->dial_code) ? ($country->dial_code . ' ' . $phone) : ($phone ?? null);
+        return $this->phone ?? null;
     }
     public function getFullDocumentAttribute()
     {

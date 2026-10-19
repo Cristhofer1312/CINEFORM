@@ -41,7 +41,9 @@ class CursoController extends BaseController
         $esFacilitador = $curso->id_persona == $personalData->id_persona;
 
         // 3. Verificar si es estudiante inscrito
-        $estaInscrito = $curso->inscripciones->contains('id_persona', $personalData->id_persona);
+        $estaInscrito = $curso->inscripciones
+            ->where('estado', \Modules\Taller\Entities\Inscripcion::ESTADO_APROBADO)
+            ->contains('id_persona', $personalData->id_persona);
 
         // Bloque de Seguridad: Si no es gestor, ni facilitador, ni está inscrito -> Acceso denegado
         if (!$esGestor && !$esFacilitador && !$estaInscrito) {
@@ -134,10 +136,29 @@ class CursoController extends BaseController
                 }
             }
 
+            // Validación general de la transición (además del RBAC de cada caso).
+            $origen = EstadoCurso::tryFrom((int) ($curso->estado_actual->id_estado ?? 0));
+            $destino = EstadoCurso::tryFrom($nuevoEstado);
+
+            if ($destino === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Estado de destino inválido.'
+                ], 422);
+            }
+
+            if ($origen !== null && !$origen->puedeTransicionarA($destino)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El curso no puede pasar de "' . $origen->label() . '" a "' . $destino->label() . '".'
+                ], 422);
+            }
+
             $curso->agregarEstado($nuevoEstado);
 
-            // Si es un rechazo, guardar la observación en su propia tabla
-            if ($nuevoEstado === EstadoCurso::DECLINADO->value && $request->filled('motivo')) {
+            // Si es un rechazo o declinación, guardar el motivo en su propia tabla
+            if (in_array($nuevoEstado, [EstadoCurso::DECLINADO->value, EstadoCurso::RECHAZADO->value], true)
+                && $request->filled('motivo')) {
                 ObservacionCurso::create([
                     'id_curso'    => $curso->id_curso,
                     'observacion' => $request->motivo,
@@ -199,10 +220,14 @@ class CursoController extends BaseController
                             ->from('taller.curso_estado as ce_actual')
                             ->whereColumn('ce_actual.id_curso', 'taller.cursos.id_curso')
                             ->where('ce_actual.id_estado', \App\Enums\EstadoCurso::INSCRIPCION->value)
-                            ->whereRaw('ce_actual.created_at = (
-                                SELECT MAX(ce_max.created_at)
+                            // El estado actual es el último registro (mismo criterio que
+                            // Curso::estados(): desempate por id si created_at coincide).
+                            ->whereRaw('ce_actual.id = (
+                                SELECT ce_max.id
                                 FROM taller.curso_estado AS ce_max
                                 WHERE ce_max.id_curso = taller.cursos.id_curso
+                                ORDER BY ce_max.created_at DESC, ce_max.id DESC
+                                LIMIT 1
                             )');
                     });
 
@@ -284,19 +309,8 @@ class CursoController extends BaseController
             $curso->modalidad = $curso->modalidad->nombre_modalidad ?? 'No especificada';
             $curso->modalidadIcon = $curso->modalidad === 'Presencial' ? 'fa-building' : 'fa-laptop';
 
-            // Determinar la clase CSS del badge según el estado
-            $curso->badgeClass = match ($estadoId) {
-                1 => 'bg-warning',      // Pendiente
-                2 => 'bg-warning',      // Borrador
-                3 => 'bg-warning',      // Declinado
-                4 => 'bg-warning',      // En Edición
-                5 => 'bg-warning',      // En Aprobación
-                6 => 'bg-success',      // Inscripción
-                7 => 'bg-success',      // En curso
-                8 => 'bg-danger',       // Finalizado
-                9 => 'bg-danger',       // Cerrado
-                default => 'bg-secondary'
-            };
+            // Color del badge según EstadoCurso::color() (fuente única, sin mapa duplicado).
+            $curso->badgeClass = 'bg-' . (EstadoCurso::tryFrom((int) $estadoId)?->color() ?? 'secondary');
         }
     }
 
@@ -524,6 +538,15 @@ class CursoController extends BaseController
                 ], 403);
             }
 
+            $origen = EstadoCurso::tryFrom($curso->estado_actual->id_estado ?? 0);
+
+            if (!$origen || !$origen->puedeTransicionarA(EstadoCurso::APROBACION)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El curso no puede pasar a En Aprobación desde su estado actual.'
+                ], 422);
+            }
+
             // Agregar el nuevo estado (En Aprobación)
             $curso->agregarEstado(EstadoCurso::APROBACION->value);
 
@@ -625,6 +648,17 @@ class CursoController extends BaseController
                 'id_persona'      => $nuevoIdPersona,
                 'actualizado_por' => Auth::id(),
             ]);
+
+            $origen = EstadoCurso::tryFrom($curso->estado_actual->id_estado ?? 0);
+
+            if (!$origen || !$origen->puedeTransicionarA(EstadoCurso::POR_ACEPTAR)) {
+                DB::rollBack();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El curso no puede reasignarse desde su estado actual.'
+                ], 422);
+            }
 
             // Volver al estado POR_ACEPTAR para que el nuevo facilitador acepte
             $curso->agregarEstado(EstadoCurso::POR_ACEPTAR->value);

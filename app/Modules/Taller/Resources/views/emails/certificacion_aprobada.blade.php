@@ -14,7 +14,7 @@
                     <h2 class="fw-bold text-dark mb-3">Certificación Aprobada</h2>
                     <p class="text-muted mb-4">¡Felicidades, <strong>{{ $inscripcion->persona->primer_nombre }}</strong>!</p>
                     <p class="text-muted">Tu certificación en el programa <strong>{{ $inscripcion->curso->nombre }}</strong> ha sido <strong class="text-success">APROBADA</strong>.</p>
-                    <p class="text-muted">Puedes descargar tu certificado desde tu panel de "Mis Cursos".</p>
+                    <p class="text-muted">Antes de descargarlo, responde la encuesta de satisfacción del programa. Solo toma un minuto.</p>
                     <div class="mt-4 mb-3">
                         <a href="{{ route('login') }}" class="btn btn-success btn-lg rounded-pill px-4 fw-bold">
                             <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión

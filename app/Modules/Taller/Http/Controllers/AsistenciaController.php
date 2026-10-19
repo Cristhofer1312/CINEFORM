@@ -14,6 +14,10 @@ use Modules\Comun\Entities\PersonalData;
 use Modules\Security\Entities\User;
 use App\Constants\SecurityAction;
 use App\Enums\EstadoCurso;
+use BaconQrCode\Renderer\Image\ImagickImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 
 class AsistenciaController extends BaseController
 {
@@ -115,12 +119,36 @@ class AsistenciaController extends BaseController
             return back()->with('error', 'No se pueden generar tokens de asistencia para evaluaciones.');
         }
 
-        $duracion = $request->input('duracion_minutos', 30);
+        // Verificar si ya existe un token activo
+        $tokenExistente = $contenido->tokenActivo();
 
-        // Desactivar tokens anteriores de esta actividad
-        AsistenciaToken::where('id_contenido_curso', $contenido->id_contenido_curso)
-            ->where('activo', true)
-            ->update(['activo' => false]);
+        if ($tokenExistente) {
+            $urlAsistencia = route('taller.asistencia.confirmar', [
+                'curso' => $curso->crypt_id,
+                'token' => $tokenExistente->token,
+            ]);
+
+            $qrUrl = route('taller.asistencia.qr-image', $tokenExistente->token);
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'existente' => true,
+                    'token' => $tokenExistente->token,
+                    'url' => $urlAsistencia,
+                    'qr' => $qrUrl,
+                    'expira' => $tokenExistente->fecha_expiracion->format('d/m/Y H:i'),
+                    'expira_timestamp' => $tokenExistente->fecha_expiracion->timestamp,
+                ]);
+            }
+
+            return back()->with('success', 'Ya existe un enlace activo para esta actividad.')
+                ->with('token_url', $urlAsistencia)
+                ->with('token_qr', $qrUrl)
+                ->with('token_expira', $tokenExistente->fecha_expiracion->format('d/m/Y H:i'));
+        }
+
+        $duracion = $request->input('duracion_minutos', 30);
 
         // Crear nuevo token
         $token = AsistenciaToken::create([
@@ -136,16 +164,17 @@ class AsistenciaController extends BaseController
             'token' => $token->token,
         ]);
 
-        // QR via api.qrserver.com (consistente con patrón de certificados)
-        $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=' . urlencode($urlAsistencia);
+        $qrUrl = route('taller.asistencia.qr-image', $token->token);
 
         if ($request->ajax()) {
             return response()->json([
                 'success' => true,
+                'existente' => false,
                 'token' => $token->token,
                 'url' => $urlAsistencia,
                 'qr' => $qrUrl,
                 'expira' => $token->fecha_expiracion->format('d/m/Y H:i'),
+                'expira_timestamp' => $token->fecha_expiracion->timestamp,
             ]);
         }
 
@@ -153,6 +182,90 @@ class AsistenciaController extends BaseController
             ->with('token_url', $urlAsistencia)
             ->with('token_qr', $qrUrl)
             ->with('token_expira', $token->fecha_expiracion->format('d/m/Y H:i'));
+    }
+
+    /**
+     * Desactiva un token de asistencia antes de su expiración.
+     */
+    public function desactivarToken(Request $request, $curso_id)
+    {
+        $curso = Curso::findOrFail($curso_id);
+        $this->verificarPermisoGestion($curso);
+
+        $request->validate(['token_id' => 'required|integer']);
+
+        $token = AsistenciaToken::where('id_token', $request->token_id)
+            ->where('activo', true)->firstOrFail();
+
+        $token->update(['activo' => false]);
+
+        if ($request->ajax()) {
+            return response()->json(['success' => true, 'message' => 'Enlace desactivado correctamente.']);
+        }
+
+        return back()->with('success', 'Enlace desactivado correctamente.');
+    }
+
+    /**
+     * Retorna TODOS los tokens activos de un curso (Evita el problema N+1 del Frontend).
+     */
+    public function todosTokensActivos(Request $request, $curso_id)
+    {
+        $curso = Curso::findOrFail($curso_id);
+
+        $tokensActivos = AsistenciaToken::whereHas('actividad', function($q) use ($curso_id) {
+                $q->where('id_curso', $curso_id);
+            })
+            ->where('activo', true)
+            ->where('fecha_expiracion', '>', now())
+            ->orderByDesc('fecha_expiracion')
+            ->get();
+
+        $resultados = $tokensActivos->map(function($token) use ($curso) {
+            $urlAsistencia = route('taller.asistencia.confirmar', [
+                'curso' => $curso->crypt_id,
+                'token' => $token->token,
+            ]);
+
+            return [
+                'token_id' => $token->id_token,
+                'token' => $token->token,
+                'contenido_id' => $token->id_contenido_curso,
+                'url' => $urlAsistencia,
+                'qr' => route('taller.asistencia.qr-image', $token->token),
+                'expira' => $token->fecha_expiracion->format('d/m/Y H:i'),
+                'expira_timestamp' => $token->fecha_expiracion->timestamp,
+                'actividad' => $token->actividad->titulo ?? 'Actividad',
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'tokens' => $resultados
+        ]);
+    }
+
+    /**
+     * Genera y sirve la imagen QR al vuelo sin guardarla en disco.
+     */
+    public function qrImage($token)
+    {
+        $tokenRecord = AsistenciaToken::where('token', $token)->firstOrFail();
+        $curso = Curso::findOrFail($tokenRecord->actividad->id_curso);
+
+        $urlAsistencia = route('taller.asistencia.confirmar', [
+            'curso' => $curso->crypt_id,
+            'token' => $tokenRecord->token,
+        ]);
+
+        $renderer = new ImageRenderer(
+            new RendererStyle(250, 4),
+            new ImagickImageBackEnd()
+        );
+        $writer = new Writer($renderer);
+        $imagenQR = $writer->writeString($urlAsistencia);
+
+        return response($imagenQR)->header('Content-Type', 'image/png');
     }
 
     /**

@@ -1,0 +1,49 @@
+# Dependencias
+app/node_modules/
+app/vendor/
+
+# Entorno
+app/.env
+app/.env.*
+!app/.env.example
+
+# Laravel runtime
+app/storage/framework/sessions/*
+!app/storage/framework/sessions/.gitignore
+app/storage/framework/views/*.php
+app/storage/logs/*.log
+app/bootstrap/cache/*.php
+app/.phpunit.result.cache
+app/artisan.sql
+
+# Backups locales
+respaldo_trimestres/
+respaldo_trimestres.rar
+*.rar
+
+# Basura de pruebas
+error.txt
+gemini-code-*.html
+app/code/
+
+# Notas / analisis locales
+/AGENTS.md
+/ANALISIS_CERTIFICADOS.md
+/ARCHIVOS_LIMPIEZA.md
+/CINEFORM_DOCUMENTACION.md
+/PLAN_AUDITORIA_SISTEMA.md
+/PLAN_AUDITORIA_SISTEMA_REVISADO.md
+/PLAN_MEJORAS_CURSOS_CERTIFICADOS.md
+/VALIDACION_FECHAS_TRIMESTRES.md
+/analisis_viabilidad.md
+/analisis_viabilidad_corregido.md
+/bitacora_implementacion_encuesta_satisfaccion.md
+/plan_cambios_encuesta_satisfaccion.md
+
+# Config del agente
+.opencode/
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store

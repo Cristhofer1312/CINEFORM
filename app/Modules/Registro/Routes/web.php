@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('registro')->group(function() {
-    Route::get('/', 'RegistroController@index');
+    Route::get('/', [\Modules\Registro\Http\Controllers\RegisterController::class, 'index']);
     
     // Rutas para el registro de usuarios (públicas)
     Route::get('/usuario', [\Modules\Registro\Http\Controllers\RegisterController::class, 'index'])->name('registro.usuario');
@@ -28,7 +28,7 @@ Route::prefix('registro')->group(function() {
   Route::group(array('middleware' => array('auth', \Modules\Security\Http\Middleware\CheckSecurity::class)), function () {
         /* Route::get('/usuario/perfil/seleccionar', [Modules\Security\Http\Controllers\SecurityController::class, 'showProfileSelection'])->name('usuario.mostrarPerfilSeleccion');
         Route::get('/usuario/perfil/seleccionar/{id_rol}', [Modules\Security\Http\Controllers\SecurityController::class, 'seleccionarPerfil'])->name('usuario.seleccionarPerfil'); */
-        Route::get('home', [Modules\Registro\Http\Controllers\RegistroController::class, 'home'])->name('home');
+        Route::get('home', [Modules\Security\Http\Controllers\SecurityController::class, 'registroHome'])->name('home.registro');
 
         // Rutas Administrativas para perfiles
         Route::prefix('usuarios')->group(function() {

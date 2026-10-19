@@ -8,7 +8,7 @@
             @endif
 
             <!-- Encabezado Administrativo -->
-            <div class="d-flex justify-content-between align-items-end mb-4 px-2">
+            <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4 px-2">
                 <div>
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb mb-1 p-0 bg-transparent" style="font-size: 0.8rem;">
@@ -31,7 +31,7 @@
                 </div>
             </div>
 
-            <form action="{{ route('taller.cursos.update', $curso->crypt_id) }}" method="POST">
+            <form action="{{ route('taller.cursos.update', $curso->crypt_id) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
 
@@ -85,22 +85,54 @@
                                 />
                             </div>
 
+                            <div class="col-md-12">
+                                <label class="text-muted small fw-bold mb-2 d-flex align-items-center">
+                                    <i class="fas fa-image me-2 opacity-50 text-primary"></i> FOTO DE PRESENTACIÓN
+                                </label>
+                                <div class="bg-white border-2 rounded-3 p-3 border-light-2 shadow-xs">
+                                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                                        <div class="position-relative flex-shrink-0">
+                                            @if($curso->imagen)
+                                                <img id="foto-preview" src="{{ asset($curso->imagen) }}" alt="Foto actual"
+                                                     class="rounded-3 border" style="width: 180px; height: 110px; object-fit: cover; display: block;">
+                                                <div id="foto-placeholder" style="display: none;"></div>
+                                            @else
+                                                <img id="foto-preview" src="" alt="Vista previa"
+                                                     class="rounded-3 border" style="width: 180px; height: 110px; object-fit: cover; display: none;">
+                                                <div id="foto-placeholder" class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="width: 180px; height: 110px;">
+                                                    <i class="fas fa-image fa-2x text-muted"></i>
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <input type="file" class="form-control form-control-sm" name="foto" id="foto-input"
+                                                   accept="image/png,image/jpeg" onchange="previewFoto(this)">
+                                            <small class="text-muted d-block mt-1"><i class="fas fa-info-circle me-1"></i> Deja vacío para conservar la foto actual. JPG o PNG.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Facilitador Asignado -->
                             <div class="col-md-5">
                                 <label class="text-muted small fw-bold mb-2 d-flex align-items-center">
                                     <i class="fas fa-user-tie me-2 opacity-50 text-primary"></i> FACILITADOR ASIGNADO <span class="text-danger ms-1">*</span>
                                 </label>
                                 <div class="bg-white border-2 rounded-3 p-2 px-3 shadow-xs border-light-2 d-flex align-items-center" style="height: 58px;">
-                                    <div class="avatar-sm me-3">
-                                        <div class="bg-primary-soft text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
-                                            <i class="fas fa-chalkboard-teacher small"></i>
-                                        </div>
+                                    @php
+                                        $facilitadorActual = $facilitadores->first(fn($f) => $f->personalData->id_persona == $curso->id_persona);
+                                    @endphp
+                                    <div class="me-3" id="selected-facilitator-avatar">
+                                        @if($facilitadorActual)
+                                            {!! renderAvatar($facilitadorActual, 'avatar-sm') !!}
+                                        @else
+                                            <div class="bg-primary-soft text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                                <i class="fas fa-chalkboard-teacher small"></i>
+                                            </div>
+                                        @endif
                                     </div>
                                     <div class="flex-grow-1 overflow-hidden">
                                         <h6 class="mb-0 fw-bold text-dark text-truncate" id="selected-facilitator-name">
-                                            @php
-                                                $facilitadorActual = $facilitadores->first(fn($f) => $f->personalData->id_persona == $curso->id_persona);
-                                            @endphp
                                             {{ $facilitadorActual ? ($facilitadorActual->personalData->primer_nombre . ' ' . $facilitadorActual->personalData->primer_apellido) : 'No asignado' }}
                                         </h6>
                                         <small class="text-muted d-block" id="selected-facilitator-doc">
@@ -126,7 +158,7 @@
 
                             <div class="col-md-12" id="container-localidades" style="{{ old('es_nacional', $curso->es_nacional) ? 'display:none;' : '' }}">
                                 <div class="card border-light-2 shadow-xs rounded-4 overflow-hidden mb-0">
-                                    <div class="card-header bg-light border-0 py-3 d-flex align-items-center justify-content-between">
+                                    <div class="card-header bg-light border-0 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                                         <h6 class="mb-0 fw-bold text-dark uppercase" style="font-size: 0.75rem;">
                                             <i class="fas fa-map-marker-alt me-2 text-primary"></i> ESTADOS / LOCALIDADES PERMITIDAS
                                         </h6>
@@ -144,7 +176,7 @@
                                             <input type="text" class="form-control border-0 py-2 shadow-none" id="search-localidad" placeholder="Filtrar por nombre de estado..." onkeyup="TallerModule.filterLocalidades()">
                                         </div>
                                         
-                                        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2 overflow-auto custom-scrollbar" id="localidades-grid" style="max-height: 220px;">
+                                        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2 overflow-auto custom-scrollbar" id="localidades-grid" style="max-height: min(220px, 40vh);">
                                             @php 
                                                 $localidadesActuales = old('localidades', $curso->localidades->pluck('id')->toArray());
                                             @endphp
@@ -223,6 +255,7 @@
                                     name="fecha_inicio" 
                                     :value="old('fecha_inicio', $curso->fecha_inicio ? $curso->fecha_inicio->format('Y-m-d') : '')" 
                                     type="date" 
+                                    onchange="validateTrimestre()"
                                 />
                             </div>
                             <div class="col-md-6">
@@ -232,7 +265,12 @@
                                     name="fecha_fin" 
                                     :value="old('fecha_fin', $curso->fecha_fin ? $curso->fecha_fin->format('Y-m-d') : '')" 
                                     type="date" 
+                                    onchange="validateTrimestre()"
                                 />
+                                <div id="trimestre-error" class="text-danger small fw-bold mt-1" style="display: none;">
+                                    <i class="fas fa-exclamation-triangle me-1"></i> <span class="trimestre-error-text">No se adapta a la función trimestral</span>
+                                </div>
+                                <input type="hidden" name="trimestre" id="trimestre" value="{{ old('trimestre', $curso->trimestre) }}">
                             </div>
 
                             <!-- Área Descriptiva -->
@@ -254,7 +292,7 @@
                         subtitle="Configura los módulos y el sistema de evaluación promediado."
                     >
                         <!-- Barra de Ponderación Dinámica -->
-                        <div id="total-ponderacion-container" class="card border-2 border-dashed shadow-xs p-2 px-3 rounded-4 bg-light ms-auto" style="min-width: 250px;">
+                        <div id="total-ponderacion-container" class="card border-2 border-dashed shadow-xs p-2 px-3 rounded-4 bg-light ms-auto w-100" style="min-width: 250px; max-width: 350px;">
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="small fw-bold text-muted uppercase">Balance de Notas</span>
                                 <span class="badge bg-white text-dark fw-bold border"><span id="total-ponderacion-valor">0</span>%</span>
@@ -289,7 +327,7 @@
                 <div class="row justify-content-center mt-5 pb-5">
                     <div class="col-lg-6">
                         <div class="card border shadow rounded-pill overflow-hidden bg-white">
-                            <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                            <div class="card-body p-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
                                 <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
                                     class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2">
                                     Cancelar
@@ -317,3 +355,34 @@
             </form>
         </div>
     </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var input = document.getElementById('foto-input');
+        var preview = document.getElementById('foto-preview');
+        var placeholder = document.getElementById('foto-placeholder');
+        if (!input) return;
+        input.addEventListener('change', function () {
+            var file = this.files && this.files[0];
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    if (placeholder) placeholder.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                @if($curso->imagen)
+                    preview.src = "{{ asset($curso->imagen) }}";
+                    preview.style.display = 'block';
+                    if (placeholder) placeholder.style.display = 'none';
+                @else
+                    preview.removeAttribute('src');
+                    preview.style.display = 'none';
+                    if (placeholder) placeholder.style.display = 'flex';
+                @endif
+            }
+        });
+    });
+</script>

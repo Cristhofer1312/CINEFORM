@@ -23,6 +23,8 @@ class ContenidoCurso extends Model
         'descripcion',
         'url_contenido',
         'fecha_contenido',
+        'hora_inicio',
+        'hora_fin',
         'es_evaluacion',
         'id_tipo_evaluacion',
         'ponderacion',
@@ -34,6 +36,8 @@ class ContenidoCurso extends Model
 
     protected $casts = [
         'fecha_contenido' => 'date',
+        'hora_inicio' => 'datetime:H:i',
+        'hora_fin' => 'datetime:H:i',
     ];
 
     // Nombres de las columnas de timestamp personalizadas

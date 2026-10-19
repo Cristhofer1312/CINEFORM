@@ -11,7 +11,7 @@
             @endif
 
             <!-- Encabezado de Creación -->
-            <div class="d-flex justify-content-between align-items-end mb-4 px-2">
+            <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4 px-2">
                 <div>
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb mb-1 p-0 bg-transparent" style="font-size: 0.8rem;">
@@ -30,7 +30,7 @@
                 </div>
             </div>
 
-            <form action="{{ route('taller.cursos.store_new') }}" method="POST">
+            <form action="{{ route('taller.cursos.store_new') }}" method="POST" enctype="multipart/form-data">
                 @csrf
 
                 @if ($errors->any())
@@ -93,22 +93,48 @@
                                 />
                             </div>
 
+                            <div class="col-md-12">
+                                <label class="text-muted small fw-bold mb-2 d-flex align-items-center">
+                                    <i class="fas fa-image me-2 opacity-50 text-primary"></i> FOTO DE PRESENTACIÓN (OPCIONAL)
+                                </label>
+                                <div class="bg-white border-2 rounded-3 p-3 border-light-2 shadow-xs">
+                                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                                        <div class="position-relative flex-shrink-0">
+                                            <img id="foto-preview" src="" alt="Vista previa"
+                                                 class="rounded-3 border" style="width: 180px; height: 110px; object-fit: cover; display: none;">
+                                            <div id="foto-placeholder" class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="width: 180px; height: 110px;">
+                                                <i class="fas fa-image fa-2x text-muted"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <input type="file" class="form-control form-control-sm" name="foto" id="foto-input"
+                                                   accept="image/png,image/jpeg" onchange="previewFoto(this)">
+                                            <small class="text-muted d-block mt-1"><i class="fas fa-info-circle me-1"></i> JPG o PNG. Se mostrará en las tarjetas del catálogo de cursos.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Facilitador Responsable -->
                             <div class="col-md-7">
                                 <label class="text-muted small fw-bold mb-2 d-flex align-items-center">
                                     <i class="fas fa-user-tie me-2 opacity-50 text-primary"></i> FACILITADOR RESPONSABLE <span class="text-danger ms-1">*</span>
                                 </label>
                                 <div class="bg-white border-2 rounded-3 p-2 px-3 shadow-xs border-light-2 d-flex align-items-center" style="height: 58px;">
-                                    <div class="avatar-sm me-3">
-                                        <div class="bg-primary-soft text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
-                                            <i class="fas fa-chalkboard-teacher small"></i>
-                                        </div>
+                                    @php
+                                        $facilitadorOld = old('id_persona') ? $facilitadores->first(fn($f) => $f->personalData->id_persona == old('id_persona')) : null;
+                                    @endphp
+                                    <div class="me-3" id="selected-facilitator-avatar">
+                                        @if($facilitadorOld)
+                                            {!! renderAvatar($facilitadorOld, 'avatar-sm') !!}
+                                        @else
+                                            <div class="bg-primary-soft text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                                <i class="fas fa-chalkboard-teacher small"></i>
+                                            </div>
+                                        @endif
                                     </div>
                                     <div class="flex-grow-1 overflow-hidden">
                                         <h6 class="mb-0 fw-bold text-dark text-truncate" id="selected-facilitator-name">
-                                            @php
-                                                $facilitadorOld = old('id_persona') ? $facilitadores->first(fn($f) => $f->personalData->id_persona == old('id_persona')) : null;
-                                            @endphp
                                             {{ $facilitadorOld ? ($facilitadorOld->personalData->primer_nombre . ' ' . $facilitadorOld->personalData->primer_apellido) : 'No asignado' }}
                                         </h6>
                                         <small class="text-muted d-block" id="selected-facilitator-doc">
@@ -134,7 +160,7 @@
 
                             <div class="col-md-12" id="container-localidades" style="{{ old('es_nacional') ? 'display:none;' : '' }}">
                                 <div class="card border-light-2 shadow-xs rounded-4 overflow-hidden mb-0">
-                                    <div class="card-header bg-light border-0 py-3 d-flex align-items-center justify-content-between">
+                                    <div class="card-header bg-light border-0 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                                         <h6 class="mb-0 fw-bold text-dark uppercase" style="font-size: 0.75rem;">
                                             <i class="fas fa-map-marker-alt me-2 text-primary"></i> ESTADOS / LOCALIDADES PERMITIDAS
                                         </h6>
@@ -152,7 +178,7 @@
                                             <input type="text" class="form-control border-0 py-2 shadow-none" id="search-localidad" placeholder="Filtrar por nombre de estado..." onkeyup="TallerModule.filterLocalidades()">
                                         </div>
                                         
-                                        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2 overflow-auto custom-scrollbar" id="localidades-grid" style="max-height: 220px;">
+                                        <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2 overflow-auto custom-scrollbar" id="localidades-grid" style="max-height: min(220px, 40vh);">
                                             @foreach($regiones as $reg)
                                                 <div class="col localidad-item" data-nombre="{{ strtolower($reg->description) }}">
                                                     <div class="form-check p-0 m-0">
@@ -247,19 +273,21 @@
                                 </x-taller.select>
                             </div>
                             <div class="col-md-2">
+                                @php $trimestreSeleccionado = old('trimestre') ?: ceil((int) date('n') / 3); @endphp
                                 <x-taller.select 
                                     label="TRIMESTRE" 
                                     icon="fas fa-calendar-minus" 
                                     name="trimestre"
-                                    onchange="generateProcinecCode()"
+                                    required
+                                    onchange="generateProcinecCode(); validateTrimestre()"
                                 >
-                                    <option value="1" {{ old('trimestre') == 1 ? 'selected' : '' }}>1° </option>
-                                    <option value="2" {{ old('trimestre') == 2 ? 'selected' : '' }}>2° </option>
-                                    <option value="3" {{ old('trimestre') == 3 ? 'selected' : '' }}>3° </option>
-                                    <option value="4" {{ old('trimestre') == 4 ? 'selected' : '' }}>4° </option>
+                                    <option value="1" {{ $trimestreSeleccionado == 1 ? 'selected' : '' }}>1° </option>
+                                    <option value="2" {{ $trimestreSeleccionado == 2 ? 'selected' : '' }}>2° </option>
+                                    <option value="3" {{ $trimestreSeleccionado == 3 ? 'selected' : '' }}>3° </option>
+                                    <option value="4" {{ $trimestreSeleccionado == 4 ? 'selected' : '' }}>4° </option>
                                 </x-taller.select>
                                 <div id="trimestre-error" class="text-danger small fw-bold mt-1" style="display: none;">
-                                    <i class="fas fa-exclamation-triangle me-1"></i> No se adapta a la función trimestral
+                                    <i class="fas fa-exclamation-triangle me-1"></i> <span class="trimestre-error-text">No se adapta a la función trimestral</span>
                                 </div>
                             </div>
                             <div class="col-md-2">
@@ -311,7 +339,9 @@
                                     name="cantidad_cupos" 
                                     :value="old('cantidad_cupos')" 
                                     type="number" 
-                                    placeholder="0"
+                                    min="1"
+                                    placeholder="Ej: 25"
+                                    required
                                 />
                             </div>
 
@@ -358,7 +388,7 @@
                         subtitle="Define los módulos evaluables y recursos digitales."
                     >
                         <!-- Barra de Ponderación -->
-                        <div id="total-ponderacion-container" class="card border-2 border-dashed shadow-xs p-2 px-3 rounded-4 bg-light ms-auto" style="min-width: 250px;">
+                        <div id="total-ponderacion-container" class="card border-2 border-dashed shadow-xs p-2 px-3 rounded-4 bg-light ms-auto w-100" style="min-width: 250px; max-width: 350px;">
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="small fw-bold text-muted uppercase">Balance Académico</span>
                                 <span class="badge bg-white text-dark fw-bold border"><span id="total-ponderacion-valor">0</span>%</span>
@@ -392,7 +422,7 @@
                 <div class="row justify-content-center mt-5 pb-5">
                     <div class="col-lg-6">
                         <div class="card border shadow rounded-pill overflow-hidden bg-white">
-                            <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                            <div class="card-body p-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
                                 <a href="{{ route('taller.cursos.index') }}"
                                     class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2">
                                     Descartar
@@ -447,7 +477,7 @@
                         </div>
                     </div>
 
-                    <div id="facilitator-container" class="bg-white rounded-4 border border-light-2 overflow-auto shadow-sm" style="max-height: 400px;">
+                    <div id="facilitator-container" class="bg-white rounded-4 border border-light-2 overflow-auto shadow-sm" style="max-height: min(400px, 50vh);">
                         @foreach($facilitadores as $facilitador)
                             @php $p = $facilitador->personalData @endphp
                             <div class="facilitator-item p-3 border-bottom cursor-pointer transition-all hover-bg-light {{ old('id_persona') == $p->id_persona ? 'bg-primary-soft border-primary border-start border-4' : '' }}"
@@ -457,10 +487,8 @@
                                 data-specializations="{{ $p->especializaciones->pluck('id')->join(',') }}">
                                 
                                 <div class="d-flex align-items-center">
-                                    <div class="avatar-sm me-3">
-                                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 45px; height: 45px;">
-                                            <i class="fas fa-user-tie"></i>
-                                        </div>
+                                    <div class="me-3">
+                                        {!! renderAvatar($p, 'avatar-sm') !!}
                                     </div>
                                     <div class="flex-grow-1">
                                         <h6 class="mb-0 fw-bold text-dark">{{ $p->primer_nombre }} {{ $p->primer_apellido }}</h6>
@@ -549,6 +577,25 @@
         function toggleLocalidades(el) { TallerModule.toggleLocalidades(el); }
         function filterFacilitators() { FacilitadorModule.filterFacilitators(); }
         
+        function previewFoto(input) {
+            const file = input.files && input.files[0];
+            const preview = document.getElementById('foto-preview');
+            const placeholder = document.getElementById('foto-placeholder');
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    placeholder.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.removeAttribute('src');
+                preview.style.display = 'none';
+                placeholder.style.display = 'flex';
+            }
+        }
+        
         function selectFacilitator(element, id, name, doc) { 
             // Manejo de UI específica del modal antes de delegar al módulo
             document.querySelectorAll('.facilitator-item').forEach(item => {
@@ -558,7 +605,7 @@
             element.classList.add('bg-primary-soft', 'border-primary', 'border-start', 'border-4');
             element.querySelector('.check-icon').classList.remove('d-none');
             
-            FacilitadorModule.selectFacilitador(id, name, doc); 
+            FacilitadorModule.selectFacilitador(id, name, doc, element); 
         }
     </script>
     @endpush

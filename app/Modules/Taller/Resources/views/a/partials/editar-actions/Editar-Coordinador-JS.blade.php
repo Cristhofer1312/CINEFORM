@@ -68,6 +68,7 @@
         function toggleEvaluacion(el) { TallerModule.toggleEvaluacion(el); }
         function toggleMaterial(el) { TallerModule.toggleMaterial(el); }
         function toggleLocalidades(el) { TallerModule.toggleLocalidades(el); }
+        function validateTrimestre() { TallerModule.validateTrimestre(); }
         function filterFacilitators() { FacilitadorModule.filterFacilitators(); }
         
         function selectFacilitador(element, id, name, doc) { 
@@ -77,7 +78,7 @@
             });
             element.classList.add('bg-primary-soft', 'border-primary', 'border-start', 'border-4');
             element.querySelector('.check-icon')?.classList.remove('d-none');
-            FacilitadorModule.selectFacilitador(id, name, doc); 
+            FacilitadorModule.selectFacilitador(id, name, doc, element); 
         }
 
         // Proxy adicional para el nombre de función que espera el HTML antiguo del modal si aplica
@@ -150,7 +151,7 @@
                     </div>
 
                     <!-- Lista -->
-                    <div id="facilitator-container" class="bg-white rounded-4 border border-light-2 overflow-auto shadow-sm" style="max-height: 400px;">
+                    <div id="facilitator-container" class="bg-white rounded-4 border border-light-2 overflow-auto shadow-sm" style="max-height: min(400px, 50vh);">
                         @foreach($facilitadores as $facilitador)
                             @php $p = $facilitador->personalData @endphp
                             <div class="facilitator-item p-3 border-bottom cursor-pointer transition-all hover-bg-light {{ old('id_persona', $curso->id_persona) == $p->id_persona ? 'bg-primary-soft border-primary border-start border-4' : '' }}"

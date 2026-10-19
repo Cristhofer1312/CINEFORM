@@ -38,6 +38,10 @@ class TallerServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->register(RouteServiceProvider::class);
+        $this->app->bind(
+            \Modules\Taller\Services\Contracts\QrGeneratorInterface::class,
+            \Modules\Taller\Services\BaconQrGenerator::class
+        );
     }
 
     /**

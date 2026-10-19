@@ -57,7 +57,7 @@
   
     $(document).ready(function (){
         @if(session()->has('success'))
-            showNotify('success', "{{ session()->get('success')}}");
+            showNotify('success', @json(session('success')));
         @endif
         
         

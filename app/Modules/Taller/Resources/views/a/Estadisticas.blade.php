@@ -97,7 +97,7 @@
                     <h6 class="fw-bold text-dark mb-0"><i class="fas fa-flag-checkered me-2 text-info"></i> Cursos por Estado</h6>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container" style="position: relative; height: 280px;">
+                    <div class="chart-container" style="position: relative; height: min(280px, 40vh);">
                         <canvas id="chart-estado"></canvas>
                     </div>
                 </div>
@@ -109,7 +109,7 @@
                     <h6 class="fw-bold text-dark mb-0"><i class="fas fa-calendar-alt me-2 text-primary"></i> Evolución de Inscripciones</h6>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container" style="position: relative; height: 280px;">
+                    <div class="chart-container" style="position: relative; height: min(280px, 40vh);">
                         <canvas id="chart-inscripciones"></canvas>
                     </div>
                 </div>
@@ -124,7 +124,7 @@
                     <h6 class="fw-bold text-dark mb-0"><i class="fas fa-video me-2 text-success"></i> Por Modalidad</h6>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container" style="position: relative; height: 260px;">
+                    <div class="chart-container" style="position: relative; height: min(260px, 40vh);">
                         <canvas id="chart-modalidad"></canvas>
                     </div>
                 </div>
@@ -136,7 +136,7 @@
                     <h6 class="fw-bold text-dark mb-0"><i class="fas fa-chalkboard-teacher me-2 text-warning"></i> Por Actividad Formativa</h6>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container" style="position: relative; height: 260px;">
+                    <div class="chart-container" style="position: relative; height: min(260px, 40vh);">
                         <canvas id="chart-actividad"></canvas>
                     </div>
                 </div>
@@ -148,7 +148,7 @@
                     <h6 class="fw-bold text-dark mb-0"><i class="fas fa-clapperboard me-2 text-danger"></i> Por Aspecto de Formación</h6>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container" style="position: relative; height: 260px;">
+                    <div class="chart-container" style="position: relative; height: min(260px, 40vh);">
                         <canvas id="chart-aspecto"></canvas>
                     </div>
                 </div>
@@ -163,7 +163,7 @@
                     <h6 class="fw-bold text-dark mb-0"><i class="fas fa-calendar me-2 text-secondary"></i> Cursos por Año</h6>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container" style="position: relative; height: 260px;">
+                    <div class="chart-container" style="position: relative; height: min(260px, 40vh);">
                         <canvas id="chart-anio"></canvas>
                     </div>
                 </div>
@@ -175,7 +175,7 @@
                     <h6 class="fw-bold text-dark mb-0"><i class="fas fa-layer-group me-2 text-info"></i> Por Trimestre</h6>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container" style="position: relative; height: 260px;">
+                    <div class="chart-container" style="position: relative; height: min(260px, 40vh);">
                         <canvas id="chart-trimestre"></canvas>
                     </div>
                 </div>
@@ -187,7 +187,7 @@
                     <h6 class="fw-bold text-dark mb-0"><i class="fas fa-map-marker-alt me-2 text-success"></i> Distribución Geográfica</h6>
                 </div>
                 <div class="card-body">
-                    <div class="chart-container" style="position: relative; height: 260px;">
+                    <div class="chart-container" style="position: relative; height: min(260px, 40vh);">
                         <canvas id="chart-geografia"></canvas>
                     </div>
                 </div>

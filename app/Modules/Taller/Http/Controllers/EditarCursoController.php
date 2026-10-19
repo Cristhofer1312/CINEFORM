@@ -138,6 +138,8 @@ class EditarCursoController extends BaseController
             if (isset($updateData['id_persona']) && (int) $updateData['id_persona'] !== (int) $curso->id_persona) {
                 $estadoActual = $curso->estado_actual->id_estado ?? 0;
                 if ($estadoActual >= EstadoCurso::INSCRIPCION->value) {
+                    DB::rollBack();
+
                     return back()->withInput()->withErrors([
                         'id_persona' => 'No se puede cambiar el facilitador de un curso en estado "' . (EstadoCurso::tryFrom($estadoActual)?->label() ?? 'Desconocido') . '".'
                     ]);
@@ -163,6 +165,27 @@ class EditarCursoController extends BaseController
 
             $updateData['actualizado_por'] = Auth::id();
 
+            // Foto de presentación (solo coordinador)
+            if (hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO) && $request->hasFile('foto')) {
+                $destDir = public_path('imagenes/cursos');
+                if (!file_exists($destDir)) {
+                    mkdir($destDir, 0755, true);
+                }
+
+                // Eliminar versiones previas para no dejar archivos huérfanos
+                foreach (['png', 'jpg', 'jpeg'] as $ext) {
+                    $oldFile = $destDir . '/' . $curso->id_curso . '.' . $ext;
+                    if (file_exists($oldFile)) {
+                        @unlink($oldFile);
+                    }
+                }
+
+                $mimeFoto = (string) $request->file('foto')->getMimeType();
+                $extension = $mimeFoto === 'image/png' ? 'png' : 'jpg';
+                $request->file('foto')->move($destDir, $curso->id_curso . '.' . $extension);
+                $updateData['imagen'] = 'imagenes/cursos/' . $curso->id_curso . '.' . $extension;
+            }
+
             $curso->update($updateData);
 
             // Sincronizar localidades (Solo si no es nacional)
@@ -172,8 +195,22 @@ class EditarCursoController extends BaseController
                 $curso->localidades()->sync($validatedData['localidades'] ?? []);
             }
 
-            // Gestión de Contenidos (Solo si vienen en el request)
+            // Gestión de Contenidos (Solo si vienen en el request).
+            // Si ya hay calificaciones cargadas, reemplazar contenidos dejaría
+            // notas huérfanas: se bloquea con un mensaje accionable.
             if ($request->has('contenidos')) {
+                $tieneCalificaciones = DB::table('taller.calificaciones')
+                    ->where('id_curso', $curso->id_curso)
+                    ->exists();
+
+                if ($tieneCalificaciones) {
+                    DB::rollBack();
+
+                    return back()->withInput()->withErrors([
+                        'contenidos' => 'El curso ya tiene calificaciones cargadas y sus contenidos no se pueden reemplazar.',
+                    ]);
+                }
+
                 $curso->contenidos()->delete();
 
                 foreach ($validatedData['contenidos'] as $index => $cData) {
@@ -186,6 +223,8 @@ class EditarCursoController extends BaseController
                         'descripcion_breve'  => $cData['descripcion_breve'] ?? '',
                         'url_contenido'      => $cData['url_contenido'] ?? null,
                         'fecha_contenido'    => $cData['fecha_contenido'] ?? null,
+                        'hora_inicio'        => $cData['hora_inicio'] ?? null,
+                        'hora_fin'           => $cData['hora_fin'] ?? null,
                         'es_evaluacion'      => $esEvaluacion,
                         'id_tipo_evaluacion' => $esEvaluacion ? ($cData['id_tipo_evaluacion'] ?? null) : null,
                         'ponderacion'        => $esEvaluacion ? ($cData['ponderacion'] ?? 0) : 0,

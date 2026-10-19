@@ -73,7 +73,7 @@
             @php
                 $asistencia = $asistencias->get($contenido->id_contenido_curso);
             @endphp
-            <div class="d-flex align-items-center justify-content-between py-3 {{ !$loop->last ? 'border-bottom' : '' }}">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 py-3 {{ !$loop->last ? 'border-bottom' : '' }}">
                 <div class="d-flex align-items-center">
                     <div class="rounded-circle d-flex align-items-center justify-content-center me-3 {{ $asistencia && $asistencia->activa ? 'bg-success' : 'bg-light' }}" style="width:40px;height:40px;">
                         <i class="fas {{ $asistencia && $asistencia->activa ? 'fa-check text-white' : 'fa-times text-muted' }}"></i>

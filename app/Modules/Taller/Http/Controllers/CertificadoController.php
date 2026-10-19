@@ -8,7 +8,11 @@ use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\Inscripcion;
 use Modules\Comun\Entities\PersonalData;
 use Modules\Taller\Services\CertificadoService;
+use App\Constants\SecurityAction;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Carbon;
 
 class CertificadoController extends BaseController
 {
@@ -55,16 +59,145 @@ class CertificadoController extends BaseController
             return redirect()->back()->with('error', 'Tu certificación aún no ha sido aprobada por el facilitador.');
         }
 
+        $satisfaccion = app(\Modules\Taller\Services\SatisfaccionCursoService::class);
+
+        if ($satisfaccion->cursoPermiteEncuesta($curso) && !$satisfaccion->yaRespondio($inscripcion)) {
+            return redirect()
+                ->route('taller.cursos.satisfaccion.create', $curso->crypt_id)
+                ->with('info', 'Responde la encuesta de satisfacción para descargar tu certificado.');
+        }
+
         // 4. Generar PDF
         try {
             $pdfContent = $this->certificadoService->generarPdf($curso, $inscripcion);
             
+            $nombreArchivo = 'Certificado_' . preg_replace('/[^A-Za-z0-9_-]/', '_', (string) $curso->codigo) . '.pdf';
+
             return response($pdfContent)
                 ->header('Content-Type', 'application/pdf')
-                ->header('Content-Disposition', 'attachment; filename="Certificado_' . $curso->codigo . '.pdf"');
+                ->header('Content-Disposition', 'attachment; filename="' . $nombreArchivo . '"');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Error al generar el certificado: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Sirve la plantilla global de certificados.
+     */
+    public function verPlantillaGlobal()
+    {
+        return $this->servirImagen($this->rutaPlantilla('global', 'global'));
+    }
+
+    /**
+     * Sirve la plantilla del certificado de un curso o de un wizard en curso.
+     *
+     * @param string $tipo  'curso' (id del curso) o 'wizard' (token del wizard)
+     * @param string $ref   id del curso o token del wizard
+     */
+    public function verPlantilla($tipo, $ref)
+    {
+        return $this->servirImagen($this->rutaPlantilla($tipo, $ref));
+    }
+
+    /**
+     * Sirve la firma del certificado de un curso o de un wizard en curso.
+     *
+     * @param string $tipo  'curso' (id del curso) o 'wizard' (token del wizard)
+     * @param string $ref   id del curso o token del wizard
+     */
+    public function verFirma($tipo, $ref)
+    {
+        return $this->servirImagen($this->rutaFirma($tipo, $ref));
+    }
+
+    /**
+     * Resuelve la ruta en disco de una plantilla a partir de tipo y referencia.
+     *
+     * La ruta nunca se toma de la petición: se construye con una lista blanca,
+     * de modo que no hay forma de recorrer directorios ni pedir las coordenadas.
+     *
+     * @return string|null
+     */
+    private function rutaPlantilla($tipo, $ref)
+    {
+        $config = \Modules\Taller\Services\CertificadoConfig::class;
+
+        return match ($tipo) {
+            'global' => $config::buscarPrimero($config::dirBase(), 'plantilla'),
+            'curso' => ctype_digit((string) $ref) ? $config::buscarPrimero($config::dirCursos(), (string) $ref) : null,
+            'wizard' => $config::rutaWizardPlantilla((string) $ref),
+            default => null,
+        };
+    }
+
+    /**
+     * Resuelve la ruta en disco de una firma probando las extensiones admitidas.
+     *
+     * @return string|null
+     */
+    private function rutaFirma($tipo, $ref)
+    {
+        $config = \Modules\Taller\Services\CertificadoConfig::class;
+
+        return match ($tipo) {
+            'curso' => ctype_digit((string) $ref) ? $config::rutaFirma($ref) : null,
+            'wizard' => $config::rutaWizardFirma((string) $ref),
+            default => null,
+        };
+    }
+
+    /**
+     * Devuelve una imagen del directorio de certificados con ETag y 304.
+     *
+     * Sustituye a asset('storage/...'), que dependía del enlace simbólico
+     * public/storage. El Content-Type se deduce del contenido real y no de la
+     * extensión, y la ruta se valida con realpath para que no se pueda salir
+     * del directorio.
+     */
+    private function servirImagen($ruta)
+    {
+        if (!$ruta) {
+            abort(404);
+        }
+
+        $baseDir = realpath(storage_path('app/public/Certificados'));
+        $path = $ruta ? realpath($ruta) : false;
+
+        if ($baseDir === false || $path === false || !is_file($path)
+            || strpos($path, $baseDir . DIRECTORY_SEPARATOR) !== 0) {
+            abort(404);
+        }
+
+        $mime = File::mimeType($path);
+        if (!in_array($mime, ['image/png', 'image/jpeg'], true)) {
+            abort(404);
+        }
+
+        $file = File::get($path);
+        $etag = '"' . md5($file) . '"';
+        $lastModified = File::lastModified($path);
+        $cacheControl = 'public, max-age=86400';
+
+        if (trim((string) request()->header('If-None-Match')) === $etag) {
+            return response(null, 304)
+                ->header('ETag', $etag)
+                ->header('Cache-Control', $cacheControl);
+        }
+
+        $since = request()->header('If-Modified-Since');
+        if ($since && $lastModified <= Carbon::parse($since)->getTimestamp()) {
+            return response(null, 304)
+                ->header('ETag', $etag)
+                ->header('Last-Modified', gmdate('D, d M Y H:i:s', $lastModified) . ' GMT')
+                ->header('Cache-Control', $cacheControl);
+        }
+
+        return response($file, 200)
+            ->header('Content-Type', $mime)
+            ->header('ETag', $etag)
+            ->header('Last-Modified', gmdate('D, d M Y H:i:s', $lastModified) . ' GMT')
+            ->header('Cache-Control', $cacheControl);
     }
 
     /**
@@ -75,16 +208,13 @@ class CertificadoController extends BaseController
     public function probar($id_curso)
     {
         $curso = Curso::findOrFail($id_curso);
+        $this->autorizarVistaPrevia($curso);
+
         $user = Auth::user();
         $persona = $user->personalData;
 
-        // Si el usuario no tiene datos personales (ej. admin puro), creamos un objeto dummy
         if (!$persona) {
-            $persona = new \Modules\Comun\Entities\PersonalData([
-                'primer_nombre' => 'USUARIO',
-                'primer_apellido' => 'DE PRUEBA',
-                'dni' => '00000000'
-            ]);
+            return redirect()->back()->with('error', 'Necesitas datos personales asociados a tu cuenta para previsualizar el certificado.');
         }
 
         // Creamos una inscripción dummy para la prueba
@@ -96,12 +226,104 @@ class CertificadoController extends BaseController
 
         try {
             $pdfContent = $this->certificadoService->generarPdf($curso, $inscripcion);
-            
+
             return response($pdfContent)
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'inline; filename="Prueba_Certificado.pdf"');
         } catch (\Exception $e) {
-            return "Error al generar prueba: " . $e->getMessage();
+            Log::error('Error al generar vista previa de certificado', [
+                'id_curso' => $curso->id_curso,
+                'mensaje' => $e->getMessage(),
+            ]);
+
+            return redirect()->back()->with('error', 'No se pudo generar la vista previa del certificado.');
+        }
+    }
+
+    /**
+     * Prueba en vivo del editor: genera el PDF con lo que hay en pantalla.
+     *
+     * Para el wizard (sin curso aún): usa el nombre del paso 1, la persona
+     * propia como muestra, las coords del body y los archivos del temporal.
+     * El QR es de muestra (el curso no existe en BD). Throttle en la ruta.
+     */
+    public function pruebaWizard(Request $request)
+    {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+            abort(403, 'No tienes permiso para planificar cursos.');
+        }
+
+        $persona = Auth::user()->personalData;
+        if (! $persona) {
+            return response()->json(['ok' => false, 'error' => 'Necesitas datos personales asociados a tu cuenta.'], 422);
+        }
+
+        $coords = json_decode((string) $request->input('coords'), true);
+        $errorCoords = \Modules\Taller\Services\CertificadoConfig::validarCoords($coords);
+        if ($errorCoords !== null) {
+            return response()->json(['ok' => false, 'error' => $errorCoords], 422);
+        }
+
+        $token = (string) (session('wizard_curso.token') ?? '');
+        $config = \Modules\Taller\Services\CertificadoConfig::class;
+        $plantillaPath = $token !== '' ? $config::rutaWizardPlantilla($token) : null;
+        if ($plantillaPath === null) {
+            $plantillaPath = $config::buscarPrimero($config::dirBase(), 'plantilla');
+        }
+        $firmaPath = $token !== '' ? $config::rutaWizardFirma($token) : null;
+
+        $hayPlantilla = $plantillaPath !== null
+            && $this->certificadoService->detectImageType($plantillaPath) !== null;
+        if (! $hayPlantilla) {
+            // Sin fondo las coords calibradas quedarían flotando: el núcleo
+            // usa el diseño propio igual que en la emisión real.
+            $coords = null; // se resuelve abajo
+        }
+
+        $nombreCurso = (string) (session('wizard_curso.datos.nombre') ?? 'Curso de muestra');
+        $curso = new Curso(['nombre' => $nombreCurso, 'codigo' => 'LAB-MUESTRA']);
+        $code = \Modules\Taller\Services\CertificadoCodigo::emitir($curso, $persona);
+
+        try {
+            $pdf = $this->certificadoService->generarPdfCon(
+                $curso,
+                $persona,
+                $code,
+                $coords ?? $config::coordsBase(),
+                $plantillaPath,
+                $firmaPath,
+                $hayPlantilla
+            );
+
+            return response($pdf)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'inline; filename="Prueba_Certificado.pdf"');
+        } catch (\Throwable $e) {
+            Log::error('Error al generar prueba en vivo del certificado', [
+                'mensaje' => $e->getMessage(),
+            ]);
+
+            return response()->json(['ok' => false, 'error' => 'No se pudo generar la vista previa.'], 500);
+        }
+    }
+
+    /**
+     * Solo el facilitador del curso, gestión o un inscrito aprobado
+     * pueden previsualizar el certificado (evita abuso/DoS anónimo).
+     */
+    private function autorizarVistaPrevia(Curso $curso): void
+    {
+        $user = Auth::user();
+        $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
+        $personaId = $user->personalData->id_persona ?? null;
+        $esFacilitador = $personaId !== null && (int) $curso->id_persona === (int) $personaId;
+        $esInscrito = $personaId !== null && Inscripcion::where('id_curso', $curso->id_curso)
+            ->where('id_persona', $personaId)
+            ->where('estado', Inscripcion::ESTADO_APROBADO)
+            ->exists();
+
+        if (!$esGestor && !$esFacilitador && !$esInscrito) {
+            abort(403, 'No tienes permiso para previsualizar el certificado de este curso.');
         }
     }
 
@@ -112,14 +334,22 @@ class CertificadoController extends BaseController
      */
     public function verificar($codigo)
     {
-        // El código viene como CURSO_CODIGO-DNI
-        $parts = explode('-', $codigo);
-        if (count($parts) < 2) {
+        $parsed = \Modules\Taller\Services\CertificadoCodigo::parse((string) $codigo);
+        if ($parsed === null) {
             return view('taller::certificados.verificar', ['error' => 'Código de certificado inválido.']);
         }
 
-        $dni = array_pop($parts);
-        $cursoCodigo = implode('-', $parts);
+        // El formato con firma evita certificados forjados; el legado se
+        // sigue aceptando para los QR ya impresos, pero queda registrado.
+        if ($parsed['hmac'] !== null
+            && !\Modules\Taller\Services\CertificadoCodigo::firmaValida($parsed['codigo'], $parsed['dni'], $parsed['hmac'])) {
+            return view('taller::certificados.verificar', ['valido' => false]);
+        }
+
+        Log::info('certificado.verificado', ['formato' => $parsed['formato']]);
+
+        $cursoCodigo = $parsed['codigo'];
+        $dni = $parsed['dni'];
 
         $curso = Curso::where('codigo', $cursoCodigo)->first();
         $persona = PersonalData::where('dni', $dni)->first();

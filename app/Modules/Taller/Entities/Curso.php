@@ -2,6 +2,7 @@
 
 namespace Modules\Taller\Entities;
 
+use App\Enums\EstadoCertificado;
 use App\Enums\EstadoCurso;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,6 +14,14 @@ use Modules\Taller\Entities\ObservacionCurso;
 class Curso extends Model
 {
     use HasFactory;
+
+    /**
+     * Estado del certificado ya calculado, para no releer el disco en cada uso.
+     *
+     * @var EstadoCertificado|null
+     */
+    private $estadoCertificadoCache = null;
+
     public function getCryptIdAttribute()
     {
 
@@ -49,6 +58,7 @@ class Curso extends Model
         'telegram',
         'direccion_corta',
         'es_nacional',
+        'imagen',
         'creado_por',
         'actualizado_por',
         'fecha_inicio',
@@ -68,7 +78,10 @@ class Curso extends Model
     ];
 
     /**
-     * Obtener los valores posibles para el campo status
+     * Obtener los valores posibles para el campo status (filtro de listados).
+     *
+     * Nota: BORRADOR (10) no se incluye porque el wizard actual no crea filas
+     * en BD hasta finalizar(); vive solo en sesión + temporales en disco.
      *
      * @return array
      */
@@ -127,8 +140,9 @@ class Curso extends Model
     public function estados()
     {
         return $this->belongsToMany(Estado::class, 'taller.curso_estado', 'id_curso', 'id_estado')
-            ->withPivot('created_at')
-            ->orderBy('taller.curso_estado.created_at', 'desc');
+            ->withPivot(['created_at', 'motivo'])
+            ->orderByDesc('taller.curso_estado.created_at')
+            ->orderByDesc('taller.curso_estado.id');
     }
 
     /**
@@ -172,6 +186,11 @@ class Curso extends Model
         return $this->hasMany(ContenidoCurso::class, 'id_curso');
     }
 
+    public function resenasSatisfaccion()
+    {
+        return $this->hasMany(ResenaSatisfaccion::class, 'id_curso', 'id_curso');
+    }
+
     /**
      * Get all inscripciones for the curso.
      */
@@ -185,7 +204,8 @@ class Curso extends Model
      */
     public function inscripcionesActivas()
     {
-        return $this->hasMany(\Modules\Taller\Entities\Inscripcion::class, 'id_curso', 'id_curso')->where('estado', 'activa');
+        return $this->hasMany(\Modules\Taller\Entities\Inscripcion::class, 'id_curso', 'id_curso')
+            ->where('estado', \Modules\Taller\Entities\Inscripcion::ESTADO_APROBADO);
     }
 
     /**
@@ -197,21 +217,81 @@ class Curso extends Model
     }
 
     /**
+     * Estado de la configuración del certificado de este curso.
+     *
+     * Es un valor derivado de los archivos en disco, no un estado del ciclo de
+     * vida del curso: no se guarda en la base de datos ni aparece en el historial
+     * de taller.curso_estado. Es la única fuente para saber si el certificado
+     * está completo, tanto la ficha del curso como el aviso de creación lo
+     * consultan aquí en lugar de recorrer el directorio por su cuenta.
+     *
+     * Se aplica el mismo criterio que usa CertificadoService al emitir el PDF:
+     * la plantilla global cuenta como fondo válido y la firma se busca probando
+     * las extensiones admitidas.
+     *
+     * @return EstadoCertificado
+     */
+    public function estadoCertificado(): EstadoCertificado
+    {
+        if ($this->estadoCertificadoCache !== null) {
+            return $this->estadoCertificadoCache;
+        }
+
+        $base = storage_path('app/public/Certificados');
+
+        $hayPlantilla = \Modules\Taller\Services\CertificadoConfig::rutaPlantilla($this->id_curso) !== null;
+
+        if (!$hayPlantilla) {
+            return $this->estadoCertificadoCache = EstadoCertificado::SIN_PLANTILLA;
+        }
+
+        foreach (['png', 'jpg', 'jpeg'] as $ext) {
+            if (is_file($base . '/cursos/' . $this->id_curso . '_firma.' . $ext)) {
+                return $this->estadoCertificadoCache = EstadoCertificado::CONFIGURADO;
+            }
+        }
+
+        return $this->estadoCertificadoCache = EstadoCertificado::FALTA_FIRMA;
+    }
+
+    /**
+     * Acceso al estado del certificado como atributo: $curso->estado_certificado
+     *
+     * @return EstadoCertificado
+     */
+    public function getEstadoCertificadoAttribute(): EstadoCertificado
+    {
+        return $this->estadoCertificado();
+    }
+
+    /**
      * Actualiza el estado del curso
      *
      * @param int $idEstado
      * @param string|null $motivo
      * @return $this
      */
-    public function agregarEstado($idEstado)
+    public function agregarEstado($idEstado, ?string $motivo = null)
     {
         // Verificar si el estado existe
         $estado = \Modules\Taller\Entities\Estado::findOrFail($idEstado);
 
+        // Validar la transición contra el estado actual (defensa en profundidad:
+        // los controladores ya la validan, pero nadie debe poder saltar estados).
+        $origen = EstadoCurso::tryFrom((int) ($this->estado_actual->id_estado ?? 0));
+        $destino = EstadoCurso::tryFrom((int) $idEstado);
+
+        if ($origen !== null && $destino !== null && !$origen->puedeTransicionarA($destino)) {
+            throw new \InvalidArgumentException(
+                'Transición no permitida de "' . $origen->label() . '" a "' . $destino->label() . '".'
+            );
+        }
+
         // 1. Registrar en el historial (taller.curso_estado)
-        \Illuminate\Support\Facades\DB::table('taller.curso_estado')->insert([
+        DB::table('taller.curso_estado')->insert([
             'id_curso'   => $this->id_curso,
             'id_estado'  => $idEstado,
+            'motivo'     => $motivo,
             'created_at' => now(),
             'updated_at' => now()
         ]);

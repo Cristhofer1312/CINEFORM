@@ -19,9 +19,6 @@ RUN apt-get update && apt-get install -y \
     && pecl install imagick \
     && docker-php-ext-enable imagick
 
-# Node.js y npm para compilar los assets con Vite (npm run build)
-RUN apt-get update && apt-get install -y nodejs npm
-
 # Instalar Composer (gestor de dependencias de PHP)
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

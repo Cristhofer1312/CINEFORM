@@ -16,7 +16,7 @@
             </x-taller.alert>
         @endif
 
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
             <h4 class="fw-bold text-dark mb-0">
                 <i class="fas fa-tasks me-2 text-primary"></i> Requisitos Facilitador
             </h4>

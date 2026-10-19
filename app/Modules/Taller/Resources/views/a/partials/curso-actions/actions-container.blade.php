@@ -93,9 +93,19 @@
 
                     @case('emitir_certificado')
                         @if(isset($inscripcion) && $inscripcion->certificadoAprobado())
-                            <a class="btn btn-gold w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push border-0" style="background: linear-gradient(135deg, #d4af37 0%, #f9d71c 100%); color: #000;" href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}">
-                                <i class="fas fa-award me-2"></i> Obtener Certificado
-                            </a>
+                            @if(($contextoSatisfaccion['disponible'] ?? false) && !($contextoSatisfaccion['respondida'] ?? false))
+                                <a class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push" href="{{ route('taller.cursos.satisfaccion.create', $curso->crypt_id) }}">
+                                    <i class="fas fa-clipboard-check me-2"></i> Responder encuesta
+                                </a>
+                                <div class="alert alert-info text-center small p-3 mb-0 rounded-4 border-0">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Completa la encuesta para habilitar la descarga de tu certificado.
+                                </div>
+                            @else
+                                <a class="btn btn-gold w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push border-0" style="background: linear-gradient(135deg, #d4af37 0%, #f9d71c 100%); color: #000;" href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}">
+                                    <i class="fas fa-award me-2"></i> Obtener Certificado
+                                </a>
+                            @endif
                         @elseif(isset($inscripcion) && $inscripcion->certificadoDenegado())
                             <div class="alert alert-danger text-center small p-3 mb-0 rounded-4 border-0">
                                 <i class="fas fa-times-circle fa-2x mb-2 d-block text-danger opacity-60"></i>

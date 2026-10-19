@@ -16,6 +16,7 @@ enum EstadoCurso: int
     case EN_CURSO = 7;
     case FINALIZADO = 8;
     case CERRADO = 9;
+    case BORRADOR = 10;
 
     /**
      * Obtiene la etiqueta legible del estado
@@ -32,6 +33,7 @@ enum EstadoCurso: int
             self::EN_CURSO => 'En Curso',
             self::FINALIZADO => 'Finalizado',
             self::CERRADO => 'Cerrado',
+            self::BORRADOR => 'Borrador',
         };
     }
 
@@ -50,6 +52,30 @@ enum EstadoCurso: int
             self::EN_CURSO => 'dark',
             self::FINALIZADO => 'success',
             self::CERRADO => 'dark',
+            self::BORRADOR => 'secondary',
         };
+    }
+
+    public function transicionesPermitidas(): array
+    {
+        // POR_ACEPTAR como destino cubre la reasignación de facilitador
+        // (reasignarFacilitador devuelve el curso a Por Aceptar desde 1-5).
+        return match ($this) {
+            self::POR_ACEPTAR => [self::POR_ACEPTAR, self::RECHAZADO, self::DECLINADO, self::EDICION, self::BORRADOR],
+            self::RECHAZADO   => [self::POR_ACEPTAR, self::BORRADOR],
+            self::DECLINADO   => [self::POR_ACEPTAR, self::EDICION, self::BORRADOR],
+            self::EDICION     => [self::POR_ACEPTAR, self::APROBACION, self::EDICION, self::BORRADOR],
+            self::APROBACION  => [self::POR_ACEPTAR, self::INSCRIPCION, self::EDICION, self::RECHAZADO, self::BORRADOR],
+            self::INSCRIPCION => [self::EN_CURSO, self::INSCRIPCION],
+            self::EN_CURSO    => [self::FINALIZADO],
+            self::FINALIZADO  => [self::CERRADO],
+            self::CERRADO     => [],
+            self::BORRADOR    => [self::POR_ACEPTAR],
+        };
+    }
+
+    public function puedeTransicionarA(self $siguiente): bool
+    {
+        return in_array($siguiente, $this->transicionesPermitidas(), true);
     }
 }

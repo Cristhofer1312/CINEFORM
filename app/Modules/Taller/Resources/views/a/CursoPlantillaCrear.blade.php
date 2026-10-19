@@ -4,10 +4,15 @@
 
 @section('content')
 <div class="container-fluid py-4">
+    @if(!empty($esWizard))
+        <div class="row"><div class="col-12">
+            <x-taller.wizard-steps :actual="$pasoActual ?? 4" :completados="$completados ?? []" />
+        </div></div>
+    @endif
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm mb-4" style="border-radius: 15px;">
-                <div class="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
+                <div class="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h5 class="mb-0"><i class="fas fa-arrows-alt me-2"></i> Paso 2: Calibración de Plantilla</h5>
                     <div class="d-flex align-items-center gap-3">
                         <div class="btn-group shadow-sm bg-white rounded">
@@ -18,6 +23,18 @@
                                 <i class="fas fa-redo"></i>
                             </button>
                         </div>
+                        <div class="btn-group shadow-sm bg-white rounded" role="group" aria-label="Zoom del lienzo">
+                            <button type="button" class="btn btn-light btn-sm border-end" onclick="zoomCanvas(-25)" title="Reducir zoom">
+                                <i class="fas fa-search-minus"></i>
+                            </button>
+                            <button type="button" class="btn btn-light btn-sm border-end" id="zoom-label" title="Nivel de zoom" style="min-width:52px;">100%</button>
+                            <button type="button" class="btn btn-light btn-sm" onclick="zoomCanvas(25)" title="Ampliar zoom">
+                                <i class="fas fa-search-plus"></i>
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-sm shadow-sm active" id="btn-snap" onclick="toggleSnap()" title="Ajustar a rejilla de 5 mm">
+                            <i class="fas fa-magnet me-1"></i> Rejilla 5mm
+                        </button>
                         <span class="badge bg-white text-primary">A4 (297 x 210 mm)</span>
                     </div>
                 </div>
@@ -25,7 +42,7 @@
                     <div class="row g-4">
                         {{-- Columna: Controles (Se muestra abajo en móviles) --}}
                         <div class="col-12 col-lg-3 order-2 order-lg-1">
-                            <form action="{{ route('taller.cursos.plantilla.store', $curso->crypt_id) }}" method="POST" enctype="multipart/form-data" id="form-plantilla">
+                            <form @if(!empty($esWizard)) action="{{ route('taller.cursos.wizard.plantilla.store') }}" @else action="{{ route('taller.cursos.plantilla.store', $curso->crypt_id) }}" @endif method="POST" enctype="multipart/form-data" id="form-plantilla">
                                 @csrf
                                 <input type="hidden" name="coords" id="coords-input">
 
@@ -39,7 +56,11 @@
                                         </h2>
                                         <div id="collapsePlantilla" class="accordion-collapse collapse show">
                                             <div class="accordion-body py-2 px-3">
-                                                <input type="file" class="form-control form-control-sm" name="plantilla" accept="image/*" onchange="previewImage(this)">
+                                                <p class="small text-muted mb-2">
+                                                    Debe ser <strong>apaisada</strong> (A4 horizontal, 297 x 210 mm),
+                                                    de hasta 4 MB y 4000 px por lado.
+                                                </p>
+                                                <input type="file" class="form-control form-control-sm" name="plantilla" accept="image/png,image/jpeg" onchange="previewImage(this)">
                                             </div>
                                         </div>
                                     </div>
@@ -78,6 +99,51 @@
                                         </div>
                                     </div>
 
+                                    {{-- Precisión: posición numérica del elemento seleccionado --}}
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button collapsed py-2 px-3 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePrecision">
+                                                <i class="fas fa-crosshairs me-2"></i> Posición Exacta
+                                            </button>
+                                        </h2>
+                                        <div id="collapsePrecision" class="accordion-collapse collapse">
+                                            <div class="accordion-body py-2 px-3">
+                                                <p class="small text-muted mb-2">Haz clic en un elemento del lienzo (o usa <kbd>←↑↓→</kbd>, <kbd>Shift</kbd> = 5 mm) y ajusta aquí al milímetro.</p>
+                                                <div class="mb-2">
+                                                    <label class="small fw-bold" for="precision-key">Elemento</label>
+                                                    <select id="precision-key" class="form-select form-select-sm" onchange="seleccionarElemento(this.value)">
+                                                        <option value="nombre">Nombre</option>
+                                                        <option value="dni">Cédula</option>
+                                                        <option value="qr">Código QR</option>
+                                                        <option value="code">Código</option>
+                                                        <option value="firma">Firma</option>
+                                                    </select>
+                                                </div>
+                                                <div class="row g-2" id="precision-campos">
+                                                    <div class="col-6">
+                                                        <label class="small fw-bold" for="precision-x">X (mm)</label>
+                                                        <input type="number" id="precision-x" class="form-control form-control-sm" step="0.5" min="0" max="297" oninput="posicionExacta()">
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="small fw-bold" for="precision-y">Y (mm)</label>
+                                                        <input type="number" id="precision-y" class="form-control form-control-sm" step="0.5" min="0" max="210" oninput="posicionExacta()">
+                                                    </div>
+                                                    <div class="col-6 precision-dim">
+                                                        <label class="small fw-bold" for="precision-w">Ancho (mm)</label>
+                                                        <input type="number" id="precision-w" class="form-control form-control-sm" step="0.5" min="5" max="297" oninput="posicionExacta()">
+                                                    </div>
+                                                    <div class="col-6 precision-dim">
+                                                        <label class="small fw-bold" for="precision-h">Alto (mm)</label>
+                                                        <input type="number" id="precision-h" class="form-control form-control-sm" step="0.5" min="5" max="210" oninput="posicionExacta()">
+                                                    </div>
+                                                </div>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="restablecerElemento()">
+                                                    <i class="fas fa-undo me-1"></i> Restablecer este elemento
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {{-- Firma Digital --}}
                                     <div class="accordion-item">
                                         <h2 class="accordion-header">
@@ -87,7 +153,7 @@
                                         </h2>
                                         <div id="collapseFirma" class="accordion-collapse collapse">
                                             <div class="accordion-body py-2 px-3">
-                                                <p class="small text-muted mb-2">PNG con fondo transparente recomendado. Arrástrela y redimensione en el lienzo.</p>
+                                                <p class="small text-muted mb-2">PNG con fondo transparente recomendado. Hasta 2 MB y 3000 px por lado. Arrástrela y redimensione en el lienzo.</p>
                                                 <input type="file" class="form-control form-control-sm mb-2" name="firma" accept="image/png,image/jpeg" onchange="previewFirma(this)" id="firma-file-input">
                                                 <div id="firma-preview-wrap" style="display:none;" class="text-center">
                                                     <img id="firma-preview-img" src="" alt="Vista previa" class="img-fluid border rounded mb-1" style="max-height:55px;">
@@ -120,12 +186,19 @@
 
                                 <div class="d-grid gap-2">
                                     <button type="submit" class="btn btn-primary shadow-sm">
-                                        <i class="fas fa-save me-1"></i> Guardar Diseño
+                                        <i class="fas fa-save me-1"></i> @if(!empty($esWizard)) Continuar a Requisitos @else Guardar Diseño @endif
                                     </button>
+
+                                    <button type="button" class="btn btn-outline-dark shadow-sm" onclick="abrirPruebaPdf()">
+                                        <i class="fas fa-file-pdf me-1"></i> Vista previa PDF
+                                    </button>
+                                    <div class="small text-muted text-center" id="autosave-aviso" style="display:none;"></div>
                                     
+                                    @if(empty($esWizard))
                                     <a href="{{ route('taller.certificados.probar', $curso->crypt_id) }}" target="_blank" class="btn btn-dark shadow-sm">
                                         <i class="fas fa-file-pdf me-1"></i> Probar Emisión
                                     </a>
+                                    @endif
 
                                     <div class="form-check mt-1">
                                         <input class="form-check-input" type="checkbox" name="guardar_default" id="guardar-default" value="1">
@@ -134,15 +207,34 @@
                                             Guardar predeterminado
                                         </label>
                                     </div>
-                                    <a href="{{ route('taller.cursos.requisitos.create', $curso->crypt_id) }}" class="btn btn-outline-secondary btn-sm">
+                                    <a href="{{ $esWizard ? route('taller.cursos.wizard.requisitos.create') : route('taller.cursos.requisitos.create', $curso->crypt_id) }}" class="btn btn-outline-secondary btn-sm">
                                         Omitir calibración
                                     </a>
+                                    @if(!empty($esWizard))
+                                    <a href="{{ route('taller.cursos.wizard.paso3.create') }}" class="btn btn-link btn-sm text-muted fw-bold text-decoration-none">
+                                        <i class="fas fa-arrow-left me-1"></i> Atrás (temario)
+                                    </a>
+                                    @endif
                                 </div>
                             </form>
                         </div>
 
                         {{-- Columna: Lienzo Interactivo (Se muestra arriba en móviles) --}}
                         <div class="col-12 col-lg-9 order-1 order-lg-2">
+                            @unless($plantillaUrl)
+                                <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+                                    <i class="fas fa-exclamation-triangle mt-1"></i>
+                                    <div>
+                                        <strong class="d-block">Todavía no hay una imagen de plantilla</strong>
+                                        <span class="small">
+                                            Sin una plantilla el certificado se emitiría sin diseño de fondo.
+                                            Súbela en <em>Imagen de Fondo</em> o acepta que se use una plantilla global.
+                                            Mientras tanto puedes igual calibrar las posiciones: el lienzo
+                                            representa el A4 horizontal (297 × 210 mm).
+                                        </span>
+                                    </div>
+                                </div>
+                            @endunless
                             <div class="preview-wrapper position-relative border shadow-sm rounded bg-light overflow-hidden mx-auto" id="canvas-wrapper">
                                 <div id="certificate-canvas" class="position-relative" 
                                      style="aspect-ratio: 297/210; background-image: url('{{ $plantillaUrl }}'); background-size: 100% 100%; background-repeat: no-repeat;">
@@ -382,6 +474,52 @@
         border-color: #dc3545 !important;
         box-shadow: 0 4px 16px rgba(220,53,69,0.3) !important;
     }
+
+    /* Elemento seleccionado con clic o con el panel de precisión */
+    .draggable-field.selected {
+        outline: 2px solid #198754;
+        z-index: 25;
+    }
+    .draggable-field.selected .field-label {
+        display: block;
+        background: #198754;
+    }
+
+    /* Rejilla de 5 mm (snap visual). 5mm en % del lienzo A4. */
+    #certificate-canvas.grid-on::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 5;
+        background-image:
+            linear-gradient(to right, rgba(13,110,253,0.12) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(13,110,253,0.12) 1px, transparent 1px);
+        background-size: calc(100% / (297 / 5)) calc(100% / (210 / 5));
+    }
+
+    /* En táctil no hay hover: handles siempre visibles y más grandes. */
+    @media (pointer: coarse) {
+        .resize-handle,
+        .resize-handle-bottom,
+        .resize-handle-corner {
+            opacity: 1;
+            width: 20px;
+            height: 20px;
+        }
+        .resize-handle {
+            right: -10px;
+            height: 30px;
+        }
+        .resize-handle-bottom {
+            bottom: -10px;
+            width: 30px;
+        }
+        .resize-handle-corner {
+            bottom: -10px;
+            right: -10px;
+        }
+    }
     
     #coord-list .coord-item {
         display: flex;
@@ -395,6 +533,33 @@
     }
 </style>
 
+<!-- Modal: vista previa PDF en vivo -->
+<div class="modal fade" id="pdf-preview-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width: 1100px;">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-dark text-white py-3 px-4">
+                <h5 class="modal-title fw-bold"><i class="fas fa-file-pdf me-2"></i> Vista previa del certificado</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-3 bg-light">
+                <div id="pdf-preview-aviso" class="alert alert-info mb-3"></div>
+                @if(!empty($esWizard))
+                <div class="alert alert-warning py-2 small mb-3">
+                    <i class="fas fa-info-circle me-1"></i> Muestra con tus datos y un QR de ejemplo (el curso aún no existe).
+                </div>
+                @endif
+                <iframe id="pdf-preview-frame" title="Vista previa PDF" style="width:100%; height:min(65vh, 600px); border:0; background:#fff;" class="rounded shadow-sm"></iframe>
+            </div>
+            <div class="modal-footer border-0 p-3">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4" onclick="actualizarPruebaPdf()">
+                    <i class="fas fa-sync-alt me-1"></i> Actualizar vista
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // ─── Constantes FPDF ───────────────────────────────────────────────
     const FPDF_W = 297;   // mm ancho A4 landscape
@@ -403,6 +568,92 @@
 
     // ─── Estado mutable de coordenadas ─────────────────────────────────
     let coords = @json($coords);
+
+    // Base institucional para "Restablecer elemento" (nunca se muta).
+    const COORDS_BASE = @json(\Modules\Taller\Services\CertificadoConfig::coordsBase());
+
+    // ─── Snap a rejilla + selección + zoom ─────────────────────────────
+    const SNAP_MM = 5;
+    let snapActivo = true;
+    let selectedKey = null;
+    let zoomPct = 100;
+    let teclaTimer = null;
+
+    const snap = (v) => snapActivo ? Math.round(v / SNAP_MM) * SNAP_MM : v;
+
+    function toggleSnap() {
+        snapActivo = !snapActivo;
+        canvas.classList.toggle('grid-on', snapActivo);
+        const btn = document.getElementById('btn-snap');
+        if (btn) {
+            btn.classList.toggle('active', snapActivo);
+            btn.classList.toggle('btn-primary', snapActivo);
+            btn.classList.toggle('btn-light', !snapActivo);
+        }
+    }
+
+    function zoomCanvas(delta) {
+        zoomPct = Math.max(50, Math.min(150, zoomPct + delta));
+        const wrap = document.getElementById('canvas-wrapper');
+        if (wrap) wrap.style.maxWidth = (1000 * zoomPct / 100) + 'px';
+        const lbl = document.getElementById('zoom-label');
+        if (lbl) lbl.textContent = zoomPct + '%';
+        updatePositions();
+    }
+
+    function seleccionarElemento(key) {
+        selectedKey = (key && coords[key]) ? key : null;
+        canvas.querySelectorAll('.draggable-field').forEach((el) => {
+            el.classList.toggle('selected', el.getAttribute('data-key') === selectedKey);
+        });
+        const sel = document.getElementById('precision-key');
+        if (sel && selectedKey) sel.value = selectedKey;
+        syncPrecisionPanel();
+    }
+
+    function restablecerElemento() {
+        const key = selectedKey || document.getElementById('precision-key')?.value;
+        if (!key || !COORDS_BASE[key]) return;
+        coords[key] = JSON.parse(JSON.stringify(COORDS_BASE[key]));
+        updatePositions();
+        updatePanel();
+        saveState();
+    }
+
+    // Guarda con coalescencia (teclas/flechas): evita inflar el historial.
+    function saveStateSoon() {
+        clearTimeout(teclaTimer);
+        teclaTimer = setTimeout(saveState, 500);
+    }
+
+    function syncPrecisionPanel() {
+        const key = selectedKey || document.getElementById('precision-key')?.value || 'nombre';
+        const c = coords[key];
+        if (!c) return;
+        const set = (id, v) => { const i = document.getElementById(id); if (i) i.value = (v ?? ''); };
+        set('precision-x', (+c.x).toFixed(1));
+        set('precision-y', (+c.y).toFixed(1));
+        set('precision-w', c.w != null ? (+c.w).toFixed(1) : '');
+        set('precision-h', c.h != null ? (+c.h).toFixed(1) : '');
+    }
+
+    function posicionExacta() {
+        const key = document.getElementById('precision-key')?.value;
+        if (!key || !coords[key]) return;
+        const get = (id, min, max, actual) => {
+            const v = parseFloat(document.getElementById(id)?.value);
+            if (Number.isNaN(v)) return actual;
+            return Math.max(min, Math.min(v, max));
+        };
+        coords[key].x = get('precision-x', 0, FPDF_W, coords[key].x);
+        coords[key].y = get('precision-y', 0, FPDF_H, coords[key].y);
+        if (coords[key].w != null) coords[key].w = get('precision-w', 5, FPDF_W, coords[key].w);
+        if (coords[key].h != null) coords[key].h = get('precision-h', 5, FPDF_H, coords[key].h);
+        if (!selectedKey) seleccionarElemento(key);
+        updatePositions();
+        updatePanel();
+        saveStateSoon();
+    }
 
     // ─── Referencias DOM ───────────────────────────────────────────────
     const canvas       = document.getElementById('certificate-canvas');
@@ -415,6 +666,47 @@
     const history = [];
     let historyIndex = -1;
 
+    // Autoguardado del wizard: persiste coords.json sin salir del editor.
+    const ES_WIZARD = @json(!empty($esWizard));
+    const AUTOSAVE_URL = @json(!empty($esWizard) ? route('taller.cursos.wizard.plantilla.store') : '');
+    let autosaveTimer = null;
+    let lastSavedCoords = '';
+
+    function programarAutoguardado() {
+        if (!ES_WIZARD || !AUTOSAVE_URL) return;
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(enviarAutoguardado, 800);
+    }
+
+    async function enviarAutoguardado() {
+        const serial = JSON.stringify(coords);
+        if (serial === lastSavedCoords) return;
+        const tokenInput = document.querySelector('#form-plantilla input[name="_token"]');
+        try {
+            const resp = await fetch(AUTOSAVE_URL, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': tokenInput ? tokenInput.value : '',
+                },
+                body: JSON.stringify({ coords: serial }),
+            });
+            if (resp.ok) {
+                lastSavedCoords = serial;
+                const aviso = document.getElementById('autosave-aviso');
+                if (aviso) {
+                    const hora = new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    aviso.textContent = 'Borrador guardado ' + hora;
+                    aviso.style.display = '';
+                }
+            }
+        } catch (e) {
+            // Sin red o sesión expirada: el submit clásico sigue disponible.
+        }
+    }
+
     function saveState() {
         const serialized = JSON.stringify(coords);
         if (historyIndex >= 0 && history[historyIndex] === serialized) return;
@@ -424,6 +716,7 @@
         history.push(serialized);
         historyIndex = history.length - 1;
         updateUndoRedoButtons();
+        programarAutoguardado();
     }
 
     function undo() {
@@ -495,6 +788,8 @@
             const lbl = document.getElementById(`val-${key}`);
             if (lbl && coords[key].size) lbl.innerText = coords[key].size + 'pt';
         });
+
+        syncPrecisionPanel();
 
         coordList.innerHTML = Object.keys(coords).map(key => `
             <div class="coord-item">
@@ -568,8 +863,8 @@
         drag.el.style.left = newLeft + 'px';
         drag.el.style.top  = newTop  + 'px';
 
-        coords[drag.key].x = (newLeft / cr.width)  * FPDF_W;
-        coords[drag.key].y = (newTop  / cr.height) * FPDF_H;
+        coords[drag.key].x = snap((newLeft / cr.width)  * FPDF_W);
+        coords[drag.key].y = snap((newTop  / cr.height) * FPDF_H);
 
         coordsInput.value = JSON.stringify(coords);
         updatePanel();
@@ -649,19 +944,19 @@
                 newW = newH * ratio;
             }
 
-            coords[resz.key].w = newW;
-            coords[resz.key].h = newH;
+            coords[resz.key].w = snap(newW);
+            coords[resz.key].h = snap(newH);
             resz.el.style.width = (newW / FPDF_W * 100) + '%';
             resz.el.style.height = (newH / FPDF_H * 100) + '%';
         } else {
             if (resz.dir === 'right') {
                 const newW = Math.max(10, Math.min(resz.startW + dX, maxW));
-                coords[resz.key].w = newW;
+                coords[resz.key].w = snap(newW);
                 resz.el.style.width = (newW / FPDF_W * 100) + '%';
             }
             if (resz.dir === 'bottom') {
                 const newH = Math.max(5, Math.min(resz.startH + dY, maxH));
-                coords[resz.key].h = newH;
+                coords[resz.key].h = snap(newH);
                 resz.el.style.height = (newH / FPDF_H * 100) + '%';
             }
         }
@@ -685,12 +980,14 @@
     function initDrag() {
         canvas.querySelectorAll('.draggable-field').forEach(el => {
             el.addEventListener('mousedown', e => {
+                seleccionarElemento(el.getAttribute('data-key'));
                 if (e.target.classList.contains('resize-handle') ||
                     e.target.classList.contains('resize-handle-bottom') ||
                     e.target.classList.contains('resize-handle-corner')) return;
                 onDragStart(e);
             });
             el.addEventListener('touchstart', e => {
+                seleccionarElemento(el.getAttribute('data-key'));
                 if (e.target.classList.contains('resize-handle') ||
                     e.target.classList.contains('resize-handle-bottom') ||
                     e.target.classList.contains('resize-handle-corner')) return;
@@ -709,8 +1006,92 @@
         });
     }
 
+    // ─── Validación de imágenes antes de subirlas ──────────────────────
+    // Espejo en JS de Modules\Taller\Rules\ImagenCertificado. Avisa con Swal en
+    // el momento de elegir el archivo, sin subir nada ni recargar la página.
+    const LIMITES_CERTIFICADO = {
+        plantilla: { etiqueta: 'La plantilla', maxMB: 4,    maxPx: 4000, maxAltoSobreAncho: 1, obligatorioHorizontal: true },
+        firma:     { etiqueta: 'La firma',     maxMB: 2,    maxPx: 3000, maxAltoSobreAncho: 4, obligatorioHorizontal: false }
+    };
+
+    function avisarImagenInvalida(titulo, texto) {
+        if (typeof Swal !== 'undefined' && typeof Swal.fire === 'function') {
+            Swal.fire({
+                icon: 'warning',
+                title: titulo,
+                text: texto,
+                confirmButtonColor: '#f0a500',
+                confirmButtonText: 'Entendido'
+            });
+        } else {
+            alert(titulo + '\n\n' + texto);
+        }
+    }
+
+    function validarImagenCertificado(file, tipo) {
+        return new Promise(resolve => {
+            const L = LIMITES_CERTIFICADO[tipo];
+            if (!file || !L) { resolve(null); return; }
+
+            // 1) Peso
+            const mb = file.size / (1024 * 1024);
+            if (mb > L.maxMB) {
+                resolve(`"${L.etiqueta}" pesa ${mb.toFixed(1).replace('.', ',')} MB y el máximo es ${L.maxMB} MB. `
+                      + `Optimiza la imagen (por ejemplo, expórtala como JPG con calidad 80) e inténtalo de nuevo.`);
+                return;
+            }
+
+            // 2) Dimensiones reales
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                const ancho = img.naturalWidth;
+                const alto = img.naturalHeight;
+
+                if (ancho > L.maxPx || alto > L.maxPx) {
+                    resolve(`"${L.etiqueta}" mide ${ancho} x ${alto} px y el máximo es ${L.maxPx} px por lado. `
+                          + `Reduce la resolución e inténtalo de nuevo.`);
+                    return;
+                }
+
+                if (alto > ancho * L.maxAltoSobreAncho) {
+                    resolve(L.obligatorioHorizontal
+                        ? `"${L.etiqueta}" es demasiado larga: mide ${ancho} x ${alto} px y es más alta que ancha. `
+                          + `El certificado es horizontal (A4, 297 x 210 mm), así que necesitas una imagen apaisada.`
+                        : `"${L.etiqueta}" es demasiado larga: mide ${ancho} x ${alto} px. `
+                          + `Usa una firma más horizontal.`);
+                    return;
+                }
+
+                resolve(null);
+            };
+
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                resolve(`No pudimos leer "${L.etiqueta}". Verifica que sea un archivo PNG o JPG válido.`);
+            };
+
+            img.src = url;
+        });
+    }
+
+    async function revisarImagen(input, tipo) {
+        if (!input.files || !input.files[0]) return true;
+
+        const error = await validarImagenCertificado(input.files[0], tipo);
+        if (error) {
+            avisarImagenInvalida('Imagen no válida', error);
+            input.value = '';   // evita que se envíe un archivo que ya rechazamos
+            return false;
+        }
+        return true;
+    }
+
     // ─── Previews ──────────────────────────────────────────────────────
-    function previewImage(input) {
+    async function previewImage(input) {
+        if (!(await revisarImagen(input, 'plantilla'))) return;
         if (input.files && input.files[0]) {
             const reader = new FileReader();
             reader.onload = e => {
@@ -720,7 +1101,8 @@
         }
     }
 
-    function previewFirma(input) {
+    async function previewFirma(input) {
+        if (!(await revisarImagen(input, 'firma'))) return;
         if (!input.files || !input.files[0]) return;
         const reader = new FileReader();
         reader.onload = e => {
@@ -749,9 +1131,60 @@
         reader.readAsDataURL(input.files[0]);
     }
 
+        // ─── Vista previa PDF en vivo (modal) ─────────────────────────────
+    const ES_WIZARD_PDF = @json(!empty($esWizard));
+    const PRUEBA_WIZARD_URL = @json(!empty($esWizard) ? route('taller.certificados.prueba.wizard') : '');
+    const PRUEBA_CURSO_URL = @json(empty($esWizard) && !empty($curso->crypt_id) ? route('taller.certificados.probar', $curso->crypt_id) : '');
+    let pdfObjUrl = null;
+
+    function abrirPruebaPdf() {
+        const modalEl = document.getElementById('pdf-preview-modal');
+        if (!modalEl) return;
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        actualizarPruebaPdf();
+    }
+
+    async function actualizarPruebaPdf() {
+        const frame = document.getElementById('pdf-preview-frame');
+        const aviso = document.getElementById('pdf-preview-aviso');
+        if (!frame) return;
+        frame.removeAttribute('src');
+        if (aviso) {
+            aviso.style.display = '';
+            aviso.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Generando vista previa...';
+        }
+        try {
+            let resp;
+            if (ES_WIZARD_PDF && PRUEBA_WIZARD_URL) {
+                const tokenInput = document.querySelector('#form-plantilla input[name="_token"]');
+                resp = await fetch(PRUEBA_WIZARD_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/pdf, application/json',
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': tokenInput ? tokenInput.value : '',
+                    },
+                    body: JSON.stringify({ coords: JSON.stringify(coords) }),
+                });
+            } else if (PRUEBA_CURSO_URL) {
+                resp = await fetch(PRUEBA_CURSO_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            } else {
+                throw new Error('sin-origen');
+            }
+            if (!resp.ok) throw new Error('http-' + resp.status);
+            const blob = await resp.blob();
+            if (pdfObjUrl) URL.revokeObjectURL(pdfObjUrl);
+            pdfObjUrl = URL.createObjectURL(blob);
+            frame.src = pdfObjUrl;
+            if (aviso) aviso.style.display = 'none';
+        } catch (e) {
+            if (aviso) aviso.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i> No se pudo generar la vista previa. Guarda el diseño e inténtalo de nuevo.</span>';
+        }
+    }
+
     // ─── Inicialización ────────────────────────────────────────────────
-    document.addEventListener('DOMContentLoaded', () => {
-        // QR: cuadrado por defecto
+    document.addEventListener('DOMContentLoaded', () => {        // QR: cuadrado por defecto
         if (!coords.qr)    coords.qr    = { x: 15.0,  y: 135.0, w: 20, h: 20 };
         if (!coords.qr.h)  coords.qr.h  = coords.qr.w ?? 20;
 
@@ -777,6 +1210,9 @@
 
         // Atajos de teclado
         document.addEventListener('keydown', e => {
+            // No robar teclas mientras se escribe en inputs del panel
+            const tag = (e.target?.tagName || '').toLowerCase();
+            const escribiendo = tag === 'input' || tag === 'textarea' || tag === 'select';
             if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
                 if (e.key.toLowerCase() === 'z') {
                     e.preventDefault();
@@ -788,8 +1224,29 @@
             } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
                 redo();
+            } else if (!escribiendo && selectedKey && coords[selectedKey]) {
+                // Mover el elemento seleccionado con flechas (Shift = 5 mm)
+                const paso = (e.shiftKey ? SNAP_MM : 1);
+                const c = coords[selectedKey];
+                let movio = true;
+                if (e.key === 'ArrowLeft')       c.x = Math.max(0, (c.x ?? 0) - paso);
+                else if (e.key === 'ArrowRight') c.x = Math.min(FPDF_W, (c.x ?? 0) + paso);
+                else if (e.key === 'ArrowUp')    c.y = Math.max(0, (c.y ?? 0) - paso);
+                else if (e.key === 'ArrowDown')  c.y = Math.min(FPDF_H, (c.y ?? 0) + paso);
+                else if (e.key === 'Escape')     seleccionarElemento(null);
+                else movio = false;
+                if (movio && e.key !== 'Escape') {
+                    e.preventDefault();
+                    updatePositions();
+                    updatePanel();
+                    saveStateSoon();
+                }
+            } else if (!escribiendo && e.key === 'Escape') {
+                seleccionarElemento(null);
             }
         });
+
+        canvas.classList.add('grid-on');
 
         window.addEventListener('resize', updatePositions);
     });

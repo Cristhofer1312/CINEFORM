@@ -10,7 +10,7 @@
         <div class="col-12">
             <div class="card mb-3 shadow-sm overflow-hidden" style="border-radius: 15px;">
                 <div class="card-header bg-gradient-primary text-white py-3">
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                         <h5 class="mb-0">
                             <i class="fas fa-book-reader me-2"></i> Mis Cursos Inscritos
                         </h5>
@@ -106,7 +106,7 @@
                                         <p class="card-text text-muted">
                                             {{ Str::limit($curso->descripcion ?? 'Sin descripción', 100) }}
                                         </p>
-                                        <div class="d-flex justify-content-between align-items-center mt-3">
+                                        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
                                             <div>
                                                 <small class="text-muted me-3">
                                                     <i class="fas fa-book me-1"></i>
@@ -121,12 +121,23 @@
                                             </div>
                                             <div class="d-flex gap-2">
                                                 @if(in_array($curso->estado_actual->id_estado ?? 0, [8, 9]))
-                                                    <a href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}" 
-                                                       class="btn btn-sm btn-outline-primary" 
-                                                       data-bs-toggle="tooltip" 
-                                                       title="Descargar Certificado">
-                                                        <i class="fas fa-certificate"></i>
-                                                    </a>
+                                                    @if($curso->certificado_aprobado)
+                                                        @if($curso->ya_respondio)
+                                                            <a href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}"
+                                                               class="btn btn-sm btn-outline-primary"
+                                                               data-bs-toggle="tooltip"
+                                                               title="Descargar Certificado">
+                                                                <i class="fas fa-certificate"></i>
+                                                            </a>
+                                                        @else
+                                                            <a href="{{ route('taller.cursos.satisfaccion.create', $curso->crypt_id) }}"
+                                                               class="btn btn-sm btn-outline-info"
+                                                               data-bs-toggle="tooltip"
+                                                               title="Responder encuesta para descargar el certificado">
+                                                                <i class="fas fa-clipboard-check"></i>
+                                                            </a>
+                                                        @endif
+                                                    @endif
                                                 @endif
                                                 <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
                                                     class="btn btn-sm btn-success">

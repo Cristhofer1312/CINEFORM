@@ -109,14 +109,18 @@ class CertificacionPanelController extends BaseController
         ]);
 
         try {
-            Mail::send('taller::emails.certificacion_aprobada', [
+            Mail::queue('taller::emails.certificacion_aprobada', [
                 'inscripcion' => $inscripcion,
             ], function ($email) use ($inscripcion) {
                 $email->subject('Certificación de Curso - Aprobada');
                 $email->to($inscripcion->persona->user->email);
             });
         } catch (\Exception $e) {
-            // No detenemos el proceso si falla el correo
+            // No detenemos el proceso si falla el correo, pero queda registrado.
+            \Illuminate\Support\Facades\Log::error('No se pudo encolar el correo de certificación aprobada', [
+                'id_inscripcion' => $inscripcion->id_inscripcion,
+                'mensaje' => $e->getMessage(),
+            ]);
         }
 
         return back()->with('success', 'Certificación aprobada para ' . $inscripcion->persona->nombre_completo);
@@ -144,14 +148,18 @@ class CertificacionPanelController extends BaseController
         ]);
 
         try {
-            Mail::send('taller::emails.certificacion_rechazada', [
+            Mail::queue('taller::emails.certificacion_rechazada', [
                 'inscripcion' => $inscripcion,
             ], function ($email) use ($inscripcion) {
                 $email->subject('Certificación de Curso - Observaciones');
                 $email->to($inscripcion->persona->user->email);
             });
         } catch (\Exception $e) {
-            // No detenemos el proceso si falla el correo
+            // No detenemos el proceso si falla el correo, pero queda registrado.
+            \Illuminate\Support\Facades\Log::error('No se pudo encolar el correo de certificación denegada', [
+                'id_inscripcion' => $inscripcion->id_inscripcion,
+                'mensaje' => $e->getMessage(),
+            ]);
         }
 
         return back()->with('success', 'Certificación denegada para ' . $inscripcion->persona->nombre_completo);

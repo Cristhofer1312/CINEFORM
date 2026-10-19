@@ -3,6 +3,7 @@
 namespace Modules\Taller\Services;
 
 use App\Constants\SecurityAction;
+use App\Enums\EstadoCurso;
 
 /**
  * Servicio: Condicional de Estados del Curso (Basado en Capacidades)
@@ -72,10 +73,48 @@ class CondicionalEstadoCurso
             'consultar_asistencia' => 'operativo',
         ],
         9 => [ // Cerrado
-            'ver_archivo' => 'publico',
-            'gestionar' => 'gestion',
+            'ver_archivo'        => 'publico',
+            'emitir_certificado' => 'participante',
+            'gestionar'          => 'gestion',
         ],
     ];
+
+    /**
+     * Estados en los que se permite ajustar la plantilla del certificado.
+     *
+     * Empieza en Por Aceptar (recién creado, todavía en revisión) y termina en
+     * Finalizado. Quedan fuera Rechazado (2), Cerrado (9) y Borrador (10).
+     */
+    public const ESTADOS_AJUSTE_CERTIFICADO = [
+        EstadoCurso::POR_ACEPTAR->value,
+        EstadoCurso::DECLINADO->value,
+        EstadoCurso::EDICION->value,
+        EstadoCurso::APROBACION->value,
+        EstadoCurso::INSCRIPCION->value,
+        EstadoCurso::EN_CURSO->value,
+        EstadoCurso::FINALIZADO->value,
+    ];
+
+    /**
+     * Indica si el usuario puede entrar al editor de plantilla del certificado.
+     *
+     * La plantilla y la firma son documentos de la institución, no del curso, así
+     * que sólo quien tiene GESTIONAR_CURSO llega hasta aquí. El facilitador es
+     * dueño del curso y edita sus datos y contenidos, pero no interviene en el
+     * diseño del certificado que emite la institución.
+     *
+     * Es la única fuente de verdad: la consumen tanto la capacidad que dibuja el
+     * botón como la autorización del controlador, para que no puedan divergir.
+     *
+     * @param int|string $estadoId
+     * @param bool $esGestor
+     * @return bool
+     */
+    public function puedeAjustarCertificado($estadoId, $esGestor)
+    {
+        return (bool) $esGestor
+            && in_array((int) $estadoId, self::ESTADOS_AJUSTE_CERTIFICADO, true);
+    }
 
     /**
      * Resuelve el conjunto de capacidades para el usuario actual
@@ -143,12 +182,9 @@ class CondicionalEstadoCurso
             $misCapacidades[] = 'ver_participantes';
         }
 
-        // Capacidad de ajustar certificado (Solo para Gestión o Facilitador)
-        // Disponible desde que el curso está en Aprobación hasta que se cierra (antes de archivar)
-        if ($esGestor || $esOperativo) {
-            if (in_array($estadoId, [5, 6, 7, 8])) {
-                $misCapacidades[] = 'ajustar_certificado';
-            }
+        // Capacidad de ajustar la plantilla del certificado (solo Gestión)
+        if ($this->puedeAjustarCertificado($estadoId, $esGestor)) {
+            $misCapacidades[] = 'ajustar_certificado';
         }
 
         // Capacidad de gestionar certificación (Solo Gestor y Operativo, en Finalizado o Cerrado)

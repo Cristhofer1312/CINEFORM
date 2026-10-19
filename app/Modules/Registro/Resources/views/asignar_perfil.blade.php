@@ -83,7 +83,7 @@
                                             @csrf
                                             <input type="hidden" name="id_persona" id="hidden_id_persona">
                                             <div class="row"
-                                                style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
+                                                style="max-height: min(400px, 60vh); overflow-y: auto;">
                                                 @forelse($perfiles as $perfil)
                                                     <div class="col-12 mb-3">
                                                         <label class="card perfil-card mb-0 cursor-pointer d-block p-3">

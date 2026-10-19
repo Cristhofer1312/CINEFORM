@@ -42,7 +42,7 @@
             @endif
 
             {{-- Encabezado --}}
-            <div class="d-flex justify-content-between align-items-end mb-4 px-2">
+            <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4 px-2">
                 <div>
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb mb-1 p-0 bg-transparent" style="font-size:0.8rem;">
@@ -61,7 +61,7 @@
             SECCIÓN 1: ACTIVIDADES FORMATIVAS
             ════════════════════════════════════════════════════════════ --}}
             <div class="card border-0 shadow-card rounded-4 mb-5 overflow-hidden border-top border-4 border-primary">
-                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div class="d-flex align-items-center">
                         <div class="icon-box bg-primary text-white rounded-3 me-3 p-2 shadow-sm">
                             <i class="fas fa-graduation-cap fs-5"></i>
@@ -155,7 +155,7 @@
             ════════════════════════════════════════════════════════════ --}}
             <div class="card border-0 shadow-card rounded-4 mb-5 overflow-hidden border-top border-4"
                 style="border-color: #0891b2 !important;">
-                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div class="d-flex align-items-center">
                         <div class="icon-box text-white rounded-3 me-3 p-2 shadow-sm" style="background:#0891b2;">
                             <i class="fas fa-film fs-5"></i>

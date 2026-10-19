@@ -166,6 +166,22 @@
 
             @endif
 
+            @if($errors->any() && $errors->has('error-message'))
+                $.notify({
+                    icon: 'icon-bell',
+                    title: APP_NAME,
+                    message: "{{ $errors->first('error-message') }}",
+                }, {
+                    type: 'danger',
+                    placement: {
+                        from: "bottom",
+                        align: "right"
+                    },
+                    time: 5000,
+                });
+
+            @endif
+
             setInterval(function () { $("#reload-img").click(); }, 120000);
 
         });

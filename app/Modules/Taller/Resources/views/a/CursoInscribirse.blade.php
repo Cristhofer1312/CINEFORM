@@ -100,7 +100,7 @@
             </div>
             @endif
 
-            <div class="d-flex justify-content-between align-items-center mb-5">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-5">
                 <a href="{{ route('taller.cursos.show', $curso->id_curso) }}" class="btn btn-light fw-bold px-4 rounded-pill">
                     <i class="fas fa-arrow-left me-2"></i> Volver al curso
                 </a>

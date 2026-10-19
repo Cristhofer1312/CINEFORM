@@ -141,7 +141,7 @@
 
                 <div class="col-12 col-md-12 text-center">
 
-                    <button id="save" type="button" class="btn btn-large btn-info">
+                    <button id="save" type="button" class="btn btn-large btn-primary">
                         <i class="fa fa-save"></i>
                         {{__('Save')}}
                     </button>

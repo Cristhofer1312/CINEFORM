@@ -26,17 +26,45 @@ class SecurityController extends Controller
 {
 
     private $NAC_VENEZOLANA = 1;
-    private $PAIS_VENEZUELA = 1;
     private $PROFILE_TRAMITES = 3;
 
-    public function photo(Request $request)
+    private function storeAvatar($imagenCodificada)
     {
-        if (\Request::isMethod('get')) {
-            return view('security::users.photo');
-        } else {
-            // TODO: Implementar lógica de subida de foto
-            return back()->withErrors(['error-message' => __('Method not implemented')]);
+        if (!is_string($imagenCodificada) || empty($imagenCodificada)) {
+            return false;
         }
+
+        if (!preg_match('#^data:image/[a-z0-9.+-]+;base64,#i', $imagenCodificada)) {
+            return false;
+        }
+
+        list(, $imagenCodificada) = explode(',', $imagenCodificada, 2);
+        $imagenCodificada = base64_decode($imagenCodificada, true);
+
+        if ($imagenCodificada === false) {
+            return false;
+        }
+
+        // Validar que el contenido decodificado sea realmente una imagen
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->buffer($imagenCodificada) ?: '';
+        if (!preg_match('#^image/#i', $mime)) {
+            return false;
+        }
+
+        $fileName = Auth::user()->id . '.png';
+        $file_fin = "app" . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "img" . DIRECTORY_SEPARATOR . "avatars" . DIRECTORY_SEPARATOR . $fileName;
+
+        $directorio = dirname(storage_path($file_fin));
+        if (!File::isDirectory($directorio)) {
+            File::makeDirectory($directorio, 0755, true, true);
+        }
+
+        if (File::exists(storage_path($file_fin))) {
+            File::delete(storage_path($file_fin));
+        }
+
+        return File::put(storage_path($file_fin), $imagenCodificada) !== false;
     }
 
     public function file_admin($id = null)
@@ -193,21 +221,49 @@ class SecurityController extends Controller
 
     public function show_avatar($img)
     {
-        //dd(Encryptor::encrypt(10));
-        $num = Encryptor::decrypt($img);
+        // El middleware DecryptIds ya descifra el parámetro {img} por lo que
+        // puede llegar como id numérico; si aún viene cifrado, lo desciframos aquí.
+        $num = is_numeric($img) ? $img : Encryptor::decrypt($img);
+
+        if (!is_numeric($num) || $num < 0) {
+            abort(404);
+        }
 
         $path = storage_path('app/public/img/avatars/' . $num . '.png');
-        //dd();
         if (!File::exists($path)) {
-            //return response()->json(['message' => 'Image not found.'], 404);
-            $path = storage_path('app/public/img/avatars/0.png');
+            abort(404);
         }
 
         $file = File::get($path);
         $type = File::mimeType($path);
+        $lastModified = File::lastModified($path);
+        $etag = md5($file);
+
+        $cacheHeaders = [
+            'Cache-Control' => 'public, max-age=86400',
+        ];
+
+        // ETag: si el navegador ya tiene esta versión exacta de la imagen, 304
+        $requestIfNoneMatch = request()->header('If-None-Match');
+        if ($requestIfNoneMatch !== null && trim($requestIfNoneMatch) === '"' . $etag . '"') {
+            return response(null, 304)
+                ->header('Cache-Control', $cacheHeaders['Cache-Control'])
+                ->header('ETag', '"' . $etag . '"');
+        }
+
+        // Last-Modified: 304 si la imagen no cambió desde la última petición
+        $requestIfModified = request()->header('If-Modified-Since');
+        if ($requestIfModified !== null && $lastModified <= \Carbon\Carbon::parse($requestIfModified)->getTimestamp()) {
+            return response(null, 304)
+                ->header('Cache-Control', $cacheHeaders['Cache-Control'])
+                ->header('Last-Modified', gmdate('D, d M Y H:i:s', $lastModified) . ' GMT');
+        }
 
         $response = Response::make($file, 200);
         $response->header("Content-Type", $type);
+        $response->header('Cache-Control', $cacheHeaders['Cache-Control']);
+        $response->header('Last-Modified', gmdate('D, d M Y H:i:s', $lastModified) . ' GMT');
+        $response->header('ETag', '"' . $etag . '"');
 
         return $response;
     }
@@ -298,7 +354,7 @@ class SecurityController extends Controller
                             $User->username = "";
                             $User->password = Hash::make($request->password);
                             $User->phone = "";
-                            $User->country_id = $this->PAIS_VENEZUELA;
+                            $User->country_id = $Country ? $Country->id : null;
                             $User->profile_id = $this->PROFILE_TRAMITES;
 
                             $User->active = 0;
@@ -475,26 +531,30 @@ class SecurityController extends Controller
                 return back()->withErrors(['error-message' => __('Captcha does not match')])->withInput();
             } //Compara el captcha almacenado en sesión (convertido a minúsculas) con el captcha enviado. Si no coinciden, retorna con error y llena el formulario con los datos previamente ingresados.
 
-            // $type = filter_var($request->username, FILTER_VALIDATE_EMAIL) ? 'email' : 'username'; //Detecta el tipo de login: si el username es un emal válido, usa el campo email para buscar usuario, si no el campo username.
-            $type = 'username';
-            $user = User::where($type, strtolower($request->username))
-                ->orWhere('email', strtolower($request->username))
-                ->first(); //Busca en la base de datos el usuario cuyo campo (email o username) coincide con el valor recibido, en minúscula.
+            $usernameNormalized = mb_strtolower($request->username);
+            $user = User::whereRaw('LOWER(username) = ?', [$usernameNormalized])
+                ->orWhereRaw('LOWER(email) = ?', [$usernameNormalized])
+                ->first(); //Busca en la base de datos el usuario cuyo campo (email o username) coincide con el valor recibido, de forma case-insensitive.
 
-            //dd($user);
             if ($user == null) {//Si no encuentra usuario, retorna con mensaje de error. Si sí, continúa.
 
 
                 return back()->withErrors(['error-message' => __('Wrong Data')]);
             } else {
-                if ($user->active == 1) {//Verifica que el usuario esté activo. Si no lo está, retorna error. Si está activo, construye el arreglo de credenciales para autenticación.
-                    $userdata = array(
-                        $type => strtolower($request->username),
-                        'password' => $request->password
-                    );
-                    if (Auth::attempt($userdata)) {//Intenta autenticar (login) con las credenciales proporcionadas.
+                if ($user->active == 1) {//Verifica que el usuario esté activo. Si no lo está, retorna error.
+                    if (Hash::check($request->password, $user->password)) {//Verifica la contraseña contra el hash almacenado, sin depender del formato exacto del username en la DB.
+                        Auth::login($user);//Autentica directamente con el modelo recuperado (case-insensitive).
 
                         session()->regenerate(); // Previene session fixation: genera nuevo ID de sesión tras autenticación exitosa
+
+                        // Token de sesión: se guarda en sesión para permitir invalidación remota
+                        // cuando el status de un perfil asignado cambia (driver de sesión es File).
+                        $fresh = Auth::user();
+                        if (empty($fresh->session_token)) {
+                            $fresh->session_token = \Illuminate\Support\Str::random(40);
+                            $fresh->save();
+                        }
+                        session()->put('session_token', $fresh->session_token);
 
                         User::whereId(Auth::user()->id)->update([
                             'change_password' => false,
@@ -502,8 +562,8 @@ class SecurityController extends Controller
                             'date_change_password' => null,
                         ]);//Si el login es exitoso, actualiza el usuario logueado para quitar flags temporales relacionados con el cambio de contraseña y limpiar tokens.
 
-                        //$perfiles = Auth::user()->getProfiles();
-                        $perfiles = Auth::user()->perfiles; //$user->profiles; // Ya gracias a la relación
+                        // Solo perfiles activos pueden elegirse/seleccionarse
+                        $perfiles = Auth::user()->perfiles()->where('security.profiles.active', true)->get(); //$user->profiles; // Ya gracias a la relación
                         //dd($perfiles);
                         if ($perfiles->count() <= 1) {
                             // Obtener el primer perfil si existe, usando método first()
@@ -553,6 +613,12 @@ class SecurityController extends Controller
             return to_route('home')->withErrors(['error-message' => __('Unauthorized profile selection.')]);
         }
 
+        // El perfil debe estar activo para poder seleccionarse
+        $perfil = \Modules\Security\Entities\Profile::where('id', $id_rol)->where('active', true)->first();
+        if (!$perfil) {
+            return to_route('home')->withErrors(['error-message' => __('Cannot select an inactive profile')]);
+        }
+
         // Guarda el perfil seleccionado en sesión con la clave 'profile_id'
         session()->put('profile_id', $id_rol);
 
@@ -568,7 +634,7 @@ class SecurityController extends Controller
 
     public function showSwitchProfile()
     {
-        $perfiles = Auth::user()->perfiles;
+        $perfiles = Auth::user()->perfiles()->where('security.profiles.active', true)->get();
 
         if ($perfiles->count() <= 1) {
             return to_route('home')->withErrors(['error-message' => __('You only have one profile assigned.')]);
@@ -623,23 +689,9 @@ class SecurityController extends Controller
                         'set_new_photo' => 'required'
                     ]);
 
-                    $imagenCodificada = $request->set_new_photo;
-
-                    list($type, $data) = explode(';', $imagenCodificada);
-                    list(, $imagenCodificada) = explode(',', $imagenCodificada);
-                    $imagenCodificada = base64_decode($imagenCodificada);
-
-                    $fileName = Auth::user()->id . '.png';
-
-                    $file_fin = "app" . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "img" . DIRECTORY_SEPARATOR . "avatars" . DIRECTORY_SEPARATOR . $fileName;
-
-                    if (is_file(storage_path($file_fin))) {
-                        unlink(storage_path($file_fin));
+                    if (!$this->storeAvatar($request->set_new_photo)) {
+                        return to_route('update_profile')->withErrors(['error-message' => __('Photo upload failed. Make sure to take a new photo and try again.')]);
                     }
-
-                    $fp = fopen(storage_path($file_fin), 'x');
-                    fwrite($fp, $imagenCodificada);
-                    fclose($fp);
 
                     return to_route('update_profile')->withSuccess(__('Photo Updated Correctly'));
 
@@ -647,39 +699,70 @@ class SecurityController extends Controller
                 case 'profile':
 
                     $request->validate([
-                        'type_document' => 'required',
-                        'document' => 'required',
-                        'full_name' => 'required',
+                        'address' => 'nullable|string|max:255',
                         'phone' => 'required',
-                        'country_iso2' => 'required'
+                        'email' => 'required|email|max:100',
+                        'code' => 'required'
                     ]);
 
-                    /*
-                     * Verificar que no este repetido la cedula
-                     */
-                    $Is = User::where('document_type_id', Encryptor::decrypt($request->type_document))
-                        ->where('document', $request->document)
-                        ->where('id', '!=', Auth::user()->id)
-                        ->exists()
+                    $email = strtolower(trim($request->email));
 
-                    ;
-                    if ($Is == true) {
-                        return to_route('update_profile')->withErrors(['error-message' => __('It is already registered in the Document Number')]);
+                    /*
+                     * Verificar que el correo no este repetido
+                     */
+                    $emailExists = User::where('email', $email)
+                        ->where('id', '!=', Auth::user()->id)
+                        ->exists();
+                    if ($emailExists == true) {
+                        return to_route('update_profile')->withErrors(['error-message' => __('The email has already been taken.')]);
+                    }
+
+                    /*
+                     * Validar el código de verificación enviado por correo
+                     * (mismo mecanismo que el registro)
+                     */
+                    $findCodeExists = \Modules\Security\Entities\Codes::where('email', $email)
+                        ->where('code', $request->code)
+                        ->where('processed', false)
+                        ->first();
+                    if (!$findCodeExists) {
+                        return to_route('update_profile')->withErrors(['error-message' => __('Your verification code is wrong')]);
                     }
 
                     $Country = \Modules\Security\Entities\Countries::where('iso2', $request->country_iso2)->first();
 
                     $Usuario = User::find(Auth::user()->id);
-                    $Usuario->document_type_id = Encryptor::decrypt($request->type_document);
-                    $Usuario->document = $request->document;
-                    $Usuario->full_name = $request->full_name;
-                    $Usuario->phone = $request->phone;
-                    $Usuario->country_id = $Country->id;
+
+                    $phone = preg_replace('/[^0-9]/', '', $request->phone);
+                    if ($Country) {
+                        $dial = (string) $Country->dial_code;
+                        if ($dial !== '' && substr($phone, 0, strlen($dial)) === $dial) {
+                            $phone = substr($phone, strlen($dial));
+                        }
+                    }
+
+                    $Usuario->address = $request->address;
+                    $Usuario->phone = $phone;
+                    $Usuario->email = $email;
+                    if ($Country) {
+                        $Usuario->country_id = $Country->id;
+                    }
 
                     $Usuario->user_id = Auth::user()->id;
                     $Usuario->ip = $request->ip();
 
                     $Usuario->save();
+
+                    if ($Usuario->personalData) {
+                        $Usuario->personalData->direccion = $request->address;
+                        if ($Country) {
+                            $Usuario->personalData->id_pais = $Country->id;
+                        }
+                        $Usuario->personalData->save();
+                    }
+
+                    $findCodeExists->processed = true;
+                    $findCodeExists->save();
 
                     return to_route('update_profile')->withSuccess(__('Correctly Updated Data'));
 
@@ -713,6 +796,58 @@ class SecurityController extends Controller
             }
             return view('security::users.update_profile');
         }
+    }
+
+    /**
+     * Envía un código de verificación al correo indicado en "Editar Datos".
+     * Misma mecánica que el registro: código de 6 dígitos en security.codes
+     * con reutilización cada 15 minutos.
+     */
+    public function update_profile_send_code(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|max:100'
+        ]);
+
+        if (User::where('email', strtolower($request->email))->where('id', '!=', Auth::user()->id)->exists()) {
+            return response()->json(["type" => "danger", "message" => __("The email has already been taken."), "status" => "0"]);
+        }
+
+        $generateCode = $this->generateCode();
+        $code = \Modules\Security\Entities\Codes::where('email', strtolower($request->email))->first();
+
+        if ($code != null) {
+            $date = Carbon::parse($code->date);
+            $minutesSinceLastRequest = $date->diffInMinutes(Carbon::now());
+            if ($minutesSinceLastRequest > 15) {
+                $code->date = now();
+                $code->code = $generateCode;
+                $code->processed = false;
+                $code->save();
+            } else {
+                return response()->json(["type" => "danger", "message" => __("You have an active code, you must wait 15 minutes"), "status" => "0"]);
+            }
+        } else {
+            $code = new \Modules\Security\Entities\Codes();
+            $code->code = $generateCode;
+            $code->email = strtolower($request->email);
+            $code->date = now();
+            $code->save();
+        }
+
+        $subject = __("Security Code");
+        $for = $code->email;
+
+        try {
+            Mail::send('security::emails.send_code', ["code" => $generateCode], function ($email) use ($subject, $for) {
+                $email->subject($subject);
+                $email->to($for);
+            });
+        } catch (\Exception $e) {
+            return response()->json(["type" => "danger", "message" => __("Error sending email: ") . $e->getMessage(), "status" => "0"]);
+        }
+
+        return response()->json(["type" => "success", "message" => __("A code has been sent to your email"), "status" => "1"]);
     }
 
     /**

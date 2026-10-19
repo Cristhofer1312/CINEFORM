@@ -9,7 +9,7 @@ class MunicipiosSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('comun.municipios')->insert([
+        $municipios = [
             // ===================== AMAZONAS (1) - 7 municipios =====================
             ["id" => "1", "name" => "ALTO ORINOCO", "state_id" => "1"],
             ["id" => "2", "name" => "ATABAPO", "state_id" => "1"],
@@ -392,6 +392,14 @@ class MunicipiosSeeder extends Seeder
 
             // ===================== DISTRITO CAPITAL (24) - 1 municipio =====================
             ["id" => "335", "name" => "LIBERTADOR", "state_id" => "24"],
-        ]);
+        ];
+
+        // upsert y no insert: el catalogo tiene clave primaria fija, asi que
+        // volver a sembrar debe actualizar en vez de reventar por duplicado.
+        DB::table('comun.municipios')->upsert($municipios, ['id'], ['name', 'state_id']);
+
+        // Al venir el id explicito la secuencia no avanza por si sola y el
+        // siguiente insertGetId() recibiria un id ya ocupado.
+        DB::statement("SELECT setval(pg_get_serial_sequence('comun.municipios', 'id'), COALESCE((SELECT MAX(id) FROM comun.municipios), 1), true)");
     }
 }

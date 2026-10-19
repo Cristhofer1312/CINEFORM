@@ -37,6 +37,7 @@ class Inscripcion extends Model
         'fecha_inscripcion' => 'datetime',
         'fecha_rechazo' => 'datetime',
         'certificado_fecha_aprobacion' => 'datetime',
+        'certificado_aprobado' => 'boolean',
     ];
 
     protected $appends = ['crypt_id'];
@@ -62,6 +63,11 @@ class Inscripcion extends Model
     public function esRechazado() { return $this->estado === self::ESTADO_RECHAZADO; }
     public function esDenegado()  { return $this->estado === self::ESTADO_DENEGADO; }
 
+    public function esRecuperable()
+    {
+        return in_array($this->estado, [self::ESTADO_RECHAZADO, 'rechazada']);
+    }
+
     /**
      * Verifica si la inscripción está en un estado que no permite cursar (antiguo compatible)
      */
@@ -75,17 +81,19 @@ class Inscripcion extends Model
      */
     public function certificadoPendiente(): bool
     {
-        return is_null($this->certificado_aprobado);
+        // Se lee el valor crudo: el cast 'boolean' convierte null en false.
+        return $this->getRawOriginal('certificado_aprobado') === null
+            && ($this->attributes['certificado_aprobado'] ?? null) === null;
     }
 
     public function certificadoAprobado(): bool
     {
-        return $this->certificado_aprobado === true;
+        return (bool) $this->certificado_aprobado;
     }
 
     public function certificadoDenegado(): bool
     {
-        return $this->certificado_aprobado === false;
+        return !$this->certificadoPendiente() && !(bool) $this->certificado_aprobado;
     }
 
     /**
@@ -131,5 +139,10 @@ class Inscripcion extends Model
     public function asistencias()
     {
         return $this->hasMany(Asistencia::class, 'id_inscripcion');
+    }
+
+    public function resenasSatisfaccion()
+    {
+        return $this->hasMany(ResenaSatisfaccion::class, 'id_inscripcion', 'id_inscripcion');
     }
 }

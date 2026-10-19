@@ -8,7 +8,7 @@
             <div class="col-12">
                 <div class="card border-0 shadow-sm mb-4">
                     <div class="card-header bg-gradient-primary text-white">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                             <h5 class="mb-0"><i class="fas fa-chalkboard-teacher me-2"></i>Mis Cursos Asignados</h5>
                             <span class="badge bg-white text-primary">{{ $cursos->count() }} cursos asignados</span>
                         </div>
@@ -76,7 +76,7 @@
                                                         </a>
                                                     @endif
                                                 </p>
-                                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                                <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
                                                     <div>
                                                         <small class="text-muted me-3">
                                                             <i class="fas fa-book me-1"></i>

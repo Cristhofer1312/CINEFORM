@@ -41,7 +41,7 @@
                 
                 <div class="card-body p-0">
                     {{-- Nav Tabs --}}
-                    <ul class="nav nav-tabs nav-line nav-color-primary px-4 border-0 mt-3" id="postulacionTabs" role="tablist">
+                    <ul class="nav nav-tabs nav-line nav-color-primary px-4 border-0 mt-3 scrollable-tabs" id="postulacionTabs" role="tablist">
                         <li class="nav-item">
                             <a class="nav-link active fw-bold" id="postulados-tab" data-bs-toggle="tab" href="#postulados" role="tab">
                                 <i class="fas fa-hourglass-half me-2"></i> Postulados 
@@ -113,6 +113,17 @@
         border-bottom-color: #3b82f6;
         color: #3b82f6;
     }
+
+    .scrollable-tabs {
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        scrollbar-width: thin;
+    }
+    .scrollable-tabs::-webkit-scrollbar { height: 4px; }
+    .scrollable-tabs::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+    .scrollable-tabs .nav-item { flex-shrink: 0; }
 </style>
 @endpush
 

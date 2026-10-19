@@ -54,7 +54,7 @@
                     <li class="nav-item">
                         <a data-bs-toggle="collapse" href="#menu{{$key}}">
                             <i class="{{$value['icon']}}"></i>
-                            <p>{{__($value['name'])}}</p>
+                            <p class="text-truncate m-0">{{__($value['name'])}}</p>
                             <span class="caret"></span>
                         </a>
                         <div class="collapse" id="menu{{$key}}">
@@ -62,7 +62,7 @@
                                 @foreach($value['processes'] as $value2)
                                     <li>
                                         <a href="{{route($value2['route'])}}">
-                                            <span class="sub-item">{{__($value2['name'])}}</span>
+                                            <span class="sub-item text-truncate d-block">{{__($value2['name'])}}</span>
                                         </a>
                                     </li>
                                 @endforeach

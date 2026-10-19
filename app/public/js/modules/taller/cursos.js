@@ -87,7 +87,10 @@ const TallerModule = (() => {
     };
 
     /**
-     * Valida la coherencia de las fechas con el trimestre
+     * Emite avisos informativos (NO bloqueantes) sobre fechas y trimestre:
+     * - Rango invertido: fecha_fin anterior a fecha_inicio.
+     * - Trimestre seleccionado que no coincide con el mes de fecha_inicio.
+     * La validación real del rango la realiza el servidor (fecha_fin.after_or_equal).
      */
     const validateTrimestre = () => {
         const fInicio = document.getElementById('fecha_inicio')?.value;
@@ -95,19 +98,30 @@ const TallerModule = (() => {
         const trimestre = document.getElementById('trimestre')?.value;
         const errorDiv = document.getElementById('trimestre-error');
 
-        if (!fInicio || !fFin || !trimestre) return;
+        if (errorDiv) errorDiv.style.display = 'none';
+        if (!fInicio) return;
 
-        const dateIni = new Date(fInicio);
-        const dateFin = new Date(fFin);
-        
-        // Mapeo simple de trimestres: 1(Ene-Mar), 2(Abr-Jun), 3(Jul-Sep), 4(Oct-Dic)
-        const monthStart = dateIni.getMonth() + 1;
+        const setError = (message) => {
+            if (!errorDiv) return;
+            const text = errorDiv.querySelector('.trimestre-error-text');
+            if (text) text.textContent = message;
+            errorDiv.style.display = 'block';
+        };
+
+        // Rango invertido: el formato ISO "YYYY-MM-DD" es comparable como string
+        if (fFin && fFin < fInicio) {
+            setError('La fecha de fin debe ser igual o posterior a la fecha de inicio.');
+            return;
+        }
+
+        // Aviso de trimestre: la fecha de inicio corresponde a un trimestre distinto al seleccionado
+        // Parsear el mes directamente desde "YYYY-MM-DD" (sin Date) para evitar
+        // desfases UTC/local que rompen el cálculo del trimestre.
+        const monthStart = parseInt(fInicio.split('-')[1], 10);
         const expectedTrim = Math.ceil(monthStart / 3);
-
-        if (parseInt(trimestre) !== expectedTrim) {
-            if (errorDiv) errorDiv.style.display = 'block';
-        } else {
-            if (errorDiv) errorDiv.style.display = 'none';
+        if (trimestre && parseInt(trimestre) !== expectedTrim) {
+            const [y, m, d] = fInicio.split('-');
+            setError(`La fecha de inicio (${d}/${m}/${y}) corresponde al trimestre ${expectedTrim}°. Sugerencia: actualice la selección de trimestre.`);
         }
     };
 
@@ -117,13 +131,21 @@ const TallerModule = (() => {
     const toggleEvaluacion = (el) => {
         const container = el.closest('.contenido-item');
         const evalFields = container.querySelector('.evaluacion-fields');
+        const horasFields = container.querySelector('.horas-fields');
         if (el.checked) {
             evalFields.style.display = 'flex';
             evalFields.style.opacity = 0;
             setTimeout(() => evalFields.style.opacity = 1, 50);
+            if (horasFields) {
+                horasFields.style.display = 'none';
+                horasFields.querySelectorAll('input').forEach(input => input.value = '');
+            }
         } else {
             evalFields.style.display = 'none';
             evalFields.querySelectorAll('input, select').forEach(input => input.value = '');
+            if (horasFields) {
+                horasFields.style.display = '';
+            }
         }
         actualizarPonderacionTotal();
     };
@@ -253,6 +275,42 @@ const TallerModule = (() => {
                             </div>
                         </div>
 
+                        <div class="rounded-3 p-3 mb-3" style="background-color: #f1f5f9 !important;">
+                            <div class="row mb-2">
+                                <div class="col-md-4 text-muted fw-bold small text-uppercase">
+                                    FECHA Y HORA DE CLASE
+                                </div>
+                                <div class="col-md-8 horas-fields text-muted fw-bold small text-uppercase text-center d-flex align-items-center justify-content-center">
+                                    <i class="fas fa-clock me-2"></i> Horario de la Clase
+                                </div>
+                            </div>
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="small text-muted fw-bold mb-1">FECHA DE CLASE</label>
+                                    <input type="date" name="contenidos[${index}][fecha_contenido]" class="form-control border-light-2 py-2">
+                                </div>
+                                <div class="col-md-4 horas-fields">
+                                    <label class="small text-muted fw-bold mb-1">HORA DE INICIO</label>
+                                    <input type="time" name="contenidos[${index}][hora_inicio]" class="form-control border-light-2 py-2" step="60" min="00:00" max="23:59">
+                                </div>
+                                <div class="col-md-4 horas-fields">
+                                    <label class="small text-muted fw-bold mb-1">HORA DE FIN</label>
+                                    <input type="time" name="contenidos[${index}][hora_fin]" class="form-control border-light-2 py-2" step="60" min="00:00" max="23:59">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-5 d-flex align-items-end">
+                                <div class="form-check form-switch p-0 d-flex align-items-center bg-light rounded-pill px-3 py-2 border shadow-xs w-100">
+                                    <input type="checkbox" class="form-check-input ms-0 me-2 material-toggle" id="matSwitch_${index}" onchange="TallerModule.toggleMaterial(this)">
+                                    <label class="form-check-label small fw-bold text-muted mt-1" for="matSwitch_${index}">
+                                        <i class="fas fa-paperclip me-1"></i> ¿Tiene material?
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="material-fields row g-3 rounded-3 p-3 mb-3" style="display:none; background-color: #4f46e5 !important;">
                             <div class="col-12 text-white fw-bold small uppercase d-flex align-items-center mb-1">
                                 <i class="fas fa-paperclip me-2"></i> Material de Apoyo
@@ -267,18 +325,6 @@ const TallerModule = (() => {
                         </div>
 
                         <div class="row g-3">
-                            <div class="col-md-7">
-                                <label class="small text-muted fw-bold mb-1">FECHA DE CLASE</label>
-                                <input type="date" name="contenidos[${index}][fecha_contenido]" class="form-control border-light-2 py-2">
-                            </div>
-                            <div class="col-md-5 d-flex align-items-end">
-                                <div class="form-check form-switch p-0 d-flex align-items-center bg-light rounded-pill px-3 py-2 border shadow-xs w-100">
-                                    <input type="checkbox" class="form-check-input ms-0 me-2 material-toggle" id="matSwitch_${index}" onchange="TallerModule.toggleMaterial(this)">
-                                    <label class="form-check-label small fw-bold text-muted mt-1" for="matSwitch_${index}">
-                                        <i class="fas fa-paperclip me-1"></i> ¿Tiene material?
-                                    </label>
-                                </div>
-                            </div>
                             <div class="col-12">
                                 <textarea name="contenidos[${index}][descripcion_breve]" class="form-control border-light-2" rows="2" placeholder="Breve explicación..."></textarea>
                             </div>

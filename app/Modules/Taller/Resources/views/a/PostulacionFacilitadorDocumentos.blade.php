@@ -16,7 +16,7 @@
             </x-taller.alert>
         @endif
 
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
             <div>
                 <h4 class="fw-bold text-dark mb-1">
                     <i class="fas fa-file-alt me-2 text-primary"></i> Documentos de Postulación
@@ -83,9 +83,9 @@
                         @endif
 
                         @if($respuesta->ruta_archivo)
-                            <div class="d-flex align-items-center mt-2">
+                            <div class="d-flex align-items-center mt-2 flex-wrap gap-2">
                                 <i class="fas fa-paperclip me-2 text-muted"></i>
-                                <span class="text-muted me-3">{{ basename($respuesta->ruta_archivo) }}</span>
+                                <span class="text-muted me-3 text-truncate" style="max-width: 100%;">{{ basename($respuesta->ruta_archivo) }}</span>
                                 <a href="{{ route('taller.postulacion-facilitador.documento.descargar', $respuesta->id_respuesta) }}" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-download me-1"></i> Descargar
                                 </a>
@@ -106,7 +106,7 @@
         <div class="card border-0 shadow-sm rounded-4 mb-4">
             <div class="card-body p-4">
                 <h6 class="fw-bold text-dark mb-3">Acciones</h6>
-                <div class="d-flex gap-3">
+                <div class="d-flex gap-3 flex-wrap">
                     <form action="{{ route('taller.postulacion-facilitador.aprobar', $postulacion->crypt_id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de aprobar esta postulación? El usuario recibirá el perfil de Facilitador.')">
                         @csrf
                         <button type="submit" class="btn btn-success fw-bold px-4 rounded-pill">

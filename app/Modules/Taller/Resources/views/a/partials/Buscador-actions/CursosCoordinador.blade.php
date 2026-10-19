@@ -9,7 +9,7 @@
             <div class="col-12">
                 <div class="card mb-3 shadow-sm overflow-hidden" style="border-radius: 15px;">
                     <div class="card-header bg-gradient-primary text-white py-3">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                             <h5><i class="fas fa-chalkboard-teacher me-2"></i>Todos los Cursos</h5>
                             <span class="badge bg-white text-primary px-3 py-2 rounded-pill fw-bold">
                                 Total: {{ $cursos->total() }}
@@ -100,7 +100,7 @@
                                                     </a>
                                                 @endif
                                             </p>
-                                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
                                                 <div>
                                                     <small class="text-muted me-3">
                                                         <i class="fas fa-book me-1"></i>

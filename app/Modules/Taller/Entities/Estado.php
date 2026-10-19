@@ -24,8 +24,8 @@ class Estado extends Model
      */
     public function cursos()
     {
-        return $this->belongsToMany(Curso::class, 'curso_estado', 'id_estado', 'id_curso')
+        return $this->belongsToMany(Curso::class, 'taller.curso_estado', 'id_estado', 'id_curso')
             ->withPivot(['created_at', 'motivo'])
-            ->orderBy('curso_estado.created_at', 'desc');
+            ->orderByDesc('taller.curso_estado.created_at');
     }
 }

@@ -26,7 +26,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                         <p class="mb-0 small opacity-75 text-white">{{ $curso->nombre }}</p>
                     </div>
                     <div class="card-body p-3 bg-light">
-                        <div class="list-group list-group-flush rounded-3 overflow-hidden shadow-sm" style="max-height: 600px; overflow-y: auto;">
+                        <div class="list-group list-group-flush rounded-3 overflow-hidden shadow-sm" style="max-height: min(600px, 60vh); overflow-y: auto;">
                             @forelse($curso->contenidos as $index => $contenido)
                                 @php
                                     $esActivo = $contenidoActual && $contenido->id_contenido_curso == $contenidoActual->id_contenido_curso;
@@ -56,7 +56,13 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                                 </span>
                                             @endif
                                             @if($contenido->fecha_contenido)
-                                                <span class="mb-0 fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.2;">{{ $contenido->fecha_contenido->format('d/m/Y') }}</span>
+                                                <span class="mb-0 fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.2;">
+                                                    {{ $contenido->fecha_contenido->format('d/m/Y') }}
+                                                    @if(!$contenido->es_evaluacion && $contenido->hora_inicio && $contenido->hora_fin)
+                                                        <span class="text-primary">•</span>
+                                                        {{ \Carbon\Carbon::parse($contenido->hora_inicio)->format('H:i') }} - {{ \Carbon\Carbon::parse($contenido->hora_fin)->format('H:i') }}
+                                                    @endif
+                                                </span>
                                             @endif
                                         </div>
                                         <div class="d-flex align-items-center mt-1">
@@ -152,7 +158,12 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                         @if($contenidoActual->fecha_contenido)
                                         <div class="px-4 py-2 bg-light border rounded-3 d-flex align-items-center shadow-sm" style="background: linear-gradient(to bottom, #f8f9fa, #e9ecef);">
                                             <i class="far fa-clock text-dark me-2"></i>
-                                            <span class="fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.2;">{{ $contenidoActual->fecha_contenido->format('d/m/Y') }}</span>
+                                            <span class="fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.2;">
+                                                {{ $contenidoActual->fecha_contenido->format('d/m/Y') }}
+                                                @if(!$contenidoActual->es_evaluacion && $contenidoActual->hora_inicio && $contenidoActual->hora_fin)
+                                                    • {{ \Carbon\Carbon::parse($contenidoActual->hora_inicio)->format('H:i') }} - {{ \Carbon\Carbon::parse($contenidoActual->hora_fin)->format('H:i') }}
+                                                @endif
+                                            </span>
                                         </div>
                                         @endif
                                         
@@ -171,12 +182,12 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                 </div>
                                 <div class="col-md-4 d-flex flex-column gap-2 align-items-md-end align-items-start mt-3 mt-md-0">
                                 @if(($esFacilitador || $esGestor) && $contenidoActual && !$contenidoActual->es_evaluacion)
-                                        <a href="{{ route('taller.asistencia.consolidado', $curso->crypt_id) }}" class="btn btn-info text-white rounded-pill shadow-sm fw-bold px-4 py-2" style="min-width: 220px; background-color: #5bb4f3; border-color: #5bb4f3;">
+                                        <a href="{{ route('taller.asistencia.consolidado', $curso->crypt_id) }}" class="btn btn-info text-white rounded-pill shadow-sm fw-bold px-4 py-2 btn-action" style="background-color: #5bb4f3; border-color: #5bb4f3;">
                                             <i class="fas fa-user me-2"></i> Ver Asistencia
                                         </a>
                                     @endif
                                     @if($showBtn)
-                                        <a href="{{ $url }}" class="btn {{ $btnClass }} text-white rounded-pill shadow-sm fw-bold px-4 py-2" style="min-width: 220px; border-color: #d9534f;">
+                                        <a href="{{ $url }}" class="btn {{ $btnClass }} text-white rounded-pill shadow-sm fw-bold px-4 py-2 btn-action" style="border-color: #d9534f;">
                                             <i class="fas {{ $btnIcon }} me-2"></i> {{ $btnText }}
                                         </a>
                                     @endif
@@ -286,6 +297,10 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
             .btn-action:hover {
                 transform: translateY(-3px);
                 box-shadow: 0 5px 15px rgba(0,0,0,0.2) !important;
+            }
+
+            @media (min-width: 768px) {
+                .btn-action { min-width: 220px; }
             }
 
             /* Scrollbar personalizado */

@@ -10,6 +10,8 @@ use DataTables;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\Encryptor;
 use App\Constants\SecurityAction;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ProfilesController extends Controller {
 
@@ -35,8 +37,6 @@ class ProfilesController extends Controller {
      * @return Renderable
      */
     public function index() {
-        //$Profiles_active = Profile::where("status", 1)->get();
-
         return view('security::profiles.index');
     }
 
@@ -45,11 +45,9 @@ class ProfilesController extends Controller {
             if ($request->search == null) {
                 $Profiles = Profile::limit(100)
                         ->orderBy("id", "desc")
-                        ->where('active', 'true')
                         ->get();
             } else {
                 $Profiles = Profile::limit(100)
-                        ->where('active', 'true')
                         ->Where('name', 'ILIKE', '%' . Upper($request->search) . '%')
                         ->orderBy("id", "desc")
                         ->get();
@@ -59,60 +57,33 @@ class ProfilesController extends Controller {
 
             $data = DataTables::of($Profiles)
                     ->addIndexColumn()
-                    /*
-                      ->filter(function ($instance) {
-
-                      return true;
-
-                      if ($input != null) {
-                      $instance->collection = $instance->collection->filter(function ($row) use ($input) {
-                      if (Str::contains(Str::lower($row['aeronave']['full_nombre_tn']), Str::lower($input))) {
-                      return true;
-                      } else {
-                      if (Str::contains(Str::lower($row['piloto']['full_name']), Str::lower($input))) {
-                      return true;
-                      } else {
-                      if (Str::contains(Str::lower($row['aeropuerto']['full_nombre']), Str::lower($input))) {
-                      return true;
-                      } else {
-                      if (Str::contains(Str::lower($row['fecha_operacion2']), Str::lower($input))) {
-                      return true;
-                      } else {
-
-                      }
-                      }
-                      }
-                      }
-                      return false;
-                      });
-                      }
-
-
-                      })
-                     * 
-                     */
+                    ->addColumn('status', function ($row) {
+                        if ($row->active == true) {
+                            return '<span class="badge badge-primary">' . __('Active') . '</span>';
+                        }
+                        return '<span class="badge badge-secondary">' . __('Inactive Profile') . '</span>';
+                    })
                     ->addColumn('action', function ($row) {
                         // El perfil Administrador (ID 1) es crítico y no debe ser alterado
                         if ($row->id == 1) {
                             return '<div class="text-center"><span class="badge badge-secondary">Perfil Principal del Sistema</span></div>';
                         }
 
-                        $actionBtn = '<div class=" text-center">';
+                        $actionBtn = '<div class="d-flex justify-content-center">';
+
+                        $actionBtn .= '<a title="' . __('Edit') . '" href="' . route('profiles.update', $row->crypt_id) . '" class="btn btn-icon btn-link btn-secondary"><span class="fa fa-edit"></span></a> ';
+                        $actionBtn .= '<a title="' . __('Permissions') . '" href="' . route('profiles.permissions', $row->crypt_id) . '" class="btn btn-icon btn-link btn-secondary"><span class="fa fa-lock"></span></a> ';
 
                         if ($row->active == true) {
-                            $actionBtn .= '<a  title=""  href="' . route('profiles.update', $row->crypt_id) . '"   class="btn btn-icon btn-link    btn-xs"> <span class="fa fa-edit"></span></a> ';
-                            ;
-                            $actionBtn .= '<a  title=""  href="' . route('profiles.permissions', $row->crypt_id) . '" class="btn btn-icon btn-link   btn-warning btn-xs"><span class="fa fa-lock"></span></a> ';
+                            $actionBtn .= '<a title="' . __('Deactivate') . '" data-action="deactivate" href="' . route('profiles.disabled', $row->crypt_id) . '" class="btn btn-icon btn-link btn-danger btn-toggle"><span class="fa fa-ban"></span></a> ';
                         } else {
-                            $actionBtn = __('Inactive Profile');
+                            $actionBtn .= '<a title="' . __('Activate') . '" data-action="activate" href="' . route('profiles.disabled', $row->crypt_id) . '" class="btn btn-icon btn-link btn-success btn-toggle"><span class="fa fa-check"></span></a> ';
                         }
                         $actionBtn .= '</div>';
                         return $actionBtn;
                     })
-                    ->rawColumns(['action'])
-            //->make(true)
+                    ->rawColumns(['action', 'status']);
 
-            ;
             return $data->toJson();
         }
     }
@@ -147,7 +118,9 @@ class ProfilesController extends Controller {
     }
 
     public function permissions($id, Request $request) {
-        $profileId = Encryptor::decrypt($id);
+        // El middleware DecryptIds ya desencripta el parámetro de ruta {id}.
+        // Se normaliza por seguridad ante valores no numéricos.
+        $profileId = is_numeric($id) ? (int) $id : (int) Encryptor::decrypt($id);
 
         // Bloquear gestión de permisos del perfil Administrador (ID 1)
         if ($profileId == 1) {
@@ -157,13 +130,14 @@ class ProfilesController extends Controller {
         if (!\Request::ajax()) {
             if (\Request::isMethod('get')) {
                 $profile = Profile::with('permissions')->find($profileId);
-                //dd($profile->toArray());
+                if (!$profile) {
+                    abort(404, 'Perfil no encontrado');
+                }
                 $MODULES = \Modules\Security\Entities\Modulo::with('getMenus.getProcess')->get();
-                
-                return view('security::profiles.permissions', compact('id', 'profile', 'MODULES'));
+
+                return view('security::profiles.permissions', ['id' => Encryptor::encrypt($profileId), 'profile' => $profile, 'MODULES' => $MODULES]);
             } else {
-                $decryptedId = $profileId;
-                $Profile = Profile::find($decryptedId);
+                $Profile = Profile::find($profileId);
                 if ($request->has('name')) $Profile->name = Upper($request->name);
                 if ($request->has('description')) $Profile->description = $request->description;
                 if ($request->has('active')) $Profile->active = $request->active;
@@ -172,12 +146,13 @@ class ProfilesController extends Controller {
                 // ----- LÓGICA DE RBAC: GUARDADO DE PERMISOS PIVOT -----
                 // Limpiar asginaciones antiguas para este perfil
                 \Illuminate\Support\Facades\DB::table('security.profile_permissions')
-                    ->where('profile_id', $decryptedId)
+                    ->where('profile_id', $profileId)
                     ->delete();
 
                 if ($request->has('permissions') && is_array($request->permissions)) {
                     foreach ($request->permissions as $processId => $actionsIdsArray) {
                         // Fix #4: Siempre desencriptar — la vista siempre envía el crypt_id
+                        // (DecryptIds no desencripta las llaves de los arreglos).
                         $pId = Encryptor::decrypt($processId);
 
                         // Fix #13: Si el checkbox raíz se marcó sin acciones, $actionsIdsArray
@@ -203,7 +178,7 @@ class ProfilesController extends Controller {
 
                                 if ($perm) {
                                     \Illuminate\Support\Facades\DB::table('security.profile_permissions')->insert([
-                                        'profile_id'    => $decryptedId,
+                                        'profile_id'    => $profileId,
                                         'permission_id' => $perm->id,
                                         'created_at'    => now(),
                                         'updated_at'    => now(),
@@ -215,8 +190,8 @@ class ProfilesController extends Controller {
                 }
 
                 // Limpiar Caché Local de Permisos
-                if (session()->get('profile_id') == $decryptedId) {
-                    session()->forget("permisos_perfil_" . $decryptedId);
+                if (session()->get('profile_id') == $profileId) {
+                    session()->forget("permisos_perfil_" . $profileId);
                 }
 
                 return to_route('profiles')->withSuccess(__('Successfully Updated Profile Permissions'));
@@ -231,7 +206,9 @@ class ProfilesController extends Controller {
      * @return Renderable
      */
     public function update($id, Request $request) {
-        $profileId = Encryptor::decrypt($id);
+        // El middleware DecryptIds ya desencripta el parámetro de ruta {id}.
+        // Se normaliza por seguridad ante valores no numéricos.
+        $profileId = is_numeric($id) ? (int) $id : (int) Encryptor::decrypt($id);
 
         // Bloquear edición del perfil Administrador (ID 1)
         if ($profileId == 1) {
@@ -241,16 +218,18 @@ class ProfilesController extends Controller {
         if (!\Request::ajax()) {
             if (\Request::isMethod('get')) {
                 $profile = Profile::find($profileId);
-                return view('security::profiles.update', compact('id', 'profile'));
+                if (!$profile) {
+                    abort(404, 'Perfil no encontrado');
+                }
+                return view('security::profiles.update', ['id' => Encryptor::encrypt($profileId), 'profile' => $profile]);
             } else {
                 $request->validate([
                     'name' => 'required',
                     'description' => 'required'
                 ]);
-                $Profile = Profile::find(Encryptor::decrypt($id));
+                $Profile = Profile::find($profileId);
                 $Profile->name = Upper($request->name);
                 $Profile->description = $request->description;
-                $Profile->active = $request->active;
                 $Profile->save();
 
                 return to_route('profiles')->withSuccess(__('Successfully Updated Profile'));
@@ -259,7 +238,9 @@ class ProfilesController extends Controller {
     }
 
     public function disabled($id) {
-        $profileId = Encryptor::decrypt($id);
+        // El middleware DecryptIds ya desencripta el parámetro de ruta {id}.
+        // Se normaliza por seguridad ante valores no numéricos.
+        $profileId = is_numeric($id) ? (int) $id : (int) Encryptor::decrypt($id);
 
         // Bloquear desactivación del perfil Administrador (ID 1)
         if ($profileId == 1) {
@@ -268,9 +249,26 @@ class ProfilesController extends Controller {
 
         if (!\Request::ajax()) {
             $Profile = Profile::find($profileId);
-            $Profile->active = false;
+            $Profile->active = !$Profile->active;
             $Profile->save();
-            return to_route('profiles')->withSuccess(__('Profile Deactivated Successfully'));
+
+            // Terminar la sesión de todos los usuarios con este perfil.
+            // Se regenera el session_token de cada usuario (driver de sesión File);
+            // el middleware Authenticate detecta la diferencia y cierra la sesión.
+            $userIds = DB::table('security.profiles_users')
+                ->where('id_rol', $profileId)
+                ->pluck('id_users');
+
+            if ($userIds->isNotEmpty()) {
+                \Modules\Security\Entities\User::whereIn('id', $userIds)
+                    ->update(['session_token' => Str::random(40)]);
+            }
+
+            $message = $Profile->active
+                ? __('Profile Activated Successfully')
+                : __('Profile Deactivated Successfully');
+
+            return to_route('profiles')->withSuccess($message);
         }
     }
 

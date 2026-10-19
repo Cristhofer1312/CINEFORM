@@ -56,6 +56,7 @@ class CatalogoController extends BaseController
             'abreviatura' => strtoupper(trim($request->abreviatura)),
             'status'      => 'Activo',
         ]);
+        CrearCursoController::olvidarCacheCatalogos();
 
         return redirect()->route('taller.catalogos.index')
             ->with('success_actividad', 'Actividad Formativa "' . ucwords(strtolower($request->nombre)) . '" creada exitosamente.');
@@ -80,6 +81,7 @@ class CatalogoController extends BaseController
             'nombre'      => ucwords(strtolower(trim($request->nombre))),
             'abreviatura' => strtoupper(trim($request->abreviatura)),
         ]);
+        CrearCursoController::olvidarCacheCatalogos();
 
         return redirect()->route('taller.catalogos.index')
             ->with('success_actividad', 'Actividad Formativa actualizada correctamente.');
@@ -92,6 +94,7 @@ class CatalogoController extends BaseController
     {
         $nuevo = $actividad->status === 'Activo' ? 'Inactivo' : 'Activo';
         $actividad->update(['status' => $nuevo]);
+        CrearCursoController::olvidarCacheCatalogos();
 
         $msg = $nuevo === 'Activo'
             ? "Actividad \"{$actividad->nombre}\" activada. Ya aparece en los selectores de cursos."
@@ -125,6 +128,7 @@ class CatalogoController extends BaseController
             'abreviatura' => strtoupper(trim($request->abreviatura)),
             'status'      => 'Activo',
         ]);
+        CrearCursoController::olvidarCacheCatalogos();
 
         return redirect()->route('taller.catalogos.index')
             ->with('success_aspecto', 'Aspecto de Formación "' . $request->nombre . '" creado exitosamente.');
@@ -149,6 +153,7 @@ class CatalogoController extends BaseController
             'nombre'      => ucwords(strtolower(trim($request->nombre))),
             'abreviatura' => strtoupper(trim($request->abreviatura)),
         ]);
+        CrearCursoController::olvidarCacheCatalogos();
 
         return redirect()->route('taller.catalogos.index')
             ->with('success_aspecto', 'Aspecto de Formación actualizado correctamente.');
@@ -161,6 +166,7 @@ class CatalogoController extends BaseController
     {
         $nuevo = $aspecto->status === 'Activo' ? 'Inactivo' : 'Activo';
         $aspecto->update(['status' => $nuevo]);
+        CrearCursoController::olvidarCacheCatalogos();
 
         $msg = $nuevo === 'Activo'
             ? "Aspecto \"{$aspecto->nombre}\" activado. Ya aparece en los selectores de cursos."

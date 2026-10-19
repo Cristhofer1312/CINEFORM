@@ -4,7 +4,7 @@
 <div class="row justify-content-center">
     <div class="col-lg-10">
         <!-- Encabezado de Creación -->
-        <div class="d-flex justify-content-between align-items-end mb-4 px-2">
+        <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4 px-2">
             <div>
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb mb-1 p-0 bg-transparent" style="font-size: 0.8rem;">
@@ -16,7 +16,21 @@
                 <h2 class="fw-bold text-dark mb-0">Requisitos de la Actividad</h2>
                 <p class="text-muted small mb-0"><i class="fas fa-list-check me-1 text-primary"></i> Configurando requisitos para: <strong>{{ $curso->nombre }}</strong></p>
             </div>
+            @if(!empty($esWizard))
+            <div class="d-flex gap-2">
+                <a href="{{ route('taller.cursos.wizard.plantilla.create') }}" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
+                    <i class="fas fa-arrow-left me-2 text-primary"></i> Atrás
+                </a>
+                <a href="{{ route('taller.cursos.index') }}" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
+                    Guardar borrador y salir
+                </a>
+            </div>
+            @endif
         </div>
+
+        @if(!empty($esWizard))
+            <x-taller.wizard-steps :actual="$pasoActual ?? 5" :completados="$completados ?? []" />
+        @endif
 
         @if ($errors->any())
             <x-taller.alert type="danger" title="Errores de validación">
@@ -28,7 +42,7 @@
             </x-taller.alert>
         @endif
 
-        <form action="{{ route('taller.cursos.requisitos.store', $curso->id_curso) }}" method="POST">
+        <form action="{{ $esWizard ? route('taller.cursos.wizard.requisitos.store') : route('taller.cursos.requisitos.store', $curso->id_curso) }}" method="POST">
             @csrf
 
             <div class="card border-0 shadow-card rounded-4 mb-5 overflow-hidden">
@@ -61,14 +75,22 @@
             <div class="row justify-content-center mt-4 pb-5">
                 <div class="col-lg-6">
                     <div class="card border shadow rounded-pill overflow-hidden bg-white">
-                        <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                        <div class="card-body p-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            @if(!empty($esWizard))
+                                <a href="{{ route('taller.cursos.wizard.revision') }}"
+                                    class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2"
+                                    onclick="return confirm('¿Saltar este paso? Podrás agregarlos luego editando el curso.')">
+                                    Saltar paso
+                                </a>
+                            @else
                             <a href="{{ route('taller.cursos.index') }}"
                                 class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2"
                                 onclick="return confirm('¿Saltar este paso? Podrás agregarlos luego editando el curso.')">
                                 Saltar Paso
                             </a>
+                        @endif
                             <button type="submit" class="btn btn-primary px-5 py-3 rounded-pill fw-bold shadow-lg">
-                                <i class="fas fa-save me-2"></i> Guardar y Finalizar
+                                <i class="fas fa-save me-2"></i> {{ ! empty($esWizard) ? 'Guardar y revisar' : 'Guardar y Finalizar' }}
                             </button>
                         </div>
                     </div>
@@ -121,8 +143,9 @@
 @push('scripts')
 <script>
     let reqIndex = 0;
+    const requisitosPrevios = @json($requisitosPrevios ?? []);
 
-    function agregarRequisito(tipo, event) {
+    function agregarRequisito(tipo, event, datos = {}) {
         if(event) event.preventDefault();
         
         const template = document.getElementById('requisito-template').innerHTML;
@@ -157,7 +180,24 @@
         }
         
         document.getElementById('requisitos-container').appendChild(element);
+
+        if (datos.titulo) {
+            element.querySelector('input[name$="[titulo]"]').value = datos.titulo;
+        }
+        if (datos.descripcion) {
+            element.querySelector('textarea[name$="[descripcion]"]').value = datos.descripcion;
+        }
+        const chk = element.querySelector('input[name$="[obligatorio]"]');
+        if (chk && datos.obligatorio !== undefined) {
+            chk.checked = !! datos.obligatorio;
+        }
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        (requisitosPrevios || []).forEach(function (req) {
+            agregarRequisito(req.tipo || 'pregunta', null, req);
+        });
+    });
 </script>
 @endpush
 @endsection

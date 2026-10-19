@@ -292,8 +292,22 @@ if (!function_exists('renderAvatar')) {
         $hasPhoto = method_exists($user, 'hasPhoto') ? $user->hasPhoto() : false;
 
         if ($hasPhoto) {
-            $cryptId = $user->crypt_id ?? null;
+            // Para instancias PersonalData el archivo se guarda por user_id,
+            // así que se usa el crypt_id del usuario (no el de la persona).
+            $cryptId = $user->user_crypt_id ?? $user->crypt_id ?? null;
             $url = $cryptId ? route('show_avatar', $cryptId) : '#';
+
+            // Cache-buster: al cambiar la foto el mtime cambia y el navegador recarga
+            if ($url !== '#') {
+                $accountId = $user instanceof \Modules\Comun\Entities\PersonalData
+                    ? $user->user_id
+                    : ($user->id ?? $user->user_id ?? null);
+                $avatarPath = $accountId ? storage_path('app/public/img/avatars/' . $accountId . '.png') : null;
+                if ($avatarPath && \Illuminate\Support\Facades\File::exists($avatarPath)) {
+                    $sep = strpos($url, '?') === false ? '?' : '&';
+                    $url .= $sep . 'v=' . \Illuminate\Support\Facades\File::lastModified($avatarPath);
+                }
+            }
             
             // Calculamos un tamaño base aproximado si las clases fallan
             $width = match($size) {

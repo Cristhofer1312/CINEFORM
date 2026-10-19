@@ -24,8 +24,6 @@ Route::get('language/{lang?}', function ($lang = 'en') {
 Route::prefix('security')->group(function () {
 
 
-    Route::match(['get', 'post'], 'photo', [Modules\Security\Http\Controllers\SecurityController::class, 'photo'])->name('photo');
-    
     // Rate-limiting: máximo 10 intentos por minuto por IP en rutas de autenticación
     Route::middleware(['throttle:10,1'])->group(function () {
         Route::group(array('middleware' => array(\Modules\Security\Http\Middleware\SetLanguage::class)), function () {
@@ -39,7 +37,7 @@ Route::prefix('security')->group(function () {
 
     Route::group(array('middleware' => array('auth', \Modules\Security\Http\Middleware\CheckSecurity::class)), function () {
         //Route::get('/usuario/perfil/seleccionar', [Modules\Security\Http\Controllers\SecurityController::class, 'showProfileSelection'])->name('usuario.mostrarPerfilSeleccion');
-        Route::get('/usuario/perfil/seleccionar', [Modules\Registro\Http\Controllers\RegistroController::class, 'home'])->name('registro.home');
+        Route::get('/usuario/perfil/seleccionar', [Modules\Security\Http\Controllers\SecurityController::class, 'registroHome'])->name('registro.home');
         //Route::get('/usuario/perfil/seleccionar/{id_rol}', [Modules\Security\Http\Controllers\SecurityController::class, 'seleccionarPerfil'])->name('usuario.seleccionarPerfil');
         Route::match(['get', 'post'], '/usuario/set_perfil/{id_rol}', [Modules\Security\Http\Controllers\SecurityController::class, 'seleccionarPerfil'])->name('usuario.set_perfil');
         Route::get('/usuario/cambiar-perfil', [Modules\Security\Http\Controllers\SecurityController::class, 'showSwitchProfile'])->name('usuario.cambiar_perfil');
@@ -50,6 +48,7 @@ Route::prefix('security')->group(function () {
         // Route::get('set-module/{id}', [Modules\Security\Http\Controllers\SecurityController::class, 'set_module'])->name('set_module');
 
         Route::match(['get', 'post'], 'update-profile', [Modules\Security\Http\Controllers\SecurityController::class, 'update_profile'])->name('update_profile');
+        Route::match(['get', 'post'], 'update-profile/send-code', [Modules\Security\Http\Controllers\SecurityController::class, 'update_profile_send_code'])->name('update_profile.send_code');
 
         Route::get('show-avatar/{img}', [Modules\Security\Http\Controllers\SecurityController::class, 'show_avatar'])->name('show_avatar');
 
@@ -59,6 +58,7 @@ Route::prefix('security')->group(function () {
         Route::get('profiles-list', [Modules\Security\Http\Controllers\ProfilesController::class, 'list'])->name('profiles.list');
         Route::match(['get', 'post'], 'profiles-create', [Modules\Security\Http\Controllers\ProfilesController::class, 'create'])->name('profiles.create');
         Route::match(['get', 'post'], 'profiles-update/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'update'])->name('profiles.update');
+        Route::match(['get', 'post'], 'profiles-disabled/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'disabled'])->name('profiles.disabled');
         Route::match(['get', 'post'], 'profiles-permissions/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'permissions'])->name('profiles.permissions');
 
         //Route::get('users', [Modules\Security\Http\Controllers\UsersController::class, 'index'])->name('users');

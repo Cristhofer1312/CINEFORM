@@ -3,7 +3,7 @@
 @section('content')
 <div class="row justify-content-center">
     <div class="col-lg-10">
-        <div class="d-flex justify-content-between align-items-end mb-4 px-2">
+        <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4 px-2">
             <div>
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb mb-1 p-0 bg-transparent" style="font-size: 0.8rem;">
@@ -71,7 +71,7 @@
                                                                     <span class="text-muted small">Cargado exitosamente · {{ strtoupper($ext) }}</span>
                                                                 </div>
                                                             </div>
-                                                            <div class="d-flex gap-2">
+                                                            <div class="d-flex gap-2 flex-wrap">
                                                                 <button type="button"
                                                                     class="btn btn-outline-primary rounded-pill hvr-push px-4 fw-bold shadow-sm"
                                                                     onclick="abrirPreview('{{ $urlArchivo }}', '{{ $esImagen ? 'imagen' : 'pdf' }}', '{{ $req->titulo }}')"

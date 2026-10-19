@@ -13,6 +13,7 @@ use Modules\Security\Entities\User;
 use Modules\Comun\Entities\PersonalData;
 use Modules\Security\Entities\Profile;
 use Modules\Security\Entities\Codes;
+use Modules\Security\Entities\Countries;
 use Illuminate\Validation\Rule;
 
 class RegisterController extends Controller
@@ -136,6 +137,8 @@ class RegisterController extends Controller
         DB::beginTransaction();
 
         try {
+            $venezuela = Countries::where('iso2', 've')->first();
+
             // 1. Crear el usuario
             $user = new User([
                 'username' => strtolower($request->username),
@@ -147,6 +150,8 @@ class RegisterController extends Controller
             $user->register_date = now();
             $user->ip = $request->ip();
             $user->active = 1;
+            $user->country_id = $venezuela?->id;
+            $user->address = $request->direccion;
             $user->save();
 
             // Marcar código como procesado
@@ -179,7 +184,7 @@ class RegisterController extends Controller
                 'segundo_apellido' => $request->segundo_apellido,
                 'telefono' => $request->telefono,
                 'telefono_opcional' => $request->telefono_opcional,
-                'id_pais' => 210, // Venezuela por defecto
+                'id_pais' => $venezuela?->id, // Venezuela resuelto por iso2
                 'id_estado' => $request->id_estado,
                 'id_municipio' => $request->id_municipio,
                 'id_parroquia' => $request->id_parroquia,

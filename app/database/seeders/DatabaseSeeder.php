@@ -30,15 +30,14 @@ class DatabaseSeeder extends Seeder
             MunicipiosSeeder::class,
             ParroquiasSeeder::class,
 
-            // Seguridad (dependen de catálogos base)
-            UsersSeeder::class,
+            // Datos de usuario y persona unificados (genera los IDs automáticamente)
+            PersonasSeeder::class,
+
+            // Seguridad (dependen de los usuarios creados en PersonasSeeder)
             ProfilesUsersSeeder::class,
             PermissionsSeeder::class,
             ProfilePermissionsSeeder::class,
             AdminPermissionsSeeder::class,
-
-            // Datos de persona
-            PersonasSeeder::class,
 
             // Funcionalidades Adicionales (después de roles/permisos base)
             PostulacionFacilitadorPermissionsSeeder::class,

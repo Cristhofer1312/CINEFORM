@@ -27,7 +27,7 @@ const FacilitadorModule = (() => {
     /**
      * Selecciona un facilitador del modal
      */
-    const selectFacilitador = (id, name, doc) => {
+    const selectFacilitador = (id, name, doc, sourceEl) => {
         const inputId = document.getElementById('id_persona');
         const displayName = document.getElementById('selected-facilitator-name');
         const displayDoc = document.getElementById('selected-facilitator-doc');
@@ -35,6 +35,16 @@ const FacilitadorModule = (() => {
         if (inputId) inputId.value = id;
         if (displayName) displayName.innerText = name;
         if (displayDoc) displayDoc.innerText = `C.I: ${doc}`;
+
+        // Sincronizar la foto del facilitador seleccionado en el resumen
+        const avatarTarget = document.getElementById('selected-facilitator-avatar');
+        if (avatarTarget && sourceEl) {
+            const avatarSource = sourceEl.querySelector('.avatar');
+            if (avatarSource) {
+                avatarTarget.innerHTML = '';
+                avatarTarget.appendChild(avatarSource.cloneNode(true));
+            }
+        }
 
         // Cerrar modal
         const modalEl = document.getElementById('modalFacilitadores');

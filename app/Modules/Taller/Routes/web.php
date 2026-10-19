@@ -13,20 +13,8 @@ use Modules\Taller\Http\Controllers\AsistenciaController;
 use Modules\Taller\Http\Controllers\PostulacionFacilitadorController;
 use Modules\Taller\Http\Controllers\CertificacionPanelController;
 use Modules\Taller\Http\Controllers\EstadisticasController;
+use Modules\Taller\Http\Controllers\SatisfaccionCursoController;
 use Modules\Comun\Http\Controllers\PersonalDataController;
-
-Route::get('/dev-login', function() {
-    $user = \Modules\Security\Entities\User::where('username', 'admin')->first();
-    if ($user) {
-        \Illuminate\Support\Facades\Auth::login($user);
-        $perfil = $user->perfiles()->first();
-        if ($perfil) {
-            session()->put('profile_id', $perfil->id);
-        }
-        return "Logged in! <a href='/taller/cursos/S0lUMVNwTTNzMVZFSUtLT3U1T1Y1Zz09/plantilla'>Go to calibration</a>";
-    }
-    return "No admin user";
-});
 
 Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
     // Rutas de gestión de cursos
@@ -49,6 +37,38 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
 
         Route::get('/crear-curso', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'create'])->name('taller.cursos.create');
         Route::post('/crear-curso', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'store'])->name('taller.cursos.store_new');
+
+        // Wizard de Creación de Curso (5 pasos, sin curso en BD hasta finalizar)
+        // Paso 1: Identidad · Paso 2: Logística · Paso 3: Temario ·
+        // Paso 4: Certificado (plantilla) · Paso 5: Requisitos + revisión.
+        Route::get('/crear-curso/paso-1', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'createPaso1'])
+            ->name('taller.cursos.wizard.paso1.create');
+        Route::post('/crear-curso/paso-1', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'storePaso1'])
+            ->name('taller.cursos.wizard.paso1.store');
+        Route::get('/crear-curso/paso-2', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'createPaso2'])
+            ->name('taller.cursos.wizard.paso2.create');
+        Route::post('/crear-curso/paso-2', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'storePaso2'])
+            ->name('taller.cursos.wizard.paso2.store');
+        Route::get('/crear-curso/paso-3', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'createPaso3'])
+            ->name('taller.cursos.wizard.paso3.create');
+        Route::post('/crear-curso/paso-3', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'storePaso3'])
+            ->name('taller.cursos.wizard.paso3.store');
+        Route::get('/crear-curso/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'wizardPlantillaCreate'])
+            ->name('taller.cursos.wizard.plantilla.create');
+        Route::post('/crear-curso/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'wizardPlantillaStore'])
+            ->name('taller.cursos.wizard.plantilla.store');
+        Route::get('/crear-curso/requisitos', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'wizardCreate'])
+            ->name('taller.cursos.wizard.requisitos.create');
+        Route::post('/crear-curso/requisitos', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'wizardStore'])
+            ->name('taller.cursos.wizard.requisitos.store');
+        Route::get('/crear-curso/revision', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'revision'])
+            ->name('taller.cursos.wizard.revision');
+        // Buscador paginado de facilitadores (modal paso 2): evita
+        // renderizar los N usuarios con avatar en el HTML del paso.
+        Route::get('/crear-curso/facilitadores', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'buscarFacilitadores'])
+            ->name('taller.cursos.wizard.facilitadores.buscar');
+        Route::post('/crear-curso/finalizar', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'finalizar'])
+            ->name('taller.cursos.wizard.finalizar');
 
         // Carga de Plantilla de Certificado (Paso Intermedio)
         Route::get('/cursos/{curso}/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'plantillaCreate'])
@@ -117,6 +137,15 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
         Route::get('/cursos/{curso}/inscripciones/{inscripcion}/respuestas', [InscripcionController::class, 'verRespuestas'])
             ->name('taller.inscripciones.respuestas');
 
+        Route::get('/cursos/{curso}/satisfaccion', [SatisfaccionCursoController::class, 'create'])
+            ->name('taller.cursos.satisfaccion.create');
+
+        Route::post('/cursos/{curso}/satisfaccion', [SatisfaccionCursoController::class, 'store'])
+            ->name('taller.cursos.satisfaccion.store');
+
+        Route::get('/cursos/{curso}/satisfaccion/resultados', [SatisfaccionCursoController::class, 'resultados'])
+            ->name('taller.cursos.satisfaccion.resultados');
+
 
         // Ruta para actualizar el estado del curso
         Route::put('/cursos/{curso}/status', [CursoController::class, 'updateStatus'])
@@ -137,6 +166,41 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
             ->name('taller.calificaciones.store');
 
         // Rutas de Certificados
+
+        // Sirven las imágenes de plantilla y firma del certificado.
+        //
+        // Reemplazan a asset('storage/...'), que dependía del enlace simbólico
+        // public/storage: con el bind mount de docker-compose (./app:/var/www/html)
+        // el enlace creado en el host no se resuelve dentro del contenedor y la
+        // imagen salía rota en el editor de calibración.
+        //
+        // La URL lleva un identificador y NO la extensión a propósito: el bloque
+        // de estáticos de nginx (location ~* \.(png|jpg|...)$) tiene prioridad
+        // sobre 'location /', así que cualquier URL terminada en .png se resuelve
+        // como archivo estático y nunca llega a PHP. Es el mismo motivo por el que
+        // el avatar se sirve en security/show-avatar/{img}.
+        Route::get('/certificados/plantilla/global', [\Modules\Taller\Http\Controllers\CertificadoController::class, 'verPlantillaGlobal'])
+            ->name('taller.certificados.plantilla.global')
+            ->withoutMiddleware(['decrypt_id']);
+
+        Route::get('/certificados/plantilla/{tipo}/{ref}', [\Modules\Taller\Http\Controllers\CertificadoController::class, 'verPlantilla'])
+            ->name('taller.certificados.plantilla.ver')
+            ->where('tipo', 'curso|wizard')
+            ->where('ref', '[A-Za-z0-9]+')
+            ->withoutMiddleware(['decrypt_id']);
+
+        Route::get('/certificados/firma/{tipo}/{ref}', [\Modules\Taller\Http\Controllers\CertificadoController::class, 'verFirma'])
+            ->name('taller.certificados.firma.ver')
+            ->where('tipo', 'curso|wizard')
+            ->where('ref', '[A-Za-z0-9]+')
+            ->withoutMiddleware(['decrypt_id']);
+
+        // Prueba en vivo del editor del wizard (FPDF+QR por clic: con throttle).
+        Route::post('/certificados/prueba-wizard', [\Modules\Taller\Http\Controllers\CertificadoController::class, 'pruebaWizard'])
+            ->name('taller.certificados.prueba.wizard')
+            ->middleware('throttle:10,1')
+            ->withoutMiddleware(['decrypt_id']);
+
         Route::get('/certificados/{curso}/descargar', [\Modules\Taller\Http\Controllers\CertificadoController::class, 'descargar'])
             ->name('taller.certificados.descargar');
 
@@ -174,6 +238,10 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
             ->name('taller.asistencia.individual');
         Route::post('/cursos/{curso}/generar-token', [AsistenciaController::class, 'generarToken'])
             ->name('taller.asistencia.generar-token');
+        Route::post('/cursos/{curso}/desactivar-token', [AsistenciaController::class, 'desactivarToken'])
+            ->name('taller.asistencia.desactivar-token');
+        Route::get('/cursos/{curso}/tokens-activos', [AsistenciaController::class, 'todosTokensActivos'])
+            ->name('taller.asistencia.tokens-activos');
         Route::post('/cursos/{curso}/asistencia/{asistencia}/anular', [AsistenciaController::class, 'anular'])
             ->name('taller.asistencia.anular');
         Route::post('/cursos/{curso}/asistencia/{asistencia}/restaurar', [AsistenciaController::class, 'restaurar'])
@@ -227,7 +295,12 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
             ->name('taller.estadisticas.datos');
     });
 
-    // Ruta pública: marcado de asistencia vía link/QR (requiere auth, pero fuera del grupo 'auth' para el flujo intencionado)
+    // Ruta pública: QR de asistencia (fuera del grupo 'auth', sin decrypt_id).
+    // Se define PRIMERO porque el segmento "qr" es literal; de lo contrario la
+    // ruta genérica /asistencia/{curso}/{token} capturaría la URL con {curso}='qr'.
+    Route::get('/asistencia/qr/{token}', [AsistenciaController::class, 'qrImage'])
+        ->name('taller.asistencia.qr-image')
+        ->withoutMiddleware('decrypt_id');
     Route::get('/asistencia/{curso}/{token}', [AsistenciaController::class, 'mostrarConfirmacion'])
         ->name('taller.asistencia.confirmar')
         ->middleware('auth');

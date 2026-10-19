@@ -5,15 +5,186 @@ namespace Modules\Taller\Services;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\Inscripcion;
 use Modules\Comun\Entities\PersonalData;
+use Modules\Taller\Services\Contracts\QrGeneratorInterface;
+use Modules\Taller\Services\BaconQrGenerator;
+use Modules\Taller\Services\CertificadoCodigo;
 use FPDF;
 
 class CertificadoService
 {
+    private QrGeneratorInterface $qr;
+
+    public function __construct(?QrGeneratorInterface $qr = null)
+    {
+        $this->qr = $qr ?? new BaconQrGenerator();
+    }
+    /**
+     * Coordenadas del diseño propio, usado cuando el curso no tiene plantilla.
+     *
+     * Las coordenadas calibradas están pensadas para la imagen de fondo del
+     * curso; sin esa imagen quedarían flotando sobre el papel. Este diseño
+     * coloca cada elemento de forma coherente para que el certificado siga
+     * siendo legible y presentable.
+     */
+    private const COORDS_SIN_PLANTILLA = [
+        'nombre' => ['x' => 38.5, 'y' => 95, 'size' => 24, 'w' => 220],
+        'dni'    => ['x' => 118.5, 'y' => 113, 'size' => 12, 'w' => 60, 'align' => 'C'],
+        'firma'  => ['x' => 203, 'y' => 130, 'w' => 60, 'h' => 24],
+        'qr'     => ['x' => 34, 'y' => 130, 'w' => 28, 'h' => 28],
+        'code'   => ['x' => 98.5, 'y' => 183, 'size' => 8, 'w' => 100],
+    ];
+
+    /**
+     * Dibuja el certificado con un diseño propio cuando el curso no tiene
+     * plantilla configurada.
+     *
+     * Antes solo se pintaba un rectángulo con la frase "Plantilla de
+     * certificado no encontrada", que se veía como un error. Ahora el documento
+     * sale presentable y legible, con una nota discreta al pie que recuerda que
+     * falta configurar la plantilla institucional.
+     *
+     * @param  FPDF  $pdf
+     * @param  Curso  $curso
+     * @return void
+     */
+    private function dibujarDisenoSinPlantilla(FPDF $pdf, Curso $curso)
+    {
+        $azul = [31, 58, 95];
+        $gris = [90, 90, 90];
+        $grisClaro = [155, 155, 155];
+
+        // Marco doble
+        $pdf->SetDrawColor(...$azul);
+        $pdf->SetLineWidth(0.8);
+        $pdf->Rect(8, 8, 281, 194);
+        $pdf->SetLineWidth(0.25);
+        $pdf->Rect(12, 12, 273, 186);
+
+        // Titulo
+        $pdf->SetTextColor(...$azul);
+        $pdf->SetFont('Arial', 'B', 30);
+        $pdf->SetXY(0, 40);
+        $pdf->Cell(297, 12, 'CERTIFICADO', 0, 0, 'C');
+
+        $pdf->SetFont('Arial', '', 12);
+        $pdf->SetXY(0, 54);
+        $pdf->Cell(297, 8, $this->latin('DE CAPACITACION'), 0, 0, 'C');
+
+        // Nombre del curso
+        $pdf->SetFont('Arial', 'I', 11);
+        $pdf->SetTextColor(...$gris);
+        $pdf->SetXY(20, 66);
+        $pdf->Cell(257, 7, $this->latin(mb_strimwidth($curso->nombre, 0, 110, '...')), 0, 0, 'C');
+
+        // Entradilla sobre el nombre del participante
+        $pdf->SetFont('Arial', '', 9);
+        $pdf->SetTextColor(60, 60, 60);
+        $pdf->SetXY(0, 80);
+        $pdf->Cell(297, 6, $this->latin('Se otorga el presente certificado a:'), 0, 0, 'C');
+
+        // Espacio de la firma
+        $pdf->SetDrawColor(...$grisClaro);
+        $pdf->SetLineWidth(0.2);
+        $pdf->Line(203, 154, 263, 154);
+        $pdf->SetFont('Arial', '', 8);
+        $pdf->SetTextColor(...$gris);
+        $pdf->SetXY(203, 156);
+        $pdf->Cell(60, 5, $this->latin('Firma de la autoridad'), 0, 0, 'C');
+
+        // Nota: la plantilla institucional sigue sin configurarse.
+        // A 190mm para quedar dentro del marco interior, no encima de la linea.
+        $pdf->SetFont('Arial', 'I', 7);
+        $pdf->SetTextColor(...$grisClaro);
+        $pdf->SetXY(0, 190);
+        $pdf->Cell(297, 5, $this->latin('Documento generado sin plantilla institucional configurada.'), 0, 0, 'C');
+    }
+
+    /**
+     * Reduce el cuerpo de un texto hasta que quepa en el ancho dado.
+     *
+     * FPDF no recorta el texto que se pasa a Cell(): si no cabe, se sale de la
+     * hoja. Con nombres largos eso invadiria la firma o el borde, asi que se
+     * baja el tamano en pasos de 1 hasta llegar al minimo indicado.
+     *
+     * @param  string  $texto
+     * @param  float   $anchoMm
+     * @param  float   $tamInicial
+     * @param  float   $tamMinimo
+     * @return float
+     */
+    private function ajustarTamano(string $texto, float $anchoMm, float $tamInicial, float $tamMinimo): float
+    {
+        $tam = (float) $tamInicial;
+
+        while ($tam > $tamMinimo && $this->textoExcede($texto, $anchoMm, $tam)) {
+            $tam -= 1;
+        }
+
+        return $tam;
+    }
+
+    /**
+     * Indica si el texto, con el cuerpo indicado, se pasaria del ancho dado.
+     *
+     * FPDF estima el ancho de las fuentes base en 0.5 por caracter, que es lo
+     * que usa internamente para calcular la posicion de un Cell() centrado.
+     *
+     * @param  string  $texto
+     * @param  float   $anchoMm
+     * @param  float   $tam
+     * @return bool
+     */
+    private function textoExcede(string $texto, float $anchoMm, float $tam): bool
+    {
+        return (mb_strlen($texto) * $tam * 0.5 * 25.4 / 72) > $anchoMm;
+    }
+
+    /**
+     * Recorta el texto con puntos suspensivos si no cabe en el ancho dado.
+     *
+     * Es la ultima red de seguridad del diseño propio: un nombre absurdo (un
+     * parrafo entero en el campo) no cabe ni con el cuerpo minimo, y en un
+     * certificado es preferible una linea truncada a varias lineas que se
+     * solaparian con la cedula, la firma y el codigo. Con nombres reales el
+     * recorte no llega a activarse nunca.
+     *
+     * @param  string  $texto
+     * @param  float   $anchoMm
+     * @param  float   $tam
+     * @return string
+     */
+    private function recortarTexto(string $texto, float $anchoMm, float $tam): string
+    {
+        if (!$this->textoExcede($texto, $anchoMm, $tam)) {
+            return $texto;
+        }
+
+        $maxChars = (int) floor($anchoMm / ($tam * 0.5 * 25.4 / 72));
+
+        if ($maxChars < 4) {
+            return mb_substr($texto, 0, 4);
+        }
+
+        return rtrim(mb_substr($texto, 0, $maxChars - 3)) . '...';
+    }
+
+    /**
+     * Convierte UTF-8 a Latin-1 para FPDF (fuentes base sin soporte Unicode).
+     *
+     * Reemplaza a utf8_decode(), obsoleto desde PHP 8.2.
+     */
+    private function latin(string $texto): string
+    {
+        $convertido = mb_convert_encoding($texto, 'ISO-8859-1', 'UTF-8');
+
+        return is_string($convertido) ? $convertido : $texto;
+    }
+
     /**
      * Detecta el tipo real de imagen leyendo los magic bytes del archivo.
      * Devuelve 'PNG', 'JPG' o null si no es un formato soportado.
      */
-    private function detectImageType(string $path): ?string
+    public function detectImageType(string $path): ?string
     {
         $handle = @fopen($path, 'rb');
         if (!$handle) return null;
@@ -31,6 +202,8 @@ class CertificadoService
     /**
      * Genera el PDF del certificado para un participante inscrito.
      *
+     * Resuelve insumos desde disco y delega en generarPdfCon().
+     *
      * @param Curso $curso
      * @param Inscripcion $inscripcion
      * @return string Contenido binario del PDF
@@ -39,56 +212,67 @@ class CertificadoService
     {
         /** @var PersonalData $persona */
         $persona = $inscripcion->persona;
-        $code = $curso->codigo . '-' . $persona->dni;
+        $code = CertificadoCodigo::emitir($curso, $persona);
 
-        // Cargar coordenadas: hardcoded → defaults.json → {curso}.json
-        $hardcoded = [
-            'nombre' => ['x' => 40.9, 'y' => 78.2, 'size' => 24, 'w' => 220],
-            'dni'    => ['x' => 159.4, 'y' => 92.6, 'size' => 12, 'w' => 25],
-            'qr'     => ['x' => 9.8,  'y' => 154.6, 'w' => 20, 'h' => 20],
-            'code'   => ['x' => 0.0,  'y' => 177.4, 'size' => 8, 'w' => 50],
-            'firma'  => ['x' => 178.1, 'y' => 130.2, 'w' => 50, 'h' => 20],
-        ];
+        // Cargar coordenadas: base → defaults.json → {curso}.json (fuente única: CertificadoConfig).
+        $coords = CertificadoConfig::coordsPara($curso->id_curso);
 
-        $coords = $hardcoded;
+        // Plantilla (propia en cualquier extensión, o global).
+        $plantillaPath = CertificadoConfig::rutaPlantilla($curso->id_curso);
 
-        // 1. Cargar defaults globales si existen
-        $defaultsPath = storage_path('app/public/Certificados/defaults.json');
-        if (file_exists($defaultsPath)) {
-            $defaults = json_decode(file_get_contents($defaultsPath), true);
-            if ($defaults) {
-                $coords = array_merge($coords, $defaults);
-            }
+        $hayPlantilla = $plantillaPath !== null
+            && $this->detectImageType($plantillaPath) !== null;
+
+        // Sin plantilla se ignoran las coordenadas calibradas: están pensadas
+        // para la imagen de fondo del curso y quedarían descolocadas.
+        if (!$hayPlantilla) {
+            $coords = self::COORDS_SIN_PLANTILLA;
         }
 
-        // 2. Cargar coordenadas específicas del curso si existen
-        $coordsPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '.json');
-        if (file_exists($coordsPath)) {
-            $savedCoords = json_decode(file_get_contents($coordsPath), true);
-            if ($savedCoords) {
-                $coords = array_merge($coords, $savedCoords);
-            }
-        }
+        return $this->generarPdfCon(
+            $curso,
+            $persona,
+            $code,
+            $coords,
+            $plantillaPath,
+            CertificadoConfig::rutaFirma($curso->id_curso),
+            $hayPlantilla
+        );
+    }
 
-        // Generar QR
+    /**
+     * Núcleo de emisión con insumos explícitos (sin leer disco por curso).
+     *
+     * Permite la prueba en vivo del wizard, donde aún no hay curso ni
+     *.coords.json definitivo: se pasa lo que el editor tiene en pantalla.
+     *
+     * @param Curso $curso Curso (puede ser no persistido, solo nombre/código)
+     * @param PersonalData $persona Datos de muestra para nombre/DNI
+     * @param string $code Código ya emitido (firma del QR)
+     * @param array $coords Coordenadas en mm FPDF
+     * @param string|null $plantillaPath Fondo (o null para diseño propio)
+     * @param string|null $firmaPath Firma (o null para omitirla)
+     * @param bool $hayPlantilla Si es false se usa el diseño propio
+     * @return string Contenido binario del PDF
+     */
+    public function generarPdfCon(
+        Curso $curso,
+        PersonalData $persona,
+        string $code,
+        array $coords,
+        ?string $plantillaPath,
+        ?string $firmaPath,
+        bool $hayPlantilla
+    ): string {
+        // Generar QR en local (sin servicios externos: el DNI no sale del servidor).
+        // En el temporal del sistema (/tmp, siempre escribible), no en
+        // storage/app: ese volumen puede quedar con dueño root y PHP-FPM
+        // (www-data) se quedaría sin permiso de escritura.
         $qrContent = route('taller.certificados.verificar', $code);
-        $qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=' . urlencode($qrContent);
-        $tempQrPath = storage_path('app/temp/qr_' . uniqid() . '.png');
+        $tempQrPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR)
+            . DIRECTORY_SEPARATOR . 'cineform_qr_' . uniqid() . '.png';
 
-        if (!file_exists(dirname($tempQrPath))) {
-            @mkdir(dirname($tempQrPath), 0755, true);
-        }
-
-        $qrImageData = @file_get_contents($qrUrl);
-        if ($qrImageData !== false) {
-            file_put_contents($tempQrPath, $qrImageData);
-        }
-
-        // Plantilla
-        $plantillaPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '.png');
-        if (!file_exists($plantillaPath)) {
-            $plantillaPath = storage_path('app/public/Certificados/plantilla.png');
-        }
+        $this->qr->generar($qrContent, $tempQrPath);
 
         // Generar PDF (A4 Horizontal)
         $pdf = new FPDF('L', 'mm', 'A4');
@@ -100,17 +284,10 @@ class CertificadoService
         $pdf->AddPage();
 
         // 3. Dibujar la plantilla de fondo PRIMERO (Ocupa toda la hoja)
-        if (file_exists($plantillaPath)) {
-            $plantillaType = $this->detectImageType($plantillaPath);
-            if ($plantillaType) {
-                $pdf->Image($plantillaPath, 0, 0, 297, 210, $plantillaType);
-            }
+        if ($hayPlantilla && $plantillaPath) {
+            $pdf->Image($plantillaPath, 0, 0, 297, 210, $this->detectImageType($plantillaPath));
         } else {
-            $pdf->SetDrawColor(0, 0, 0);
-            $pdf->Rect(5, 5, 287, 200);
-            $pdf->SetXY(10, 10);
-            $pdf->SetFont('Arial', 'I', 10);
-            $pdf->Cell(0, 10, 'Plantilla de certificado no encontrada.', 0, 1, 'C');
+            $this->dibujarDisenoSinPlantilla($pdf, $curso);
         }
 
         // 4. Dibujar imágenes adicionales (Firma, QR)
@@ -121,18 +298,7 @@ class CertificadoService
             $pdf->Image($tempQrPath, $coords['qr']['x'], $coords['qr']['y'], $qrW, $qrH);
         }
 
-        // Firma digital del docente
-        $firmaPath = null;
-        $firmaExt = null;
-        foreach (['png', 'jpg', 'jpeg'] as $ext) {
-            $testPath = storage_path('app/public/Certificados/cursos/' . $curso->id_curso . '_firma.' . $ext);
-            if (file_exists($testPath)) {
-                $firmaPath = $testPath;
-                $firmaExt = strtoupper($ext);
-                break;
-            }
-        }
-
+        // Firma digital de la autoridad.
         if ($firmaPath && isset($coords['firma'])) {
             $firmaW = $coords['firma']['w'] ?? 50;
             $firmaH = $coords['firma']['h'] ?? ($firmaW * 0.4);
@@ -151,15 +317,24 @@ class CertificadoService
             $pdf->SetFont('Arial', 'B', $coords['code']['size'] ?? 8);
             $pdf->setXY($coords['code']['x'], $coords['code']['y']);
             $codeW = $coords['code']['w'] ?? 50;
-            $pdf->Cell($codeW, 10, utf8_decode($code), 0, 0, 'C');
+            $pdf->Cell($codeW, 10, $this->latin($code), 0, 0, 'C');
         }
 
         // Nombre completo del participante
         if (isset($coords['nombre'])) {
-            $pdf->SetFont('Arial', 'B', $coords['nombre']['size'] ?? 24);
-            $pdf->setXY($coords['nombre']['x'], $coords['nombre']['y']);
+            $nombreSize = $coords['nombre']['size'] ?? 24;
             $nombreW = $coords['nombre']['w'] ?? 220;
-            $pdf->Cell($nombreW, 10, utf8_decode($persona->nombre_completo), 0, 0, 'C');
+            $nombreTexto = (string) $persona->nombre_completo;
+
+            // En el diseño propio el nombre no puede invadir la firma ni salirse
+            if (!$hayPlantilla) {
+                $nombreSize = $this->ajustarTamano($nombreTexto, $nombreW, $nombreSize, 13);
+                $nombreTexto = $this->recortarTexto($nombreTexto, $nombreW, $nombreSize);
+            }
+
+            $pdf->SetFont('Arial', 'B', $nombreSize);
+            $pdf->setXY($coords['nombre']['x'], $coords['nombre']['y']);
+            $pdf->Cell($nombreW, 10, $this->latin($nombreTexto), 0, 0, 'C');
         }
 
         // Cédula del participante
@@ -167,7 +342,7 @@ class CertificadoService
             $pdf->SetFont('Arial', 'B', $coords['dni']['size'] ?? 12);
             $pdf->setXY($coords['dni']['x'], $coords['dni']['y']);
             $dniW = $coords['dni']['w'] ?? 25;
-            $pdf->Cell($dniW, 10, utf8_decode($persona->dni), 0, 0, 'L');
+            $pdf->Cell($dniW, 10, $this->latin($persona->dni), 0, 0, $coords['dni']['align'] ?? 'L');
         }
 
         $pdfContent = $pdf->Output('S');

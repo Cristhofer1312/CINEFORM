@@ -104,6 +104,14 @@ class InscripcionController extends BaseController
 
         $basePath = "{$actividadSlug}/{$codigoProcinec}/{$cedula}";
 
+        $existente = Inscripcion::where('id_curso', $curso->id_curso)
+            ->where('id_persona', $user->personalData->id_persona)
+            ->first();
+
+        if ($existente) {
+            return redirect()->back()->with('error', 'Ya cuentas con una postulación en este programa.');
+        }
+
         DB::beginTransaction();
         try {
             // Crear inscripción principal
@@ -111,7 +119,7 @@ class InscripcionController extends BaseController
                 'id_curso' => $curso->id_curso,
                 'id_persona' => $user->personalData->id_persona,
                 'fecha_inscripcion' => Carbon::now(),
-                'estado' => 'activa'
+                'estado' => Inscripcion::ESTADO_POSTULADO
             ]);
 
             // Procesar respuestas
@@ -177,7 +185,7 @@ class InscripcionController extends BaseController
      * 2. Un usuario con permiso CANCELAR_INSCRIPCION retira a cualquier participante
      *    (en estados Inscripción o En Curso).
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $user = $this->getUsuarioAutenticado();
 
@@ -210,9 +218,10 @@ class InscripcionController extends BaseController
 
             // En lugar de eliminar, marcamos como rechazada
             $inscripcion->update([
-                'estado' => 'rechazada',
+                'estado' => Inscripcion::ESTADO_RECHAZADO,
                 'rechazada_por' => $user->id,
-                'fecha_rechazo' => Carbon::now()
+                'fecha_rechazo' => Carbon::now(),
+                'motivo_estado' => $request->input('motivo')
             ]);
 
             return response()->json([
@@ -279,10 +288,10 @@ class InscripcionController extends BaseController
             ], 403);
         }
 
-        if (!$inscripcion->esRechazada()) {
+        if (!$inscripcion->esRecuperable()) {
             return response()->json([
                 'success' => false,
-                'message' => 'La inscripción no está rechazada.'
+                'message' => 'La inscripción no es recuperable.'
             ], 400);
         }
 
@@ -297,9 +306,10 @@ class InscripcionController extends BaseController
 
         // Rehabilitar
         $inscripcion->update([
-            'estado' => 'activa',
+            'estado' => Inscripcion::ESTADO_APROBADO,
             'rechazada_por' => null,
-            'fecha_rechazo' => null
+            'fecha_rechazo' => null,
+            'motivo_estado' => null
         ]);
 
         $nombreParticipante = $inscripcion->persona
@@ -313,6 +323,134 @@ class InscripcionController extends BaseController
                 ? max(0, (int) $curso->cantidad_cupos - Inscripcion::activas()->where('id_curso', $curso->id_curso)->count())
                 : null
         ]);
+    }
+
+    /**
+     * Aprueba una postulación y la convierte en inscripción activa
+     */
+    public function aprobar($id)
+    {
+        $inscripcion = $this->findInscripcionOperativa($id);
+        $this->autorizarGestionPostulacion($inscripcion);
+        $curso = $inscripcion->curso;
+
+        if (!$inscripcion->esPostulado()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La postulación no está en estado postulado.'
+            ], 400);
+        }
+
+        $inscritos = Inscripcion::activas()->where('id_curso', $curso->id_curso)->count();
+        if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay cupos disponibles para aprobar esta postulación.'
+            ], 409);
+        }
+
+        $inscripcion->update([
+            'estado'        => Inscripcion::ESTADO_APROBADO,
+            'motivo_estado' => null,
+            'rechazada_por' => null,
+            'fecha_rechazo' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Postulación aprobada.',
+            'cupos_restantes' => $curso->cantidad_cupos !== null
+                ? max(0, (int) $curso->cantidad_cupos - Inscripcion::activas()->where('id_curso', $curso->id_curso)->count())
+                : null,
+        ]);
+    }
+
+    /**
+     * Rechaza una postulación para que el participante pueda corregirla
+     */
+    public function rechazar(Request $request, $id)
+    {
+        $inscripcion = $this->findInscripcionOperativa($id);
+        $this->autorizarGestionPostulacion($inscripcion);
+
+        $data = $request->validate([
+            'motivo' => 'required|string|max:500',
+        ]);
+
+        if ($inscripcion->esDenegado()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La postulación está denegada.'
+            ], 400);
+        }
+
+        $inscripcion->update([
+            'estado'        => Inscripcion::ESTADO_RECHAZADO,
+            'motivo_estado' => $data['motivo'],
+            'rechazada_por' => auth()->id(),
+            'fecha_rechazo' => Carbon::now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Postulación rechazada para corrección.',
+        ]);
+    }
+
+    /**
+     * Deniega definitivamente una postulación
+     */
+    public function denegar(Request $request, $id)
+    {
+        $inscripcion = $this->findInscripcionOperativa($id);
+        $this->autorizarGestionPostulacion($inscripcion);
+
+        $data = $request->validate([
+            'motivo' => 'required|string|max:500',
+        ]);
+
+        if ($inscripcion->esAprobado()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede denegar una inscripción aprobada.'
+            ], 400);
+        }
+
+        $inscripcion->update([
+            'estado'        => Inscripcion::ESTADO_DENEGADO,
+            'motivo_estado' => $data['motivo'],
+            'rechazada_por' => auth()->id(),
+            'fecha_rechazo' => Carbon::now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Postulación denegada definitivamente.',
+        ]);
+    }
+
+    /**
+     * Fuerza la visualización del documento adjunto de un requisito
+     */
+    public function verDocumento($id_respuesta)
+    {
+        $respuesta = \Modules\Taller\Entities\InscripcionRespuesta::findOrFail($id_respuesta);
+
+        if (empty($respuesta->ruta_archivo) || !\Illuminate\Support\Facades\Storage::disk('public')->exists($respuesta->ruta_archivo)) {
+            abort(404, 'Documento no encontrado.');
+        }
+
+        $inscripcion = $respuesta->inscripcion;
+        $persona = $this->getUsuarioAutenticado()->personalData;
+
+        $esDueño = $inscripcion && $inscripcion->id_persona === $persona->id_persona;
+        $esGestor = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::VER_PARTICIPANTES);
+
+        if (!$esDueño && !$esGestor) {
+            abort(403, 'No tienes permiso para ver este documento.');
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->download($respuesta->ruta_archivo);
     }
 
     /**
@@ -356,5 +494,22 @@ class InscripcionController extends BaseController
         }
 
         return \Illuminate\Support\Facades\Storage::disk('public')->download($respuesta->ruta_archivo);
+    }
+
+    private function findInscripcionOperativa($id)
+    {
+        return Inscripcion::with('curso')->findOrFail($id);
+    }
+
+    private function autorizarGestionPostulacion(Inscripcion $inscripcion): void
+    {
+        $personalData = $this->getUsuarioAutenticado()->personalData;
+
+        $esGestor = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO);
+        $esFacilitador = $inscripcion->curso && $inscripcion->curso->id_persona == $personalData->id_persona;
+
+        if (!$esGestor && !$esFacilitador) {
+            abort(403, 'No tienes permiso para gestionar las postulaciones de este curso.');
+        }
     }
 }

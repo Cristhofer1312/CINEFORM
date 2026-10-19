@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Modules\Taller\Entities\Inscripcion;
 use Modules\Taller\Entities\Curso;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class CursoInscritoController extends BaseController
 {
@@ -25,8 +26,20 @@ class CursoInscritoController extends BaseController
         // Query base: cursos donde el usuario está inscrito
         $query = \Modules\Taller\Entities\Curso::with(['modalidad', 'estados', 'inscripciones'])
             ->withCount('contenidos')
+            ->withExists(['resenasSatisfaccion as ya_respondio' => function ($q) use ($persona) {
+                $q->where('taller.resenas_satisfaccion.id_persona', $persona->id_persona);
+            }])
+            ->selectSub(
+                \Modules\Taller\Entities\Inscripcion::select('certificado_aprobado')
+                    ->whereColumn('taller.inscripciones.id_curso', 'taller.cursos.id_curso')
+                    ->where('taller.inscripciones.id_persona', $persona->id_persona)
+                    ->where('taller.inscripciones.estado', \Modules\Taller\Entities\Inscripcion::ESTADO_APROBADO)
+                    ->limit(1),
+                'certificado_aprobado'
+            )
             ->whereHas('inscripciones', function ($q) use ($persona) {
-                $q->where('id_persona', $persona->id_persona);
+                $q->where('id_persona', $persona->id_persona)
+                  ->where('estado', \Modules\Taller\Entities\Inscripcion::ESTADO_APROBADO);
             });
 
         // Filtro por nombre o descripción
@@ -37,9 +50,16 @@ class CursoInscritoController extends BaseController
             });
         }
 
-        // Filtro por estado (usa la columna id_estado de cursos, que refleja el estado actual)
+        // Filtro por estado (usa la tabla pivote curso_estado para determinar el estado actual)
         if ($request->filled('id_estado')) {
-            $query->where('id_estado', $request->id_estado);
+            $estado = \Modules\Taller\Entities\Estado::find($request->id_estado);
+
+            if ($estado) {
+                $query->where(
+                    DB::raw('(SELECT ce.id_estado FROM taller.curso_estado ce WHERE ce.id_curso = "taller"."cursos"."id_curso" ORDER BY ce.created_at DESC, ce.id DESC LIMIT 1)'),
+                    $estado->id_estado
+                );
+            }
         }
 
         $cursosInscritos = $query->orderBy('fecha_inicio', 'desc')->paginate(12)->withQueryString();

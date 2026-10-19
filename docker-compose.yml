@@ -12,7 +12,13 @@ services:
     volumes:
       - ./app:/var/www/html
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     networks:
       - app-network
 
@@ -36,8 +42,15 @@ services:
       POSTGRES_USER: laravel
       POSTGRES_PASSWORD: 123456
       POSTGRES_DB: cineform
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U laravel -d cineform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - app-network
 
@@ -48,7 +61,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@cineform.gob.ve
       PGADMIN_DEFAULT_PASSWORD: CAMBIA_ESTA_CLAVE_ADMIN
     ports:
-      - "192.168.4.27:8081:80"
+      - "8081:80"
     depends_on:
       - db
     networks:

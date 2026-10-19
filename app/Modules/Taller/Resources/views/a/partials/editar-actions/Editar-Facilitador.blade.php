@@ -8,7 +8,7 @@
             @endif
 
             <!-- Encabezado de la Página -->
-            <div class="d-flex justify-content-between align-items-end mb-4 px-2">
+            <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4 px-2">
                 <div>
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb mb-1 p-0 bg-transparent" style="font-size: 0.8rem;">
@@ -185,7 +185,7 @@
                         subtitle="Configura los módulos y el sistema de evaluación promediado."
                     >
                         <!-- Contador de Ponderación Dinámico -->
-                        <div id="total-ponderacion-container" class="card border-2 border-dashed shadow-xs p-2 px-3 rounded-4 bg-light ms-auto" style="min-width: 250px;">
+                        <div id="total-ponderacion-container" class="card border-2 border-dashed shadow-xs p-2 px-3 rounded-4 bg-light ms-auto w-100" style="min-width: 250px; max-width: 350px;">
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="small fw-bold text-muted uppercase">Balance de Notas</span>
                                 <span class="badge bg-white text-dark fw-bold border"><span id="total-ponderacion-valor">0</span>%</span>
@@ -220,7 +220,7 @@
                 <div class="row justify-content-center mt-5 pb-5">
                     <div class="col-lg-6">
                         <div class="card border shadow rounded-pill overflow-hidden bg-white">
-                            <div class="card-body p-2 d-flex align-items-center justify-content-between">
+                            <div class="card-body p-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
                                 <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
                                     class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2">
                                     <i class="fas fa-arrow-left me-2"></i> Cancelar

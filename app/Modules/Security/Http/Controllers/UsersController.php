@@ -45,31 +45,23 @@ class UsersController extends Controller {
     public function list(Request $request) {
         if (\Request::ajax()) {
             if ($request->search == null) {
-                $Users = User::limit(100)
-                        ->Where('active', '0')
+                $Users = User::limit(500)
                         ->orderBy("id", "desc")
                         //->with('getProfile')
                    //     ->with('perfiles') DEBO AJSUTAR A UN ARRAY DE PERFILES
                         ->get();
             } else {
                 $cond = $request->search;
-                $Users = User::limit(100)
-                        ->Where('active', '0')
-                        /* ->where(function ($q) use ($cond) {
-                            $q->orWhere('id', 'ILIKE', '%' . Upper($cond) . '%');
-                            $q->orWhere('document', 'ILIKE', '%' . Upper($cond) . '%');
-                            $q->orWhere('phone', 'ILIKE', '%' . Upper($cond) . '%');
-                        }) */
-                        /*
-
-                          ->orderBy("id", "desc")
-
-                         */
+                $Users = User::limit(500)
+                        ->where(function ($q) use ($cond) {
+                            $q->where('username', 'ILIKE', '%' . Upper($cond) . '%')
+                              ->orWhere('email', 'ILIKE', '%' . Upper($cond) . '%')
+                              ->orWhere('document', 'ILIKE', '%' . Upper($cond) . '%')
+                              ->orWhere('full_name', 'ILIKE', '%' . Upper($cond) . '%');
+                        })
                         ->with('perfiles')
-                        ->get()
-                //->toSql()
-                ;
-                //dd($request->search);
+                        ->orderBy("id", "desc")
+                        ->get();
             }
 
 
@@ -108,24 +100,30 @@ class UsersController extends Controller {
                       })
                      * 
                      */
+                    ->addColumn('status', function ($row) {
+                        if ((int) $row->active === 1) {
+                            return '<span class="badge badge-soft-success rounded-pill px-3">' . __('Active') . '</span>';
+                        }
+                        return '<span class="badge badge-soft-secondary rounded-pill px-3">' . __('Inactive User') . '</span>';
+                    })
                     ->addColumn('action', function ($row) {
                         // El usuario administrador (ID 1) no puede ser editado ni desactivado
                         if ($row->id == 1) {
-                            return '<div class="text-center"><span class="badge badge-secondary">Administrador del Sistema</span></div>';
+                            return '<div class="text-center"><span class="badge badge-soft-secondary rounded-pill px-3">Administrador del Sistema</span></div>';
                         }
 
-                        $actionBtn = '<div class=" text-center">';
+                        $actionBtn = '<div class="d-flex justify-content-center gap-1">';
 
-                        if ($row->active == 0) {
-                            $actionBtn .= '<a  title=""  href="' . route('users.update', $row->crypt_id) . '"   class="btn btn-icon btn-link    btn-xs"> <span class="fa fa-edit"></span></a> ';
-                            $actionBtn .= '<a  title=""  href="' . route('users.password', $row->crypt_id) . '" class="btn btn-icon btn-link   btn-warning btn-xs"><span class="fa fa-lock"></span></a> ';
+                        if ((int) $row->active === 1) {
+                            $actionBtn .= '<a title="' . __('Edit') . '" href="' . route('users.update', $row->crypt_id) . '" class="btn btn-circle btn-light border"><span class="fa fa-edit"></span></a> ';
+                            $actionBtn .= '<a title="' . __('Change Password') . '" href="' . route('users.password', $row->crypt_id) . '" class="btn btn-circle btn-light border"><span class="fa fa-lock"></span></a> ';
                         } else {
-                            $actionBtn = __('Inactive User');
+                            $actionBtn .= '<span class="badge badge-soft-secondary rounded-pill px-3">' . __('Inactive User') . '</span>';
                         }
                         $actionBtn .= '</div>';
                         return $actionBtn;
                     })
-                    ->rawColumns(['action'])
+                    ->rawColumns(['action', 'status'])
             //->make(true)
 
             ;             
@@ -151,6 +149,11 @@ class UsersController extends Controller {
                     'password'   => 'required|min:8|max:16',
                     'profile_id' => 'required',
                 ]);
+
+                // No se puede asignar un perfil desactivado
+                if (!\Modules\Security\Entities\Profile::where('id', (int) $request->profile_id)->where('active', true)->exists()) {
+                    return back()->withInput()->withErrors(['error-message' => __('Cannot assign an inactive profile')]);
+                }
             
                 // Crear usuario
                 $User = new User();
@@ -164,7 +167,8 @@ class UsersController extends Controller {
                 $User->save();
             
                 // Fix #10: Guardar relación en tabla pivote con status numérico
-                $profileId = Encryptor::decrypt($request->profile_id);
+                // El middleware DecryptIds ya desencriptó el profile_id; no se vuelve a desencriptar
+                $profileId = (int) $request->profile_id;
             
                 DB::table('security.profiles_users')->insert([
                     'id_users'   => $User->id,
@@ -218,7 +222,9 @@ class UsersController extends Controller {
      * @return Renderable
      */
     public function update($id, Request $request) {
-        $userId = Encryptor::decrypt($id);
+        // El middleware DecryptIds ya desencripta el parámetro de ruta {id}.
+        // Se normaliza por seguridad ante valores no numéricos.
+        $userId = is_numeric($id) ? (int) $id : (int) Encryptor::decrypt($id);
         
         // Bloquear edición del usuario Admin (ID 1)
         if ($userId == 1) {
@@ -228,9 +234,12 @@ class UsersController extends Controller {
         if (!\Request::ajax()) {
             if (\Request::isMethod('get')) {
                 $user = User::find($userId);
+                if (!$user) {
+                    abort(404, 'Usuario no encontrado');
+                }
                 $typeDoc = \Modules\Security\Entities\DocumentType::get()->pluck('code', 'crypt_id');
                 $profiles = \Modules\Security\Entities\Profile::where('active', true)->get()->pluck('name', 'crypt_id');
-                return view('security::users.update', compact('id', 'user', 'typeDoc', 'profiles'));
+                return view('security::users.update', ['id' => Encryptor::encrypt($userId), 'user' => $user, 'typeDoc' => $typeDoc, 'profiles' => $profiles]);
             } else {
                 $request->validate([
                     'document_type_id' => 'required',
@@ -242,24 +251,30 @@ class UsersController extends Controller {
                     'profile_id' => 'required',
                 ]);
 
+                // No se puede asignar un perfil desactivado
+                if (!\Modules\Security\Entities\Profile::where('id', (int) $request->profile_id)->where('active', true)->exists()) {
+                    return back()->withInput()->withErrors(['error-message' => __('Cannot assign an inactive profile')]);
+                }
+
                 $Country = \Modules\Security\Entities\Countries::where('iso2', $request->country_iso2)->first();
 
-                $User = User::find(Encryptor::decrypt($id));
-                $User->document_type_id = Encryptor::decrypt($request->document_type_id);
+                $User = User::find($userId);
+                // El middleware DecryptIds ya desencriptó los valores post (document_type_id, profile_id)
+                $User->document_type_id = $request->document_type_id;
                 $User->document = $request->document;
                 $User->full_name = Upper($request->full_name);
                 $User->email = $request->email;
 
                 $User->phone = $request->phone;
                 $User->country_id = $Country->id;
-                $User->profile_id = Encryptor::decrypt($request->profile_id);
+                $User->profile_id = $request->profile_id;
 
                 $User->active = $request->active;
 
                 $User->save();
 
                 // Fix #11: Sincronizar también la tabla pivote security_profiles_users
-                $newProfileId = Encryptor::decrypt($request->profile_id);
+                $newProfileId = (int) $request->profile_id;
                 $pivotExists = DB::table('security.profiles_users')
                     ->where('id_users', $User->id)
                     ->where('id_rol', $newProfileId)
@@ -283,7 +298,8 @@ class UsersController extends Controller {
     }
 
     public function password($id, Request $request) {
-        $userId = Encryptor::decrypt($id);
+        // El middleware DecryptIds ya desencripta el parámetro de ruta {id}.
+        $userId = is_numeric($id) ? (int) $id : (int) Encryptor::decrypt($id);
 
         // Bloquear cambio de contraseña del usuario Admin (ID 1) desde este panel
         if ($userId == 1) {
@@ -293,7 +309,10 @@ class UsersController extends Controller {
         if (!\Request::ajax()) {
             if (\Request::isMethod('get')) {
                 $user = User::find($userId);
-                return view('security::users.password', compact('id', 'user'));
+                if (!$user) {
+                    abort(404, 'Usuario no encontrado');
+                }
+                return view('security::users.password', ['id' => Encryptor::encrypt($userId), 'user' => $user]);
             } else {
 
                 $request->validate([
@@ -302,9 +321,9 @@ class UsersController extends Controller {
                 ]);
 
                 if (Hash::check($request->new_password, Auth::user()->password)) {
-                    return to_route('users.password', $id)->withErrors(['error-message' => __("New Password cannot be same as your current password.")]);
+                    return to_route('users.password', Encryptor::encrypt($userId))->withErrors(['error-message' => __("New Password cannot be same as your current password.")]);
                 }
-                User::whereId(Encryptor::decrypt($id))->update([
+                User::whereId($userId)->update([
                     'password' => Hash::make($request->new_password)
                 ]);
                 return to_route('users')->withSuccess(__('User Updated Successfully'));
@@ -313,7 +332,8 @@ class UsersController extends Controller {
     }
 
     public function disabled($id) {
-        $userId = Encryptor::decrypt($id);
+        // El middleware DecryptIds ya desencripta el parámetro de ruta {id}.
+        $userId = is_numeric($id) ? (int) $id : (int) Encryptor::decrypt($id);
 
         // Bloquear desactivación del usuario Admin (ID 1)
         if ($userId == 1) {

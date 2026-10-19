@@ -90,7 +90,7 @@
             Swal.fire({
                 icon: 'success',
                 title: '¡Listo!',
-                text: "{{ session()->get('success') }}",
+                text: @json(session('success')),
                 confirmButtonColor: '#1572e8',
                 timer: 3500,
                 timerProgressBar: true,
@@ -103,7 +103,7 @@
             Swal.fire({
                 icon: 'warning',
                 title: 'Atención',
-                text: "{{ session()->get('warning') }}",
+                text: @json(session('warning')),
                 confirmButtonColor: '#f0a500',
                 confirmButtonText: 'Entendido'
             });
@@ -113,7 +113,7 @@
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: "{{ session()->get('error') }}",
+                text: @json(session('error')),
                 confirmButtonColor: '#dc3545',
                 confirmButtonText: 'Cerrar'
             });
