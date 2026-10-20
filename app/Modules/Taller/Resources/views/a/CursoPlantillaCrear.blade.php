@@ -42,7 +42,12 @@
                     <div class="row g-4">
                         {{-- Columna: Controles (Se muestra abajo en móviles) --}}
                         <div class="col-12 col-lg-3 order-2 order-lg-1">
-                            <form @if(!empty($esWizard)) action="{{ route('taller.cursos.wizard.plantilla.store') }}" @else action="{{ route('taller.cursos.plantilla.store', $curso->crypt_id) }}" @endif method="POST" enctype="multipart/form-data" id="form-plantilla">
+                            {{-- novalidate: los campos numéricos de precisión viven en un
+                                 acordeón colapsado (display:none). Si el navegador los marca
+                                 inválidos no puede enfocarlos y bloquea el submit con
+                                 "An invalid form control ... is not focusable". La validación
+                                 real la hacen el JS (clamp) y el servidor (coords/archivos). --}}
+                            <form @if(!empty($esWizard)) action="{{ route('taller.cursos.wizard.plantilla.store') }}" @else action="{{ route('taller.cursos.plantilla.store', $curso->crypt_id) }}" @endif method="POST" enctype="multipart/form-data" id="form-plantilla" novalidate>
                                 @csrf
                                 <input type="hidden" name="coords" id="coords-input">
 
@@ -122,19 +127,19 @@
                                                 <div class="row g-2" id="precision-campos">
                                                     <div class="col-6">
                                                         <label class="small fw-bold" for="precision-x">X (mm)</label>
-                                                        <input type="number" id="precision-x" class="form-control form-control-sm" step="0.5" min="0" max="297" oninput="posicionExacta()">
+                                                        <input type="number" id="precision-x" class="form-control form-control-sm" step="any" min="0" max="297" oninput="posicionExacta()">
                                                     </div>
                                                     <div class="col-6">
                                                         <label class="small fw-bold" for="precision-y">Y (mm)</label>
-                                                        <input type="number" id="precision-y" class="form-control form-control-sm" step="0.5" min="0" max="210" oninput="posicionExacta()">
+                                                        <input type="number" id="precision-y" class="form-control form-control-sm" step="any" min="0" max="210" oninput="posicionExacta()">
                                                     </div>
                                                     <div class="col-6 precision-dim">
                                                         <label class="small fw-bold" for="precision-w">Ancho (mm)</label>
-                                                        <input type="number" id="precision-w" class="form-control form-control-sm" step="0.5" min="5" max="297" oninput="posicionExacta()">
+                                                        <input type="number" id="precision-w" class="form-control form-control-sm" step="any" min="5" max="297" oninput="posicionExacta()">
                                                     </div>
                                                     <div class="col-6 precision-dim">
                                                         <label class="small fw-bold" for="precision-h">Alto (mm)</label>
-                                                        <input type="number" id="precision-h" class="form-control form-control-sm" step="0.5" min="5" max="210" oninput="posicionExacta()">
+                                                        <input type="number" id="precision-h" class="form-control form-control-sm" step="any" min="5" max="210" oninput="posicionExacta()">
                                                     </div>
                                                 </div>
                                                 <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="restablecerElemento()">
