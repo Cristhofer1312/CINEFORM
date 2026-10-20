@@ -42,6 +42,14 @@
             </x-taller.alert>
         @endif
 
+        @if(!empty($esParaMenores))
+        <div class="alert alert-info border-0 rounded-4 shadow-sm p-3 mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            Este curso está dirigido a <strong>niños y adolescentes</strong>: la
+            <strong>Carta de permiso (Autorización de menores)</strong> se agregará automáticamente como requisito obligatorio.
+        </div>
+        @endif
+
         <form action="{{ $esWizard ? route('taller.cursos.wizard.requisitos.store') : route('taller.cursos.requisitos.store', $curso->id_curso) }}" method="POST">
             @csrf
 
@@ -83,12 +91,18 @@
                                     Saltar paso
                                 </a>
                             @else
-                            <a href="{{ route('taller.cursos.index') }}"
-                                class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2"
-                                onclick="return confirm('¿Saltar este paso? Podrás agregarlos luego editando el curso.')">
-                                Saltar Paso
-                            </a>
-                        @endif
+                                @if(empty($esParaMenores))
+                                    <a href="{{ route('taller.cursos.index') }}"
+                                        class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2"
+                                        onclick="return confirm('¿Saltar este paso? Podrás agregarlos luego editando el curso.')">
+                                        Saltar Paso
+                                    </a>
+                                @else
+                                    <span class="text-muted small px-4">
+                                        La carta de permiso se agregará automáticamente al guardar.
+                                    </span>
+                                @endif
+                            @endif
                             <button type="submit" class="btn btn-primary px-5 py-3 rounded-pill fw-bold shadow-lg">
                                 <i class="fas fa-save me-2"></i> {{ ! empty($esWizard) ? 'Guardar y revisar' : 'Guardar y Finalizar' }}
                             </button>

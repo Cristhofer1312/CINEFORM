@@ -6,6 +6,7 @@ use App\Enums\EstadoCurso;
 use Illuminate\Http\Request;
 use Modules\Taller\Entities\Inscripcion;
 use Modules\Taller\Entities\Curso;
+use Modules\Taller\Entities\CursoRequisito;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Taller\Http\Controllers\BaseController;
@@ -122,8 +123,15 @@ class InscripcionController extends BaseController
                 'estado' => Inscripcion::ESTADO_POSTULADO
             ]);
 
-            // Procesar respuestas
+            // Procesar respuestas. La carta de permiso solo cuenta en cursos
+            // dirigidos a menores; si quedó una fila antigua en un curso para
+            // adultos, se ignora en lugar de bloquear la inscripción.
+            $esParaMenores = $curso->esParaMenores();
             foreach ($curso->requisitos as $req) {
+                if (! $esParaMenores && CursoRequisito::esCartaPermisoDocumento($req)) {
+                    continue;
+                }
+
                 if ($req->tipo === 'pregunta') {
                     $key = 'req_' . $req->id_requisito;
                     if ($req->obligatorio && !$request->filled($key)) {

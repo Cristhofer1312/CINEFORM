@@ -5,6 +5,7 @@ namespace Modules\Taller\Http\Controllers;
 use Illuminate\Http\Request;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\CursoRequisito;
+use Modules\Taller\Entities\ModalidadEspecial;
 use App\Constants\SecurityAction;
 
 class CursoRequisitoController extends BaseController
@@ -22,7 +23,8 @@ class CursoRequisitoController extends BaseController
         }
 
         return view('taller::a.CursoRequisitosCrear', compact('curso'))
-            ->with('esWizard', false);
+            ->with('esWizard', false)
+            ->with('esParaMenores', $curso->esParaMenores());
     }
 
     /**
@@ -45,14 +47,60 @@ class CursoRequisitoController extends BaseController
             'requisitos.*.obligatorio' => 'nullable|boolean',
         ]);
 
-        foreach ($validados['requisitos'] ?? [] as $req) {
+        $requisitos = $validados['requisitos'] ?? [];
+        $esParaMenores = $curso->esParaMenores();
+
+        // La carta de permiso solo aplica a cursos para niños y adolescentes.
+        // Si el curso no es para menores y llega en el formulario, se descarta.
+        if (! $esParaMenores) {
+            $requisitos = array_values(array_filter(
+                $requisitos,
+                fn ($req) => ! CursoRequisito::esCartaPermisoDocumento($req)
+            ));
+        }
+
+        $yaTieneCartaPermiso = CursoRequisito::where('id_curso', $curso->id_curso)
+            ->get()
+            ->contains(fn ($req) => CursoRequisito::esCartaPermisoDocumento($req));
+
+        if ($esParaMenores
+            && ! $yaTieneCartaPermiso
+            && ! collect($requisitos)->contains(fn ($req) => CursoRequisito::esCartaPermisoDocumento($req))) {
+            $requisitos[] = CursoRequisito::requisitoCartaPermiso();
+        }
+
+        foreach ($requisitos as $req) {
+            // Si la carta ya existe, no se duplica: solo se reafirma su
+            // obligatoriedad cuando el curso es para menores.
+            if ($yaTieneCartaPermiso && CursoRequisito::esCartaPermisoDocumento($req)) {
+                continue;
+            }
+
+            $obligatorio = isset($req['obligatorio']) ? (bool) $req['obligatorio'] : true;
+
+            // La carta de permiso no puede quedar como opcional en un curso
+            // dirigido a menores.
+            if ($esParaMenores && CursoRequisito::esCartaPermisoDocumento($req)) {
+                $obligatorio = true;
+            }
+
             CursoRequisito::create([
                 'id_curso' => $curso->id_curso,
                 'tipo' => $req['tipo'],
                 'titulo' => $req['titulo'],
                 'descripcion' => $req['descripcion'] ?? null,
-                'obligatorio' => isset($req['obligatorio']) ? (bool) $req['obligatorio'] : true,
+                'obligatorio' => $obligatorio,
             ]);
+        }
+
+        if ($esParaMenores) {
+            $carta = CursoRequisito::where('id_curso', $curso->id_curso)
+                ->get()
+                ->first(fn ($req) => CursoRequisito::esCartaPermisoDocumento($req));
+
+            if ($carta && ! $carta->obligatorio) {
+                $carta->update(['obligatorio' => true]);
+            }
         }
 
         return redirect()->route('taller.cursos.index')
@@ -84,10 +132,37 @@ class CursoRequisitoController extends BaseController
             ->porToken(\Illuminate\Support\Facades\Auth::id(), (string) ($wizard['token'] ?? ''));
         $payload = $borrador && is_array($borrador->payload) ? $borrador->payload : [];
 
+        $esParaMenores = ModalidadEspecial::esMenor(
+            (int) ($payload['paso1']['id_modalidad_especial']
+                ?? $wizard['datos']['id_modalidad_especial']
+                ?? 0)
+        );
+
+        $requisitosPrevios = is_array($payload['requisitos'] ?? null) ? $payload['requisitos'] : [];
+        if (! $esParaMenores) {
+            $requisitosPrevios = array_values(array_filter(
+                $requisitosPrevios,
+                fn ($req) => ! CursoRequisito::esCartaPermisoDocumento($req)
+            ));
+        } else {
+            if (! collect($requisitosPrevios)->contains(fn ($req) => CursoRequisito::esCartaPermisoDocumento($req))) {
+                array_unshift($requisitosPrevios, CursoRequisito::requisitoCartaPermiso());
+            }
+
+            $requisitosPrevios = array_map(function ($req) {
+                if (CursoRequisito::esCartaPermisoDocumento($req)) {
+                    $req['obligatorio'] = true;
+                }
+
+                return $req;
+            }, $requisitosPrevios);
+        }
+
         return view('taller::a.CursoRequisitosCrear', compact('curso'))
             ->with('esWizard', true)
+            ->with('esParaMenores', $esParaMenores)
             ->with('pasoActual', 5)
-            ->with('requisitosPrevios', $payload['requisitos'] ?? [])
+            ->with('requisitosPrevios', $requisitosPrevios)
             ->with('completados', array_keys(array_filter([
                 1 => ! empty($payload['paso1'] ?? null),
                 2 => ! empty($payload['paso2'] ?? null),
@@ -127,14 +202,40 @@ class CursoRequisitoController extends BaseController
             ]
         );
 
+        $borrador = app(\Modules\Taller\Services\BorradorWizardService::class)
+            ->porToken(\Illuminate\Support\Facades\Auth::id(), (string) ($wizard['token'] ?? ''));
+        $payload = $borrador && is_array($borrador->payload) ? $borrador->payload : [];
+        $esParaMenores = ModalidadEspecial::esMenor(
+            (int) ($payload['paso1']['id_modalidad_especial']
+                ?? $wizard['datos']['id_modalidad_especial']
+                ?? 0)
+        );
+
         $requisitos = [];
         foreach ($validados['requisitos'] ?? [] as $req) {
+            $obligatorio = isset($req['obligatorio']) ? (bool) $req['obligatorio'] : true;
+
+            // La carta de permiso no puede quedar como opcional en un curso
+            // dirigido a menores.
+            if ($esParaMenores && CursoRequisito::esCartaPermisoDocumento($req)) {
+                $obligatorio = true;
+            }
+
             $requisitos[] = [
                 'tipo' => $req['tipo'],
                 'titulo' => $req['titulo'],
                 'descripcion' => $req['descripcion'] ?? null,
-                'obligatorio' => isset($req['obligatorio']) ? (bool) $req['obligatorio'] : true,
+                'obligatorio' => $obligatorio,
             ];
+        }
+
+        if (! $esParaMenores) {
+            $requisitos = array_values(array_filter(
+                $requisitos,
+                fn ($req) => ! CursoRequisito::esCartaPermisoDocumento($req)
+            ));
+        } elseif (! collect($requisitos)->contains(fn ($req) => CursoRequisito::esCartaPermisoDocumento($req))) {
+            $requisitos[] = CursoRequisito::requisitoCartaPermiso();
         }
 
         app(\Modules\Taller\Services\BorradorWizardService::class)
@@ -158,7 +259,8 @@ class CursoRequisitoController extends BaseController
             abort(403, 'No tienes permiso para editar este curso.');
         }
 
-        return view('taller::a.CursoRequisitosEditar', compact('curso'));
+        return view('taller::a.CursoRequisitosEditar', compact('curso'))
+            ->with('esParaMenores', $curso->esParaMenores());
     }
 
     /**
@@ -173,19 +275,83 @@ class CursoRequisitoController extends BaseController
             abort(403, 'No tienes permiso para editar este curso.');
         }
 
-        // Eliminar requisitos existentes
-        CursoRequisito::where('id_curso', $curso->id_curso)->delete();
+        $validados = $request->validate([
+            'requisitos' => 'nullable|array',
+            'requisitos.*.tipo' => 'required|in:pregunta,recurso,documento',
+            'requisitos.*.titulo' => 'required|string|max:255',
+            'requisitos.*.descripcion' => 'nullable|string|max:1000',
+            'requisitos.*.obligatorio' => 'nullable|boolean',
+        ]);
+
+        $esParaMenores = $curso->esParaMenores();
+        $requisitos = $validados['requisitos'] ?? [];
+
+        // Si el curso no es para menores, la carta de permiso no se exige.
+        if (! $esParaMenores) {
+            $requisitos = array_values(array_filter(
+                $requisitos,
+                fn ($req) => ! CursoRequisito::esCartaPermisoDocumento($req)
+            ));
+        }
+
+        // Evidencia ya cargada: si la carta tiene respuestas, se conserva su
+        // fila para no borrar los documentos en cascada. Si el curso dejó de
+        // ser para menores, queda como no obligatoria.
+        $cartaExistente = CursoRequisito::where('id_curso', $curso->id_curso)
+            ->get()
+            ->first(fn ($req) => CursoRequisito::esCartaPermisoDocumento($req));
+        $cartaTieneRespuestas = $cartaExistente && $cartaExistente->respuestas()->exists();
+
+        $consulta = CursoRequisito::where('id_curso', $curso->id_curso);
+        if ($cartaTieneRespuestas) {
+            $consulta->where('id_requisito', '!=', $cartaExistente->id_requisito);
+        }
+        $consulta->delete();
 
         // Crear los nuevos
-        if ($request->has('requisitos') && is_array($request->requisitos)) {
-            foreach ($request->requisitos as $req) {
-                CursoRequisito::create([
-                    'id_curso' => $curso->id_curso,
-                    'tipo' => $req['tipo'], 
-                    'titulo' => $req['titulo'],
-                    'descripcion' => $req['descripcion'] ?? null,
-                    'obligatorio' => isset($req['obligatorio']) ? (bool) $req['obligatorio'] : true,
-                ]);
+        foreach ($requisitos as $req) {
+            if ($cartaTieneRespuestas && CursoRequisito::esCartaPermisoDocumento($req)) {
+                continue;
+            }
+
+            $obligatorio = isset($req['obligatorio']) ? (bool) $req['obligatorio'] : true;
+            if ($esParaMenores && CursoRequisito::esCartaPermisoDocumento($req)) {
+                $obligatorio = true;
+            }
+
+            CursoRequisito::create([
+                'id_curso' => $curso->id_curso,
+                'tipo' => $req['tipo'],
+                'titulo' => $req['titulo'],
+                'descripcion' => $req['descripcion'] ?? null,
+                'obligatorio' => $obligatorio,
+            ]);
+        }
+
+        if ($cartaTieneRespuestas) {
+            $definicionCarta = CursoRequisito::requisitoCartaPermiso();
+            $cartaExistente->update([
+                'titulo' => $esParaMenores ? $definicionCarta['titulo'] : $cartaExistente->titulo,
+                'descripcion' => $esParaMenores ? $definicionCarta['descripcion'] : $cartaExistente->descripcion,
+                'obligatorio' => $esParaMenores,
+            ]);
+        }
+
+        // La carta de permiso es obligatoria solo en cursos para menores:
+        // se restituye si el formulario la omitió o si intentaron eliminarla,
+        // y nunca queda como opcional.
+        if ($esParaMenores) {
+            $carta = CursoRequisito::where('id_curso', $curso->id_curso)
+                ->get()
+                ->first(fn ($req) => CursoRequisito::esCartaPermisoDocumento($req));
+
+            if (! $carta) {
+                CursoRequisito::create(array_merge(
+                    ['id_curso' => $curso->id_curso],
+                    CursoRequisito::requisitoCartaPermiso()
+                ));
+            } elseif (! $carta->obligatorio) {
+                $carta->update(['obligatorio' => true]);
             }
         }
 

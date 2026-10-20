@@ -98,11 +98,16 @@
                                 <x-taller.select label="PÚBLICO OBJETIVO" icon="fas fa-users" name="id_modalidad_especial">
                                     <option value="">— General —</option>
                                     @foreach($modalidadesEspeciales as $me)
-                                        <option value="{{ $me->id_modalidad_especial }}" data-abreviatura="{{ $me->abreviatura }}" {{ (string) old('id_modalidad_especial', $paso1['id_modalidad_especial'] ?? '') === (string) $me->id_modalidad_especial ? 'selected' : '' }}>
+                                        <option value="{{ $me->id_modalidad_especial }}" data-abreviatura="{{ $me->abreviatura }}" data-es-menor="{{ $me->es_menor ? '1' : '0' }}" {{ (string) old('id_modalidad_especial', $paso1['id_modalidad_especial'] ?? '') === (string) $me->id_modalidad_especial ? 'selected' : '' }}>
                                             {{ $me->nombre }}
                                         </option>
                                     @endforeach
                                 </x-taller.select>
+                                <small class="text-muted d-block mt-2">
+                                    <i class="fas fa-info-circle me-1 text-primary"></i>
+                                    Si seleccionas <strong>Niño</strong> o <strong>Adolescente</strong>, la inscripción pedirá la
+                                    <strong>Carta de permiso (Autorización de menores)</strong>.
+                                </small>
                             </div>
                             <div class="col-md-6">
                                 <x-taller.select label="MODALIDAD" icon="fas fa-laptop-house" name="id_modalidad" required>

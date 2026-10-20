@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Modules\Comun\Entities\PersonalData;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\ContenidoCurso;
+use Modules\Taller\Entities\CursoRequisito;
 use App\Constants\SecurityAction;
 use Modules\Taller\Http\Requests\UpdateCursoRequest;
 
@@ -124,7 +125,7 @@ class EditarCursoController extends BaseController
             $updateData = [];
             
             $camposPermitidos = [
-                'nombre', 'id_modalidad', 'id_persona', 'duracion', 'horas', 
+                'nombre', 'id_modalidad', 'id_persona', 'duracion', 'horas',
                 'cantidad_cupos', 'fecha_inicio', 'fecha_fin', 'descripcion'
             ];
 
@@ -132,6 +133,13 @@ class EditarCursoController extends BaseController
                 if ($request->has($campo)) {
                     $updateData[$campo] = $validatedData[$campo];
                 }
+            }
+
+            // Solo el coordinador puede cambiar el público objetivo, porque
+            // de él depende que la carta de permiso aplique al curso.
+            if (hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)
+                && $request->has('id_modalidad_especial')) {
+                $updateData['id_modalidad_especial'] = $validatedData['id_modalidad_especial'];
             }
 
             // Bloquear cambio de facilitador si el curso está en estado >= 6 (Inscripción en adelante)
@@ -188,6 +196,9 @@ class EditarCursoController extends BaseController
 
             $curso->update($updateData);
 
+            // El público objetivo define si la carta de permiso aplica.
+            $this->sincronizarCartaPermiso($curso);
+
             // Sincronizar localidades (Solo si no es nacional)
             if ($curso->es_nacional) {
                 $curso->localidades()->detach();
@@ -240,6 +251,46 @@ class EditarCursoController extends BaseController
             DB::rollBack();
             Log::error('Error al actualizar curso: ' . $e->getMessage());
             return back()->withInput()->withErrors(['error' => 'Error al guardar cambios: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Mantiene la carta de permiso alineada con el público objetivo.
+     *
+     * - Curso para menores: la carta existe y es obligatoria.
+     * - Curso que deja de ser para menores: si no hay evidencia cargada se
+     *   elimina; si ya hay respuestas, se conserva como no obligatoria para
+     *   no perder documentos históricos.
+     */
+    private function sincronizarCartaPermiso(Curso $curso): void
+    {
+        $curso->unsetRelation('modalidadEspecial');
+
+        $carta = CursoRequisito::where('id_curso', $curso->id_curso)
+            ->get()
+            ->first(fn ($req) => CursoRequisito::esCartaPermisoDocumento($req));
+
+        if ($curso->esParaMenores()) {
+            if (! $carta) {
+                CursoRequisito::create(array_merge(
+                    ['id_curso' => $curso->id_curso],
+                    CursoRequisito::requisitoCartaPermiso()
+                ));
+            } elseif (! $carta->obligatorio) {
+                $carta->update(['obligatorio' => true]);
+            }
+
+            return;
+        }
+
+        if (! $carta) {
+            return;
+        }
+
+        if ($carta->respuestas()->exists()) {
+            $carta->update(['obligatorio' => false]);
+        } else {
+            $carta->delete();
         }
     }
 

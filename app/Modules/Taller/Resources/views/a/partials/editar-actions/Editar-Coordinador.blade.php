@@ -247,6 +247,25 @@
                                 />
                             </div>
 
+                            <div class="col-md-4">
+                                <x-taller.select
+                                    label="PÚBLICO OBJETIVO"
+                                    icon="fas fa-users"
+                                    name="id_modalidad_especial"
+                                >
+                                    <option value="">— General —</option>
+                                    @foreach($modalidadesEspeciales as $me)
+                                        <option value="{{ $me->id_modalidad_especial }}" {{ old('id_modalidad_especial', $curso->id_modalidad_especial) == $me->id_modalidad_especial ? 'selected' : '' }}>
+                                            {{ $me->nombre }}
+                                        </option>
+                                    @endforeach
+                                </x-taller.select>
+                                <small class="text-muted d-block mt-2">
+                                    <i class="fas fa-info-circle me-1 text-primary"></i>
+                                    Niño o Adolescente activa la Carta de permiso (Autorización de menores).
+                                </small>
+                            </div>
+
                             <!-- Sección: Temporalidad -->
                             <div class="col-md-6">
                                 <x-taller.input 

@@ -129,6 +129,15 @@ class Curso extends Model
         return $this->belongsTo(ModalidadEspecial::class, 'id_modalidad_especial', 'id_modalidad_especial');
     }
 
+    /**
+     * Indica si el curso está dirigido a menores de edad (niños y
+     * adolescentes). La carta de permiso solo se exige en ese caso.
+     */
+    public function esParaMenores(): bool
+    {
+        return (bool) optional($this->modalidadEspecial)->es_menor;
+    }
+
     public function region()
     {
         return $this->belongsTo(\Modules\Parametros\Entities\Estados::class, 'id_estado', 'id_estado');

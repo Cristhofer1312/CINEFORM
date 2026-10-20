@@ -66,7 +66,7 @@ class CrearCursoController extends BaseController
      * cada GET del wizard. Clave versionada para invalidar a mano si
      * se editan catálogos (taller:… o bump manual).
      */
-    public const CATALOGOS_CACHE_KEY = 'taller.wizard.catalogos.v1';
+    public const CATALOGOS_CACHE_KEY = 'taller.wizard.catalogos.v2';
 
     private function catalogosPaso1()
     {
@@ -326,16 +326,43 @@ class CrearCursoController extends BaseController
             ? \Modules\Comun\Entities\PersonalData::find($paso2['id_persona'])
             : null;
 
+        $modalidadEspecial = ! empty($payload['paso1']['id_modalidad_especial'])
+            ? \Modules\Taller\Entities\ModalidadEspecial::find($payload['paso1']['id_modalidad_especial'])
+            : null;
+        $esParaMenores = (bool) ($modalidadEspecial->es_menor ?? false);
+
+        $requisitos = is_array($payload['requisitos'] ?? null) ? $payload['requisitos'] : [];
+        if (! $esParaMenores) {
+            $requisitos = array_values(array_filter(
+                $requisitos,
+                fn ($req) => ! CursoRequisito::esCartaPermisoDocumento($req)
+            ));
+        } else {
+            if (! collect($requisitos)->contains(fn ($req) => CursoRequisito::esCartaPermisoDocumento($req))) {
+                $requisitos[] = CursoRequisito::requisitoCartaPermiso();
+            }
+
+            $requisitos = array_map(function ($req) {
+                if (CursoRequisito::esCartaPermisoDocumento($req)) {
+                    $req['obligatorio'] = true;
+                }
+
+                return $req;
+            }, $requisitos);
+        }
+
         return view('taller::a.CursoRevision', [
             'paso1' => $payload['paso1'],
             'paso2' => $paso2,
             'contenidos' => $payload['contenidos'] ?? [],
-            'requisitos' => $payload['requisitos'] ?? [],
+            'requisitos' => $requisitos,
             'pasoActual' => 5,
             'completados' => $this->pasosCompletados($borrador),
             'codigoPreview' => $codigoPreview,
             'facilitador' => $facilitador,
             'estadoCertificado' => $estadoCertificado,
+            'esParaMenores' => $esParaMenores,
+            'publicoObjetivo' => $modalidadEspecial->nombre ?? 'General',
             'hayFoto' => is_file($wizardDir.'/foto.png') || is_file($wizardDir.'/foto.jpg') || is_file($wizardDir.'/foto.jpeg'),
         ]);
     }
@@ -580,6 +607,34 @@ class CrearCursoController extends BaseController
         }
         $validatedData = $validado['datos'];
         $requisitosValidados = $validado['requisitos'];
+
+        // La carta de permiso es obligatoria solo en cursos dirigidos a
+        // menores (niños y adolescentes). El paso 5 ya la precarga según el
+        // público objetivo, pero se reafirma aquí para cubrir borradores
+        // viejos o payloads manipulados.
+        $esParaMenores = \Modules\Taller\Entities\ModalidadEspecial::esMenor(
+            (int) ($validatedData['id_modalidad_especial'] ?? 0)
+        );
+
+        if (! $esParaMenores) {
+            $requisitosValidados = array_values(array_filter(
+                $requisitosValidados,
+                fn ($req) => ! CursoRequisito::esCartaPermisoDocumento($req)
+            ));
+        } else {
+            if (! collect($requisitosValidados)->contains(fn ($req) => CursoRequisito::esCartaPermisoDocumento($req))) {
+                $requisitosValidados[] = CursoRequisito::requisitoCartaPermiso();
+            }
+
+            $requisitosValidados = array_map(function ($req) {
+                if (CursoRequisito::esCartaPermisoDocumento($req)) {
+                    $req['obligatorio'] = true;
+                }
+
+                return $req;
+            }, $requisitosValidados);
+        }
+
         $wizard = [
             'token' => $borrador->token,
             'datos' => $validatedData,

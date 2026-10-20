@@ -38,6 +38,18 @@
             <strong>Atención:</strong> Si eliminas o cambias requisitos obligatorios y el curso ya tiene participantes inscritos, los nuevos requisitos solo aplicarán para las nuevas inscripciones.
         </div>
 
+        @if($esParaMenores)
+        <div class="alert alert-info border-0 rounded-4 shadow-sm p-3 mb-4">
+            <i class="fas fa-lock me-2"></i>
+            La <strong>Carta de permiso (Autorización de menores)</strong> es un requisito legal obligatorio para este curso dirigido a niños y adolescentes y se restituye automáticamente si se elimina.
+        </div>
+        @else
+        <div class="alert alert-secondary border-0 rounded-4 shadow-sm p-3 mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            Este curso no está dirigido a menores de edad, por lo que la <strong>Carta de permiso (Autorización de menores)</strong> no se exige. Si existen documentos cargados de una versión anterior, se conservan como histórico.
+        </div>
+        @endif
+
         <form action="{{ route('taller.cursos.requisitos.update', $curso->id_curso) }}" method="POST">
             @csrf
             @method('PUT')

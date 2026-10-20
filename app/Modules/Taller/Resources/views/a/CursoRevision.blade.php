@@ -53,6 +53,13 @@
                                 <dd class="fw-bold">{{ $paso1['nombre'] ?? '—' }}</dd>
                                 <dt class="small text-muted">NIVEL</dt>
                                 <dd>{{ $paso1['nivel'] ?? '—' }}</dd>
+                                <dt class="small text-muted">PÚBLICO OBJETIVO</dt>
+                                <dd>
+                                    {{ $publicoObjetivo ?? 'General' }}
+                                    @if(!empty($esParaMenores))
+                                        <span class="badge bg-warning text-dark ms-2">Carta de permiso requerida</span>
+                                    @endif
+                                </dd>
                                 <dt class="small text-muted">CÓDIGO PREVISTO</dt>
                                 <dd class="font-monospace fw-bold">{{ $codigoPreview ?? '—' }}</dd>
                                 <dt class="small text-muted">FOTO</dt>

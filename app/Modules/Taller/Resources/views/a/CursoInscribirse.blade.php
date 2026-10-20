@@ -36,6 +36,35 @@
         <form action="{{ route('taller.inscripciones.procesar', $curso->id_curso) }}" method="POST" enctype="multipart/form-data" id="form-inscripcion">
             @csrf
 
+            @php
+                $esParaMenores = $curso->esParaMenores();
+            @endphp
+
+            <!-- Documentos Auxiliares (solo cursos para niños y adolescentes) -->
+            @if($esParaMenores)
+            <div class="card border-0 shadow-card rounded-4 mb-4 overflow-hidden border-top border-4 border-warning">
+                <div class="card-header bg-warning-soft border-0 py-3">
+                    <h6 class="mb-0 fw-bold text-dark text-uppercase"><i class="fas fa-folder-open me-2 text-warning"></i> Documentos auxiliares</h6>
+                </div>
+                <div class="card-body p-4 bg-white">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1">Carta de permiso / Autorización de menores</h6>
+                            <p class="text-muted small mb-0">
+                                Descarga la plantilla, complétala con los datos del representante legal y fírmala.
+                                Luego súbela en el requisito <strong>“Carta de permiso”</strong>.
+                            </p>
+                        </div>
+                        <a href="{{ asset('documentos/Autorizacion_menores.docx') }}"
+                           class="btn btn-warning text-dark fw-bold rounded-pill px-4 py-2 shadow-sm text-nowrap"
+                           download="Autorizacion_menores.docx">
+                            <i class="fas fa-download me-2"></i> Descargar plantilla
+                        </a>
+                    </div>
+                </div>
+            </div>
+            @endif
+
             <!-- Recursos Informativos -->
             @php
                 $recursos = $curso->requisitos->where('tipo', 'recurso');
@@ -63,6 +92,11 @@
             <!-- Preguntas y Documentos -->
             @php
                 $preguntasDocs = $curso->requisitos->whereIn('tipo', ['pregunta', 'documento']);
+                if (! $esParaMenores) {
+                    $preguntasDocs = $preguntasDocs->reject(
+                        fn ($req) => \Modules\Taller\Entities\CursoRequisito::esCartaPermisoDocumento($req)
+                    );
+                }
             @endphp
             
             @if($preguntasDocs->count() > 0)
@@ -115,6 +149,7 @@
 @push('styles')
 <style>
     .bg-success-soft { background-color: rgba(25, 135, 84, 0.1); }
+    .bg-warning-soft { background-color: rgba(255, 193, 7, 0.12); }
     .shadow-card { box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
 </style>
 @endpush
