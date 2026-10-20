@@ -12,7 +12,9 @@ use App\Constants\SecurityAction;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Carbon;
+use Modules\Taller\Rules\ImagenCertificado;
 
 class CertificadoController extends BaseController
 {
@@ -258,6 +260,27 @@ class CertificadoController extends BaseController
             return response()->json(['ok' => false, 'error' => 'Necesitas datos personales asociados a tu cuenta.'], 422);
         }
 
+        // La vista previa puede incluir las imágenes que el usuario acaba de
+        // elegir en el editor, antes de guardar el paso 4. Se validan con las
+        // mismas reglas que el submit clásico y se usan desde su archivo
+        // temporal: no se persisten, solo alimentan este PDF.
+        $validador = Validator::make($request->all(), [
+            'plantilla' => ['nullable', 'image', 'mimes:png,jpg,jpeg', ImagenCertificado::plantilla()],
+            'firma' => ['nullable', 'image', 'mimes:png,jpg,jpeg', ImagenCertificado::firma()],
+        ], [
+            'plantilla.image' => 'La plantilla debe ser una imagen PNG o JPG.',
+            'plantilla.mimes' => 'La plantilla debe ser una imagen PNG o JPG.',
+            'firma.image' => 'La firma debe ser una imagen PNG o JPG.',
+            'firma.mimes' => 'La firma debe ser una imagen PNG o JPG.',
+        ]);
+
+        if ($validador->fails()) {
+            return response()->json([
+                'ok' => false,
+                'error' => $validador->errors()->first(),
+            ], 422);
+        }
+
         $coords = json_decode((string) $request->input('coords'), true);
         $errorCoords = \Modules\Taller\Services\CertificadoConfig::validarCoords($coords);
         if ($errorCoords !== null) {
@@ -266,11 +289,32 @@ class CertificadoController extends BaseController
 
         $token = (string) (session('wizard_curso.token') ?? '');
         $config = \Modules\Taller\Services\CertificadoConfig::class;
-        $plantillaPath = $token !== '' ? $config::rutaWizardPlantilla($token) : null;
-        if ($plantillaPath === null) {
+
+        // Sin token no hay carpeta temporal que leer. Antes se caía en la
+        // plantilla global o en el diseño por defecto, y parecía que el editor
+        // había ignorado las imágenes. Si vienen archivos en la propia
+        // petición sí se puede previsualizar aunque la sesión haya caducado.
+        if ($token === '' && ! $request->hasFile('plantilla') && ! $request->hasFile('firma')) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'El proceso de creación expiró. Vuelve a abrir el paso 4 e inténtalo de nuevo.',
+            ], 419);
+        }
+
+        // Prioridad: archivo recién elegido en el editor > archivo guardado del
+        // wizard > plantilla global. Así la prueba refleja lo que se ve en el
+        // lienzo incluso antes de pulsar "Continuar a Requisitos".
+        $plantillaPath = $request->hasFile('plantilla')
+            ? (string) $request->file('plantilla')->getRealPath()
+            : ($token !== '' ? $config::rutaWizardPlantilla($token) : null);
+
+        if (! $request->hasFile('plantilla') && $plantillaPath === null) {
             $plantillaPath = $config::buscarPrimero($config::dirBase(), 'plantilla');
         }
-        $firmaPath = $token !== '' ? $config::rutaWizardFirma($token) : null;
+
+        $firmaPath = $request->hasFile('firma')
+            ? (string) $request->file('firma')->getRealPath()
+            : ($token !== '' ? $config::rutaWizardFirma($token) : null);
 
         $hayPlantilla = $plantillaPath !== null
             && $this->certificadoService->detectImageType($plantillaPath) !== null;

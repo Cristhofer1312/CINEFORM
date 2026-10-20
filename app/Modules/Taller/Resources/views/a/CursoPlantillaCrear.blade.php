@@ -195,9 +195,13 @@
                                     <div class="small text-muted text-center" id="autosave-aviso" style="display:none;"></div>
                                     
                                     @if(empty($esWizard))
-                                    <a href="{{ route('taller.certificados.probar', $curso->crypt_id) }}" target="_blank" class="btn btn-dark shadow-sm">
+                                    {{-- Guarda primero: la prueba se genera desde los archivos
+                                         en disco, así que un cambio sin guardar no saldría. --}}
+                                    <button type="submit" name="ir_a_prueba" value="1" formtarget="_blank"
+                                            class="btn btn-dark shadow-sm"
+                                            title="Guarda el diseño y abre el PDF de prueba en otra pestaña">
                                         <i class="fas fa-file-pdf me-1"></i> Probar Emisión
-                                    </a>
+                                    </button>
                                     @endif
 
                                     <div class="form-check mt-1">
@@ -1157,29 +1161,69 @@
             let resp;
             if (ES_WIZARD_PDF && PRUEBA_WIZARD_URL) {
                 const tokenInput = document.querySelector('#form-plantilla input[name="_token"]');
+                const datos = new FormData();
+                datos.append('_token', tokenInput ? tokenInput.value : '');
+                datos.append('coords', JSON.stringify(coords));
+
+                // Las imágenes elegidas aún no se han guardado en el servidor:
+                // se envían con la prueba para que el PDF las dibuje igual que
+                // el lienzo, sin obligar a pulsar antes "Continuar a Requisitos".
+                const plantillaInput = document.querySelector('#form-plantilla input[name="plantilla"]');
+                if (plantillaInput && plantillaInput.files && plantillaInput.files[0]) {
+                    datos.append('plantilla', plantillaInput.files[0]);
+                }
+
+                const firmaInput = document.querySelector('#form-plantilla input[name="firma"]');
+                if (firmaInput && firmaInput.files && firmaInput.files[0]) {
+                    datos.append('firma', firmaInput.files[0]);
+                }
+
                 resp = await fetch(PRUEBA_WIZARD_URL, {
                     method: 'POST',
                     headers: {
                         'Accept': 'application/pdf, application/json',
-                        'Content-Type': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest',
                         'X-CSRF-TOKEN': tokenInput ? tokenInput.value : '',
                     },
-                    body: JSON.stringify({ coords: JSON.stringify(coords) }),
+                    body: datos,
                 });
             } else if (PRUEBA_CURSO_URL) {
                 resp = await fetch(PRUEBA_CURSO_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             } else {
                 throw new Error('sin-origen');
             }
-            if (!resp.ok) throw new Error('http-' + resp.status);
+            if (!resp.ok) {
+                let detalle = '';
+                try {
+                    const error = await resp.json();
+                    detalle = error.error || error.message || '';
+                } catch (_) {
+                    // Respuesta no JSON (419, 500, etc.): se usa el mensaje genérico.
+                }
+                throw new Error(detalle || ('http-' + resp.status));
+            }
             const blob = await resp.blob();
             if (pdfObjUrl) URL.revokeObjectURL(pdfObjUrl);
             pdfObjUrl = URL.createObjectURL(blob);
             frame.src = pdfObjUrl;
             if (aviso) aviso.style.display = 'none';
         } catch (e) {
-            if (aviso) aviso.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i> No se pudo generar la vista previa. Guarda el diseño e inténtalo de nuevo.</span>';
+            const detalle = (e && e.message && e.message !== 'sin-origen' && !e.message.startsWith('http-'))
+                ? e.message
+                : 'No se pudo generar la vista previa. Guarda el diseño e inténtalo de nuevo.';
+
+            if (aviso) {
+                aviso.textContent = '';
+                const texto = document.createElement('span');
+                texto.className = 'text-danger';
+
+                const icono = document.createElement('i');
+                icono.className = 'fas fa-exclamation-triangle me-1';
+                texto.appendChild(icono);
+                texto.appendChild(document.createTextNode(detalle));
+
+                aviso.appendChild(texto);
+            }
         }
     }
 

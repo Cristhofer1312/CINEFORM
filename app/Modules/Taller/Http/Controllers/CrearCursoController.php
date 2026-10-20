@@ -982,6 +982,13 @@ class CrearCursoController extends BaseController
             $mensaje .= ' ' . $imagenes->detalleAjuste();
         }
 
+        // "Probar Emisión" envía el formulario para guardar las imágenes y
+        // luego abre el PDF. Antes era un enlace GET que leía solo lo ya
+        // guardado: si se habían elegido archivos sin guardar, no aparecían.
+        if ($request->boolean('ir_a_prueba')) {
+            return redirect()->route('taller.certificados.probar', $curso->crypt_id);
+        }
+
         return redirect()->route('taller.cursos.show', $curso->id_curso)
             ->with('success', $mensaje);
     }
