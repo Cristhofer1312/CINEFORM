@@ -22,6 +22,9 @@ RUN apt-get update && apt-get install -y \
 # Instalar Composer (gestor de dependencias de PHP)
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Configuracion de rendimiento para desarrollo (OPcache sin validacion de timestamps)
+COPY docker/php/zz-performance.ini /usr/local/etc/php/conf.d/zz-performance.ini
+
 WORKDIR /var/www/html
 
 # Crear y dar permisos a los directorios que Laravel necesita escribir

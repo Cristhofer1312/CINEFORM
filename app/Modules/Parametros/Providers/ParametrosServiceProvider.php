@@ -27,7 +27,7 @@ class ParametrosServiceProvider extends ServiceProvider
         $this->registerTranslations();
         $this->registerConfig();
         $this->registerViews();
-        $this->loadMigrationsFrom(module_path($this->moduleName, 'Database/Migrations'));
+        $this->loadMigrationsFrom(dirname(__DIR__).'/Database/Migrations');
     }
 
     /**
@@ -48,10 +48,10 @@ class ParametrosServiceProvider extends ServiceProvider
     protected function registerConfig()
     {
         $this->publishes([
-            module_path($this->moduleName, 'Config/config.php') => config_path($this->moduleNameLower . '.php'),
+            dirname(__DIR__).'/Config/config.php' => config_path($this->moduleNameLower . '.php'),
         ], 'config');
         $this->mergeConfigFrom(
-            module_path($this->moduleName, 'Config/config.php'), $this->moduleNameLower
+            dirname(__DIR__).'/Config/config.php', $this->moduleNameLower
         );
     }
 
@@ -64,7 +64,7 @@ class ParametrosServiceProvider extends ServiceProvider
     {
         $viewPath = resource_path('views/modules/' . $this->moduleNameLower);
 
-        $sourcePath = module_path($this->moduleName, 'Resources/views');
+        $sourcePath = dirname(__DIR__).'/Resources/views';
 
         $this->publishes([
             $sourcePath => $viewPath
@@ -86,8 +86,8 @@ class ParametrosServiceProvider extends ServiceProvider
             $this->loadTranslationsFrom($langPath, $this->moduleNameLower);
             $this->loadJsonTranslationsFrom($langPath);
         } else {
-            $this->loadTranslationsFrom(module_path($this->moduleName, 'Resources/lang'), $this->moduleNameLower);
-            $this->loadJsonTranslationsFrom(module_path($this->moduleName, 'Resources/lang'));
+            $this->loadTranslationsFrom(dirname(__DIR__).'/Resources/lang', $this->moduleNameLower);
+            $this->loadJsonTranslationsFrom(dirname(__DIR__).'/Resources/lang');
         }
     }
 
