@@ -47,7 +47,10 @@
                                 <label class="text-muted small fw-bold mb-2 d-flex align-items-center">
                                     <i class="fas fa-user-tie me-2 opacity-50 text-primary"></i> FACILITADOR RESPONSABLE <span class="text-danger ms-1">*</span>
                                 </label>
-                                <div class="bg-white border-2 rounded-3 p-2 px-3 shadow-xs border-light-2 d-flex align-items-center" style="height: 58px;">
+                                <div class="bg-white border-2 rounded-3 p-2 px-3 shadow-xs border-light-2 d-flex align-items-center cursor-pointer"
+                                     style="height: 58px; cursor: pointer;"
+                                     data-bs-toggle="modal" data-bs-target="#modalFacilitadores"
+                                     title="Haga clic para seleccionar facilitador">
                                     @php
                                         $facilitadorSel = $facilitadorSel ?? null;
                                         $facNombre = $facilitadorSel ? trim(($facilitadorSel->primer_nombre ?? '').' '.($facilitadorSel->primer_apellido ?? '')) : null;
@@ -70,8 +73,10 @@
                             <div class="col-md-5 d-flex align-items-end">
                                 <div class="form-check form-switch p-3 bg-light rounded-4 border shadow-xs d-inline-flex align-items-center w-100" style="height: 58px;">
                                     <input type="hidden" name="es_nacional_present" value="1">
-                                    <input class="form-check-input ms-0 me-3" type="checkbox" id="es_nacional" name="es_nacional" value="1" {{ old('es_nacional', $paso2['es_nacional'] ?? false) ? 'checked' : '' }} onchange="toggleLocalidades(this)">
-                                    <label class="form-check-label fw-bold text-dark mb-0 text-truncate" for="es_nacional">
+                                    <input class="form-check-input ms-0 me-3 cursor-pointer" type="checkbox" id="es_nacional" name="es_nacional" value="1"
+                                        {{ !empty(old('es_nacional', $paso2['es_nacional'] ?? false)) ? 'checked' : '' }}
+                                        onclick="toggleLocalidades(this)" onchange="toggleLocalidades(this)" style="cursor: pointer;">
+                                    <label class="form-check-label fw-bold text-dark mb-0 text-truncate flex-grow-1 cursor-pointer" for="es_nacional" style="cursor: pointer;">
                                         <i class="fas fa-globe-americas me-1 text-primary"></i> ALCANCE NACIONAL
                                     </label>
                                 </div>
@@ -132,7 +137,7 @@
                                     :value="old('direccion_corta', $paso2['direccion_corta'] ?? '')" placeholder="Ej: Calle 15, Edificio Colgate piso 3" required />
                             </div>
 
-                            <div class="col-md-12" id="container-localidades" style="{{ old('es_nacional', $paso2['es_nacional'] ?? false) ? 'display:none;' : '' }}">
+                            <div class="col-md-12" id="container-localidades" style="{{ !empty(old('es_nacional', $paso2['es_nacional'] ?? false)) ? 'display:none;' : '' }}">
                                 <div class="card border-light-2 shadow-xs rounded-4 overflow-hidden mb-0">
                                     <div class="card-header bg-light border-0 py-3">
                                         <h6 class="mb-0 fw-bold text-dark uppercase" style="font-size: 0.75rem;">
@@ -193,13 +198,22 @@
                     <div id="facilitator-container" class="bg-white rounded-4 border overflow-auto shadow-sm" style="max-height: min(400px, 50vh);"
                         data-hay-mas="{{ $facilitadoresIni->hasMorePages() ? '1' : '' }}">
                         @forelse($facilitadoresIni as $facilitador)
-                            @php $p = $facilitador->personalData; @endphp
+                            @php
+                                $p = $facilitador->personalData;
+                                $esSeleccionado = $p && (
+                                    ($facilitadorSel && $facilitadorSel->id_persona == $p->id_persona)
+                                    || (old('id_persona', $paso2['id_persona'] ?? null) == $p->id_persona)
+                                );
+                                $nombreCompleto = trim(($p->primer_nombre ?? '').' '.($p->primer_apellido ?? ''));
+                            @endphp
                             @if($p)
-                            <div class="facilitator-item p-3 border-bottom" style="cursor:pointer;"
+                            <div class="facilitator-item p-3 border-bottom d-flex align-items-center justify-content-between {{ $esSeleccionado ? 'bg-primary-soft border-primary border-start border-4' : '' }}"
+                                style="cursor:pointer;"
+                                onclick="seleccionarFacilitador(this, '{{ $p->id_persona }}', '{{ addslashes($nombreCompleto) }}', '{{ $p->dni }}', true)"
                                 data-id-persona="{{ $p->id_persona }}"
-                                data-nombre="{{ trim(($p->primer_nombre ?? '').' '.($p->primer_apellido ?? '')) }}"
+                                data-nombre="{{ $nombreCompleto }}"
                                 data-dni="{{ $p->dni }}">
-                                <div class="d-flex align-items-center">
+                                <div class="d-flex align-items-center flex-grow-1 overflow-hidden me-2">
                                     <div class="flex-grow-1">
                                         <h6 class="mb-0 fw-bold text-dark">{{ $p->primer_nombre }} {{ $p->primer_apellido }}</h6>
                                         <small class="text-muted d-block">C.I: {{ $p->dni }}</small>
@@ -211,6 +225,9 @@
                                         </div>
                                         @endif
                                     </div>
+                                </div>
+                                <div class="check-icon ms-2 {{ $esSeleccionado ? '' : 'd-none' }}">
+                                    <i class="fas fa-check-circle text-primary fs-4"></i>
                                 </div>
                             </div>
                             @endif
@@ -225,7 +242,7 @@
                     </div>
                 </div>
                 <div class="modal-footer border-0 p-4 pt-0 bg-light bg-opacity-50">
-                    <button type="button" class="btn btn-primary rounded-pill px-5 shadow-sm fw-bold w-100 py-3" data-bs-dismiss="modal">
+                    <button type="button" class="btn btn-primary rounded-pill px-5 shadow-sm fw-bold w-100 py-3" onclick="cerrarModalFacilitadores()" data-bs-dismiss="modal">
                         Confirmar Selección
                     </button>
                 </div>
@@ -233,22 +250,144 @@
         </div>
     </div>
 
+    @push('styles')
+    <style>
+        .bg-primary-soft { background-color: rgba(30, 58, 138, 0.08) !important; }
+        .cursor-pointer { cursor: pointer; }
+        .facilitator-item {
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+        .facilitator-item:hover {
+            background-color: rgba(30, 58, 138, 0.04);
+        }
+    </style>
+    @endpush
+
     @push('scripts')
-    <script src="{{ asset('js/modules/taller/wizard-paso2.js') }}"></script>
+    @php
+        $jsPath = public_path('js/modules/taller/wizard-paso2.js');
+        $jsVer = file_exists($jsPath) ? filemtime($jsPath) : time();
+    @endphp
+    <script src="{{ asset('js/modules/taller/wizard-paso2.js') }}?v={{ $jsVer }}"></script>
     <script>
         const FACILITADORES_URL = "{{ route('taller.cursos.wizard.facilitadores.buscar') }}";
-        function toggleLocalidades(el) { WizardPaso2.toggleLocalidades(el); }
-        function selectFacilitator(id, name, doc) {
-            document.getElementById('id_persona').value = id;
-            document.getElementById('selected-facilitator-name').textContent = name;
-            document.getElementById('selected-facilitator-doc').textContent = 'C.I: ' + doc;
-            document.querySelectorAll('#facilitator-container .facilitator-item').forEach(function (row) {
-                row.classList.toggle('bg-light', row.dataset.idPersona === String(id));
-            });
+
+        function toggleLocalidades(el) {
+            const input = el || document.getElementById('es_nacional');
+            const cont = document.getElementById('container-localidades');
+            const isNac = Boolean(input && input.checked);
+            if (cont) {
+                if (window.jQuery) {
+                    if (isNac) {
+                        jQuery(cont).stop(true, true).slideUp(200);
+                    } else {
+                        jQuery(cont).stop(true, true).slideDown(200);
+                    }
+                } else {
+                    cont.style.display = isNac ? 'none' : '';
+                }
+            }
+            if (isNac) {
+                document.querySelectorAll('#container-localidades .localidad-checkbox').forEach(function(cb) {
+                    cb.checked = false;
+                });
+            }
+            if (window.WizardPaso2 && typeof WizardPaso2.toggleLocalidades === 'function') {
+                WizardPaso2.toggleLocalidades(input, false);
+            }
         }
-        document.addEventListener('DOMContentLoaded', function () {
-            WizardPaso2.initFacilitadores(FACILITADORES_URL, document.getElementById('id_persona').value || null);
-        });
+
+        function cerrarModalFacilitadores() {
+            const modalEl = document.getElementById('modalFacilitadores');
+            if (!modalEl) return;
+            try {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    const inst = bootstrap.Modal.getOrCreateInstance(modalEl);
+                    if (inst) {
+                        inst.hide();
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.warn('Bootstrap modal hide error:', e);
+            }
+            try {
+                if (window.jQuery && typeof jQuery(modalEl).modal === 'function') {
+                    jQuery(modalEl).modal('hide');
+                    return;
+                }
+            } catch (e) {
+                console.warn('jQuery modal hide error:', e);
+            }
+            const btnCerrar = modalEl.querySelector('.btn-close, [data-bs-dismiss="modal"]');
+            if (btnCerrar) {
+                btnCerrar.click();
+            }
+        }
+
+        function seleccionarFacilitador(element, id, name, doc, cerrarConDelay = true) {
+            // 1. Asignar el valor al input hidden
+            const inputId = document.getElementById('id_persona');
+            if (inputId) {
+                inputId.value = id;
+            }
+
+            // 2. Actualizar textos en la tarjeta de la vista principal
+            const elName = document.getElementById('selected-facilitator-name');
+            if (elName) {
+                elName.textContent = name;
+            }
+            const elDoc = document.getElementById('selected-facilitator-doc');
+            if (elDoc) {
+                elDoc.textContent = 'C.I: ' + doc;
+            }
+
+            // 3. Resaltar visualmente la fila en el modal
+            document.querySelectorAll('#facilitator-container .facilitator-item').forEach(function (row) {
+                const coincide = String(row.dataset.idPersona) === String(id) || row === element;
+                row.classList.toggle('bg-primary-soft', coincide);
+                row.classList.toggle('border-primary', coincide);
+                row.classList.toggle('border-start', coincide);
+                row.classList.toggle('border-4', coincide);
+                const check = row.querySelector('.check-icon');
+                if (check) {
+                    check.classList.toggle('d-none', !coincide);
+                }
+            });
+
+            // 4. Sincronizar estado en WizardPaso2 si está cargado
+            if (window.WizardPaso2 && typeof WizardPaso2.setSeleccion === 'function') {
+                WizardPaso2.setSeleccion(id);
+            }
+
+            // 5. Cerrar modal con un leve retardo para que el usuario aprecie la selección
+            if (cerrarConDelay) {
+                setTimeout(function () {
+                    cerrarModalFacilitadores();
+                }, 180);
+            }
+        }
+
+        // Aliases globales para compatibilidad
+        window.selectFacilitator = function(id, name, doc, cerrar = false) {
+            const targetEl = document.querySelector(`#facilitator-container .facilitator-item[data-id-persona="${id}"]`);
+            seleccionarFacilitador(targetEl, id, name, doc, cerrar);
+        };
+        window.seleccionarFacilitador = seleccionarFacilitador;
+        window.cerrarModalFacilitadores = cerrarModalFacilitadores;
+
+        function iniciarWizardPaso2() {
+            toggleLocalidades(document.getElementById('es_nacional'));
+            if (window.WizardPaso2 && typeof WizardPaso2.initFacilitadores === 'function') {
+                WizardPaso2.initFacilitadores(FACILITADORES_URL, document.getElementById('id_persona')?.value || null);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', iniciarWizardPaso2);
+        } else {
+            iniciarWizardPaso2();
+        }
     </script>
     @endpush
 @endsection

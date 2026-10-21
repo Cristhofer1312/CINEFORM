@@ -216,7 +216,9 @@ class CrearCursoController extends BaseController
                 $query->where(function ($sub) use ($q) {
                     $sub->where('primer_nombre', 'ilike', "%{$q}%")
                         ->orWhere('primer_apellido', 'ilike', "%{$q}%")
-                        ->orWhere('dni', 'ilike', "%{$q}%");
+                        ->orWhere('dni', 'ilike', "%{$q}%")
+                        ->orWhereRaw("CONCAT_WS(' ', primer_nombre, segundo_nombre, primer_apellido, segundo_apellido) ILIKE ?", ["%{$q}%"])
+                        ->orWhereRaw("CONCAT_WS(' ', primer_nombre, primer_apellido) ILIKE ?", ["%{$q}%"]);
                 });
             }
         })->with(['personalData.especializaciones']);
@@ -686,7 +688,9 @@ class CrearCursoController extends BaseController
             $curso = Curso::create($cursoData);
 
             // Sincronizar múltiples localidades (Estados)
-            if (isset($validatedData['localidades'])) {
+            if (!empty($cursoData['es_nacional'])) {
+                $curso->localidades()->sync([]);
+            } elseif (isset($validatedData['localidades'])) {
                 $curso->localidades()->sync($validatedData['localidades']);
             }
 

@@ -20,17 +20,43 @@ const WizardPaso2 = (() => {
         destino.textContent = tri ? tri + '°' : '—';
     };
 
-    const toggleLocalidades = (el) => {
+    const toggleLocalidades = (el, animate = false) => {
+        const input = el || document.getElementById('es_nacional');
         const cont = document.getElementById('container-localidades');
         if (!cont) return;
-        cont.style.display = el && el.checked ? 'none' : '';
+        const isNac = Boolean(input && input.checked);
+        if (animate && window.jQuery) {
+            if (isNac) {
+                jQuery(cont).stop(true, true).slideUp(200);
+            } else {
+                jQuery(cont).stop(true, true).slideDown(200);
+            }
+        } else {
+            cont.style.display = isNac ? 'none' : '';
+        }
+        if (isNac) {
+            document.querySelectorAll('#container-localidades .localidad-checkbox').forEach((cb) => {
+                cb.checked = false;
+            });
+        }
     };
 
-    document.addEventListener('DOMContentLoaded', () => {
-        document.querySelector('input[name="fecha_inicio"]')
-            ?.addEventListener('change', pintarTrimestre);
+    const initLogistica = () => {
+        const inputFecha = document.querySelector('input[name="fecha_inicio"]');
+        inputFecha?.addEventListener('change', pintarTrimestre);
         pintarTrimestre();
-    });
+
+        const inputNacional = document.getElementById('es_nacional');
+        inputNacional?.addEventListener('change', (e) => toggleLocalidades(e.target, true));
+        inputNacional?.addEventListener('click', (e) => toggleLocalidades(e.target, true));
+        toggleLocalidades(inputNacional, false);
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initLogistica);
+    } else {
+        initLogistica();
+    }
 
     // ── Buscador AJAX de facilitadores (modal paso 2) ──
     // La primera página viene renderizada en servidor; el fetch solo
@@ -44,14 +70,20 @@ const WizardPaso2 = (() => {
     const filaHtml = (f) => {
         const esp = (f.especialidades || []).slice(0, 3)
             .map((e) => `<span class="badge bg-light text-primary border me-1" style="font-size:.7rem;">${escapar(e)}</span>`).join('');
-        const sel = String(f.id_persona) === String(faciState.seleccion) ? ' bg-light' : '';
-        return `<div class="facilitator-item p-3 border-bottom${sel}" style="cursor:pointer;"
+        const esSel = String(f.id_persona) === String(faciState.seleccion);
+        const selClasses = esSel ? ' bg-primary-soft border-primary border-start border-4' : '';
+        const checkDisplay = esSel ? '' : 'd-none';
+        return `<div class="facilitator-item p-3 border-bottom d-flex align-items-center justify-content-between${selClasses}" style="cursor:pointer;"
+                onclick="typeof seleccionarFacilitador === 'function' ? seleccionarFacilitador(this, '${escapar(f.id_persona)}', '${escapar(f.nombre)}', '${escapar(f.dni)}', true) : selectFacilitator('${escapar(f.id_persona)}', '${escapar(f.nombre)}', '${escapar(f.dni)}', true)"
                 data-id-persona="${escapar(f.id_persona)}" data-nombre="${escapar(f.nombre)}" data-dni="${escapar(f.dni)}">
-                <div class="d-flex align-items-center"><div class="flex-grow-1">
+                <div class="d-flex align-items-center flex-grow-1 overflow-hidden me-2"><div class="flex-grow-1">
                     <h6 class="mb-0 fw-bold text-dark">${escapar(f.nombre)}</h6>
                     <small class="text-muted d-block">C.I: ${escapar(f.dni)}</small>
                     <div class="mt-1">${esp}</div>
-                </div></div></div>`;
+                </div></div>
+                <div class="check-icon ms-2 ${checkDisplay}">
+                    <i class="fas fa-check-circle text-primary fs-4"></i>
+                </div></div>`;
     };
 
     const pintarFilas = (items, limpiar, detalleError) => {
@@ -72,13 +104,26 @@ const WizardPaso2 = (() => {
 
     const marcarSeleccion = () => {
         document.querySelectorAll('#facilitator-container .facilitator-item').forEach((row) => {
-            row.classList.toggle('bg-light', row.dataset.idPersona === String(faciState.seleccion));
+            const coincide = String(row.dataset.idPersona) === String(faciState.seleccion);
+            row.classList.toggle('bg-primary-soft', coincide);
+            row.classList.toggle('border-primary', coincide);
+            row.classList.toggle('border-start', coincide);
+            row.classList.toggle('border-4', coincide);
+            const check = row.querySelector('.check-icon');
+            if (check) {
+                check.classList.toggle('d-none', !coincide);
+            }
         });
     };
 
     const elegirDesdeFila = (row) => {
         if (!row) return;
-        selectFacilitator(row.dataset.idPersona, row.dataset.nombre, row.dataset.dni);
+        faciState.seleccion = row.dataset.idPersona;
+        if (typeof seleccionarFacilitador === 'function') {
+            seleccionarFacilitador(row, row.dataset.idPersona, row.dataset.nombre, row.dataset.dni, true);
+        } else if (typeof selectFacilitator === 'function') {
+            selectFacilitator(row.dataset.idPersona, row.dataset.nombre, row.dataset.dni, true);
+        }
         marcarSeleccion();
     };
 
@@ -109,7 +154,10 @@ const WizardPaso2 = (() => {
         let temporizador = null;
         // Clic delegado: sirve para filas del servidor y del fetch.
         document.getElementById('facilitator-container')?.addEventListener('click', (e) => {
-            elegirDesdeFila(e.target.closest('.facilitator-item'));
+            const item = e.target.closest('.facilitator-item');
+            if (item) {
+                elegirDesdeFila(item);
+            }
         });
         document.getElementById('filtro-facilitador')?.addEventListener('input', (e) => {
             clearTimeout(temporizador);
@@ -127,7 +175,12 @@ const WizardPaso2 = (() => {
         if (more) more.style.display = contIni && contIni.dataset.hayMas ? '' : 'none';
     };
 
-    return { toggleLocalidades, pintarTrimestre, initFacilitadores };
+    return { 
+        toggleLocalidades, 
+        pintarTrimestre, 
+        initFacilitadores, 
+        setSeleccion: (id) => { faciState.seleccion = id; } 
+    };
 })();
 
 window.TallerModule = window.TallerModule || {};
