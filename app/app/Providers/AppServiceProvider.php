@@ -13,6 +13,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         Sanctum::ignoreMigrations();
+
+        $this->app->singleton(\App\Services\Security\Autorizacion::class);
     }
 
     /**

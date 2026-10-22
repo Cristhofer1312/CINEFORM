@@ -23,6 +23,89 @@ function closeCard(card) {
     $(card).parents(".card").remove();
 }
 
+/**
+ * Realiza una petición fetch con loader automático, manejo seguro de errores de red,
+ * respuestas HTTP no-200 (419, 403, 422, 500) y cierre garantizado del loader (UX-24).
+ *
+ * @param {string} url
+ * @param {object} options
+ * @param {object} feedbackOptions
+ * @returns {Promise<any>}
+ */
+async function peticionConFeedback(url, options = {}, feedbackOptions = {}) {
+    var loadingTitle = feedbackOptions.loadingTitle || "Procesando...";
+    var loadingText = feedbackOptions.loadingText || "Por favor espere";
+    var showLoader = feedbackOptions.showLoader !== false;
+
+    if (showLoader && typeof Swal !== "undefined") {
+        Swal.fire({
+            title: loadingTitle,
+            text: loadingText,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: function () {
+                Swal.showLoading();
+            },
+        });
+    }
+
+    try {
+        var response = await fetch(url, options);
+
+        if (!response.ok) {
+            var errorMsg = "Error en el servidor (" + response.status + ")";
+            if (response.status === 419) {
+                errorMsg = "Tu sesión ha expirado. Por favor recarga la página.";
+            } else if (response.status === 403) {
+                errorMsg = "No tienes permisos para realizar esta acción.";
+            } else if (response.status === 404) {
+                errorMsg = "El recurso solicitado no fue encontrado.";
+            }
+
+            try {
+                var errJson = await response.json();
+                if (errJson && errJson.message) {
+                    errorMsg = errJson.message;
+                } else if (errJson && errJson.errors) {
+                    var msgs = Object.values(errJson.errors).flat();
+                    if (msgs.length) errorMsg = msgs.join("\n");
+                }
+            } catch (_) {}
+
+            throw new Error(errorMsg);
+        }
+
+        var data;
+        var contentType = response.headers.get("content-type") || "";
+        if (contentType.indexOf("application/json") !== -1) {
+            data = await response.json();
+        } else {
+            data = await response.text();
+        }
+
+        if (data && typeof data === "object" && data.success === false) {
+            throw new Error(data.message || "La operación no se pudo completar.");
+        }
+
+        if (showLoader && typeof Swal !== "undefined" && !feedbackOptions.keepLoader) {
+            Swal.close();
+        }
+
+        return data;
+    } catch (error) {
+        if (typeof Swal !== "undefined") {
+            Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: error.message || "Error de red o conexión interrumpida.",
+                confirmButtonColor: "#dc3545",
+                confirmButtonText: "Cerrar",
+            });
+        }
+        throw error;
+    }
+}
+
 function showNotify(type, message) {
     $.notify(
         {

@@ -181,11 +181,13 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                     </div>
                                 </div>
                                 <div class="col-md-4 d-flex flex-column gap-2 align-items-md-end align-items-start mt-3 mt-md-0">
-                                @if(($esFacilitador || $esGestor) && $contenidoActual && !$contenidoActual->es_evaluacion)
-                                        <a href="{{ route('taller.asistencia.consolidado', $curso->crypt_id) }}" class="btn btn-info text-white rounded-pill shadow-sm fw-bold px-4 py-2 btn-action" style="background-color: #5bb4f3; border-color: #5bb4f3;">
-                                            <i class="fas fa-user me-2"></i> Ver Asistencia
-                                        </a>
-                                    @endif
+                                    @can('gestionarAsistencia', $curso)
+                                        @if($contenidoActual && !$contenidoActual->es_evaluacion)
+                                            <a href="{{ route('taller.asistencia.consolidado', $curso->crypt_id) }}" class="btn btn-info text-white rounded-pill shadow-sm fw-bold px-4 py-2 btn-action" style="background-color: #5bb4f3; border-color: #5bb4f3;">
+                                                <i class="fas fa-user me-2"></i> Ver Asistencia
+                                            </a>
+                                        @endif
+                                    @endcan
                                     @if($showBtn)
                                         <a href="{{ $url }}" class="btn {{ $btnClass }} text-white rounded-pill shadow-sm fw-bold px-4 py-2 btn-action" style="border-color: #d9534f;">
                                             <i class="fas {{ $btnIcon }} me-2"></i> {{ $btnText }}

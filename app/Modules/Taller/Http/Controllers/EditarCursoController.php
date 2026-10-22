@@ -27,24 +27,9 @@ class EditarCursoController extends BaseController
         Log::info('Iniciando edición de curso', ['curso_id' => $id, 'user_id' => Auth::id()]);
 
         $curso = Curso::with(['estados', 'observaciones.autor'])->findOrFail($id);
+        $this->authorize('editar', $curso);
 
-        // Obtener los datos de la persona autenticada
-        $persona = PersonalData::where('user_id', Auth::id())->first();
-        $esCoordinador = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
-
-        if (!$persona && !$esCoordinador) {
-            Log::error('No se encontraron datos personales para el usuario (No Coordinador)', [
-                'user_id' => Auth::id(),
-            ]);
-            abort(403, 'No se encontraron tus datos de perfil. Por favor, contacta al administrador.');
-        }
-
-        $idPersona = $persona ? $persona->id_persona : null;
-
-        // Verificar que el usuario autenticado es el Facilitador del curso o un Coordinador
-        if (!$esCoordinador && (!$idPersona || $curso->id_persona != $idPersona)) {
-            abort(403, 'No tienes permiso para editar este curso.');
-        }
+        $esCoordinador = Auth::user()->can('reasignarFacilitador', $curso);
 
         // VALIDACIÓN DE ESTADOS EDITABLES
         $estadoActual = $curso->estado_actual->id_estado ?? null;
@@ -95,10 +80,15 @@ class EditarCursoController extends BaseController
      */
     public function update(UpdateCursoRequest $request, $id)
     {
-        try {
-            $validatedData = $request->validated();
-            $curso = Curso::findOrFail($id);
+        // Autorización y resolución de la entidad FUERA del try/catch: así un
+        // 403/404 de Laravel no se convierte en un redirect con el mensaje de
+        // la excepción, y no se intenta rollback sin transacción abierta.
+        $validatedData = $request->validated();
+        $curso = Curso::findOrFail($id);
+        $this->authorize('editar', $curso);
+        $esCoordinador = $request->user()->can('reasignarFacilitador', $curso);
 
+        try {
             // ── Validación server-side: ponderación total = 100% ──
             if (isset($validatedData['contenidos'])) {
                 $totalPonderacion = 0;
@@ -137,8 +127,7 @@ class EditarCursoController extends BaseController
 
             // Solo el coordinador puede cambiar el público objetivo, porque
             // de él depende que la carta de permiso aplique al curso.
-            if (hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)
-                && $request->has('id_modalidad_especial')) {
+            if ($esCoordinador && $request->has('id_modalidad_especial')) {
                 $updateData['id_modalidad_especial'] = $validatedData['id_modalidad_especial'];
             }
 
@@ -162,7 +151,7 @@ class EditarCursoController extends BaseController
             }
 
             // Requisito: Solo el coordinador puede editar el campo Telegram y Dirección Corta
-            if (hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
+            if ($esCoordinador) {
                 if ($request->has('telegram')) {
                     $updateData['telegram'] = $validatedData['telegram'];
                 }
@@ -174,7 +163,7 @@ class EditarCursoController extends BaseController
             $updateData['actualizado_por'] = Auth::id();
 
             // Foto de presentación (solo coordinador)
-            if (hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO) && $request->hasFile('foto')) {
+            if ($esCoordinador && $request->hasFile('foto')) {
                 $destDir = public_path('imagenes/cursos');
                 if (!file_exists($destDir)) {
                     mkdir($destDir, 0755, true);

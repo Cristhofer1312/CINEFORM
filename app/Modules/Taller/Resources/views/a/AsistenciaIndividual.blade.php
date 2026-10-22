@@ -51,7 +51,7 @@
         </div>
         <div class="col-md-3">
             <div class="card border-0 shadow-sm text-center py-4" style="border-radius: 1rem;">
-                <div class="display-6 fw-bold {{ $porcentajeAsistencia >= 80 ? 'text-success' : ($porcentajeAsistencia >= 50 ? 'text-warning' : 'text-danger') }} mb-1">{{ $porcentajeAsistencia }}%</div>
+                <div class="display-6 fw-bold {{ asistenciaColorTexto($porcentajeAsistencia) }} mb-1">{{ $porcentajeAsistencia }}%</div>
                 <div class="text-muted small fw-bold">Porcentaje de Asistencia</div>
             </div>
         </div>
@@ -80,19 +80,44 @@
                     </div>
                     <div>
                         <h6 class="fw-bold text-dark mb-0">{{ $contenido->titulo }}</h6>
-                        <small class="text-muted">{{ $contenido->fecha_contenido->format('d/m/Y H:i') }}</small>
+                        <small class="text-muted">{{ $contenido->fecha_contenido ? $contenido->fecha_contenido->format('d/m/Y H:i') : 'Sin fecha' }}</small>
                     </div>
                 </div>
-                <div class="text-end">
-                    @if($asistencia && $asistencia->activa)
-                        <span class="badge bg-success rounded-pill px-3 py-2">Asistió</span>
-                        <small class="text-muted d-block" style="font-size:0.75rem;">{{ \Carbon\Carbon::parse($asistencia->fecha_hora_marcado)->format('H:i') }} — {{ $asistencia->metodo_marcado }}</small>
-                    @elseif($asistencia && !$asistencia->activa)
-                        <span class="badge bg-warning text-dark rounded-pill px-3 py-2">Anulada</span>
-                        <small class="text-muted d-block" style="font-size:0.75rem;">{{ $asistencia->motivo_anulacion ?? 'Sin motivo' }}</small>
-                    @else
-                        <span class="badge bg-light text-muted rounded-pill px-3 py-2">Ausente</span>
-                    @endif
+                <div class="text-end d-flex align-items-center gap-2">
+                    <div>
+                        @if($asistencia && $asistencia->activa)
+                            <span class="badge bg-success rounded-pill px-3 py-2">Asistió</span>
+                            <small class="text-muted d-block" style="font-size:0.75rem;">{{ \Carbon\Carbon::parse($asistencia->fecha_hora_marcado)->format('H:i') }} — {{ $asistencia->metodo_marcado }}</small>
+                        @elseif($asistencia && !$asistencia->activa)
+                            <span class="badge bg-warning text-dark rounded-pill px-3 py-2">Anulada</span>
+                            <small class="text-muted d-block" style="font-size:0.75rem;">{{ $asistencia->motivo_anulacion ?? 'Sin motivo' }}</small>
+                        @else
+                            <span class="badge bg-light text-muted rounded-pill px-3 py-2">Ausente</span>
+                        @endif
+                    </div>
+                    @can('gestionarAsistencia', $curso)
+                        <div class="ms-2">
+                            @if($asistencia && $asistencia->activa)
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                    onclick="anularAsistencia('{{ route('taller.asistencia.anular', ['curso' => $curso->crypt_id, 'asistencia' => $asistencia->id_asistencia]) }}', '{{ addslashes($contenido->titulo) }}')" 
+                                    title="Anular asistencia">
+                                    <i class="fas fa-ban me-1"></i> Anular
+                                </button>
+                            @elseif($asistencia && !$asistencia->activa)
+                                <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3" 
+                                    onclick="restaurarAsistencia('{{ route('taller.asistencia.restaurar', ['curso' => $curso->crypt_id, 'asistencia' => $asistencia->id_asistencia]) }}', '{{ addslashes($contenido->titulo) }}')" 
+                                    title="Restaurar asistencia">
+                                    <i class="fas fa-undo me-1"></i> Restaurar
+                                </button>
+                            @elseif(!$contenido->es_evaluacion)
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" 
+                                    onclick="marcarManual('{{ route('taller.asistencia.marcar-manual', ['curso' => $curso->crypt_id, 'contenido' => $contenido->id_contenido_curso]) }}', '{{ $inscripcion->id_persona }}', '{{ addslashes($contenido->titulo) }}')" 
+                                    title="Marcar asistencia manual">
+                                    <i class="fas fa-check-circle me-1"></i> Marcar
+                                </button>
+                            @endif
+                        </div>
+                    @endcan
                 </div>
             </div>
             @empty
@@ -104,4 +129,102 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+function anularAsistencia(url, titulo) {
+    Swal.fire({
+        title: '¿Anular asistencia?',
+        text: `Indica el motivo de anulación para "${titulo}":`,
+        input: 'text',
+        inputPlaceholder: 'Ej. Error de marcado, retiro temporal...',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, anular',
+        cancelButtonText: 'Cancelar',
+        inputValidator: (value) => {
+            if (!value || !value.trim()) {
+                return 'Debes ingresar un motivo de anulación.';
+            }
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            peticionConFeedback(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ motivo: result.value.trim() })
+            }, {
+                loadingTitle: 'Anulando asistencia...',
+                successTitle: 'Asistencia Anulada'
+            }).then(() => {
+                location.reload();
+            });
+        }
+    });
+}
+
+function restaurarAsistencia(url, titulo) {
+    Swal.fire({
+        title: '¿Restaurar asistencia?',
+        text: `Se reactivará la asistencia para "${titulo}".`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#198754',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, restaurar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            peticionConFeedback(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                }
+            }, {
+                loadingTitle: 'Restaurando asistencia...',
+                successTitle: 'Asistencia Restaurada'
+            }).then(() => {
+                location.reload();
+            });
+        }
+    });
+}
+
+function marcarManual(url, idPersona, titulo) {
+    Swal.fire({
+        title: '¿Marcar asistencia manual?',
+        text: `Se registrará la asistencia para "${titulo}".`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#0d6efd',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, marcar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            peticionConFeedback(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ id_persona: idPersona })
+            }, {
+                loadingTitle: 'Registrando asistencia...',
+                successTitle: 'Asistencia Registrada'
+            }).then(() => {
+                location.reload();
+            });
+        }
+    });
+}
+</script>
+@endpush
 @endsection
+

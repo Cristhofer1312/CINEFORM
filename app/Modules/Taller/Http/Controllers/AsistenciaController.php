@@ -212,6 +212,7 @@ class AsistenciaController extends BaseController
     public function todosTokensActivos(Request $request, $curso_id)
     {
         $curso = Curso::findOrFail($curso_id);
+        $this->verificarPermisoGestion($curso);
 
         $tokensActivos = AsistenciaToken::whereHas('actividad', function($q) use ($curso_id) {
                 $q->where('id_curso', $curso_id);
@@ -413,16 +414,29 @@ class AsistenciaController extends BaseController
         }
 
         $contenido = $tokenRecord->actividad;
-        $persona = $this->getUsuarioAutenticado()->personalData;
+        if (!$contenido || (int) $contenido->id_curso !== (int) $curso->id_curso) {
+            return view('taller::a.AsistenciaExpirada', [
+                'mensaje' => 'El enlace de asistencia no corresponde a este curso.',
+                'curso' => $curso,
+            ]);
+        }
 
-        // Verificar que esté inscrito
+        $persona = $this->getUsuarioAutenticado()->personalData;
+        if (!$persona) {
+            return view('taller::a.AsistenciaExpirada', [
+                'mensaje' => 'No se encontraron los datos personales del usuario.',
+                'curso' => $curso,
+            ]);
+        }
+
+        // Verificar que esté formalmente admitido y aprobado (UX-13 / RF-32)
         $inscripcion = Inscripcion::where('id_curso', $curso->id_curso)
             ->where('id_persona', $persona->id_persona)
             ->first();
 
-        if (!$inscripcion) {
+        if (!$inscripcion || !$inscripcion->esAprobado()) {
             return view('taller::a.AsistenciaExpirada', [
-                'mensaje' => 'No estás inscrito en este curso. No puedes marcar asistencia.',
+                'mensaje' => 'Debes estar formalmente inscrito y admitido en este curso para registrar asistencia.',
                 'curso' => $curso,
             ]);
         }
@@ -463,14 +477,21 @@ class AsistenciaController extends BaseController
         }
 
         $contenido = $tokenRecord->actividad;
+        if (!$contenido || (int) $contenido->id_curso !== (int) $curso->id_curso) {
+            return back()->with('error', 'El enlace de asistencia no corresponde a este curso.');
+        }
+
         $persona = $this->getUsuarioAutenticado()->personalData;
+        if (!$persona) {
+            return back()->with('error', 'No se encontraron los datos personales del usuario.');
+        }
 
         $inscripcion = Inscripcion::where('id_curso', $curso->id_curso)
             ->where('id_persona', $persona->id_persona)
             ->first();
 
-        if (!$inscripcion) {
-            return back()->with('error', 'No estás inscrito en este curso.');
+        if (!$inscripcion || !$inscripcion->esAprobado()) {
+            return back()->with('error', 'Debes estar formalmente inscrito y admitido en este curso para registrar asistencia.');
         }
 
         // Verificar duplicado
@@ -501,13 +522,6 @@ class AsistenciaController extends BaseController
      */
     private function verificarPermisoGestion(Curso $curso): void
     {
-        $personalData = $this->getUsuarioAutenticado()->personalData;
-        $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_ASISTENCIA)
-            || hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
-        $esFacilitador = $curso->id_persona == $personalData->id_persona;
-
-        if (!$esGestor && !$esFacilitador) {
-            abort(403, 'No tienes permiso para gestionar la asistencia de este curso.');
-        }
+        $this->authorize('gestionarAsistencia', $curso);
     }
 }

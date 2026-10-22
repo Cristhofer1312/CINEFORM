@@ -2,11 +2,11 @@
 
 namespace Modules\Taller\Http\Controllers;
 
+use App\Constants\SecurityAction;
 use Illuminate\Http\Request;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\CursoRequisito;
 use Modules\Taller\Entities\ModalidadEspecial;
-use App\Constants\SecurityAction;
 
 class CursoRequisitoController extends BaseController
 {
@@ -16,9 +16,9 @@ class CursoRequisitoController extends BaseController
     public function create($id_curso)
     {
         $curso = Curso::findOrFail($id_curso);
-        
+
         // Validar permisos
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
             abort(403, 'No tienes permiso para planificar cursos.');
         }
 
@@ -35,7 +35,7 @@ class CursoRequisitoController extends BaseController
         $curso = Curso::findOrFail($id_curso);
 
         // Validar permisos
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
             abort(403, 'No tienes permiso para planificar cursos.');
         }
 
@@ -104,7 +104,7 @@ class CursoRequisitoController extends BaseController
         }
 
         return redirect()->route('taller.cursos.index')
-            ->with('success', 'Curso "' . $curso->nombre . '" y sus requisitos configurados exitosamente.');
+            ->with('success', 'Curso "'.$curso->nombre.'" y sus requisitos configurados exitosamente.');
     }
 
     /**
@@ -114,28 +114,27 @@ class CursoRequisitoController extends BaseController
      */
     public function wizardCreate()
     {
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
             abort(403, 'No tienes permiso para planificar cursos.');
         }
 
-        $wizard = session('wizard_curso');
-        if (!$wizard || empty($wizard['token'])) {
-            return redirect()->route('taller.cursos.create')
-                ->withErrors(['error' => 'El proceso de creación expiró. Comienza nuevamente desde el Paso 1.']);
+        $servicio = app(\Modules\Taller\Services\BorradorWizardService::class);
+        $borrador = $servicio->actual(\Illuminate\Support\Facades\Auth::id());
+        $payload = is_array($borrador->payload) ? $borrador->payload : [];
+
+        if (empty($payload['paso1']) || empty($payload['paso2'])) {
+            return redirect()->route('taller.cursos.wizard.paso1.create')
+                ->withErrors(['error' => 'Completa los pasos previos de identidad y logística antes de definir requisitos.']);
         }
 
+        $servicio->sincronizarSesion($borrador);
+
         $curso = (object) [
-            'nombre' => $wizard['datos']['nombre'] ?? 'Curso',
+            'nombre' => $payload['paso1']['nombre'] ?? 'Curso',
         ];
 
-        $borrador = app(\Modules\Taller\Services\BorradorWizardService::class)
-            ->porToken(\Illuminate\Support\Facades\Auth::id(), (string) ($wizard['token'] ?? ''));
-        $payload = $borrador && is_array($borrador->payload) ? $borrador->payload : [];
-
         $esParaMenores = ModalidadEspecial::esMenor(
-            (int) ($payload['paso1']['id_modalidad_especial']
-                ?? $wizard['datos']['id_modalidad_especial']
-                ?? 0)
+            (int) ($payload['paso1']['id_modalidad_especial'] ?? 0)
         );
 
         $requisitosPrevios = is_array($payload['requisitos'] ?? null) ? $payload['requisitos'] : [];
@@ -162,31 +161,37 @@ class CursoRequisitoController extends BaseController
             ->with('esWizard', true)
             ->with('esParaMenores', $esParaMenores)
             ->with('pasoActual', 5)
+            ->with('borrador', $borrador)
             ->with('requisitosPrevios', $requisitosPrevios)
             ->with('completados', array_keys(array_filter([
                 1 => ! empty($payload['paso1'] ?? null),
                 2 => ! empty($payload['paso2'] ?? null),
                 3 => ! empty($payload['contenidos'] ?? null),
+                4 => ! empty($payload['requisitos'] ?? null),
             ])));
     }
 
     /**
-     * Paso 3: Acumula los requisitos en sesión y finaliza la creación del curso.
+     * Paso 5: Acumula los requisitos en sesión y borrador y avanza a revisión.
      *
-     * @param  Request  $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function wizardStore(Request $request)
     {
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
             abort(403, 'No tienes permiso para planificar cursos.');
         }
 
-        $wizard = session('wizard_curso');
-        if (!$wizard || empty($wizard['token'])) {
-            return redirect()->route('taller.cursos.create')
-                ->withErrors(['error' => 'El proceso de creación expiró. Comienza nuevamente desde el Paso 1.']);
+        $servicio = app(\Modules\Taller\Services\BorradorWizardService::class);
+        $borrador = $servicio->actual(\Illuminate\Support\Facades\Auth::id());
+        $payload = is_array($borrador->payload) ? $borrador->payload : [];
+
+        if (empty($payload['paso1']) || empty($payload['paso2'])) {
+            return redirect()->route('taller.cursos.wizard.paso1.create')
+                ->withErrors(['error' => 'Completa los pasos previos de identidad y logística.']);
         }
+
+        $servicio->sincronizarSesion($borrador);
 
         $validados = $request->validate(
             [
@@ -202,13 +207,8 @@ class CursoRequisitoController extends BaseController
             ]
         );
 
-        $borrador = app(\Modules\Taller\Services\BorradorWizardService::class)
-            ->porToken(\Illuminate\Support\Facades\Auth::id(), (string) ($wizard['token'] ?? ''));
-        $payload = $borrador && is_array($borrador->payload) ? $borrador->payload : [];
         $esParaMenores = ModalidadEspecial::esMenor(
-            (int) ($payload['paso1']['id_modalidad_especial']
-                ?? $wizard['datos']['id_modalidad_especial']
-                ?? 0)
+            (int) ($payload['paso1']['id_modalidad_especial'] ?? 0)
         );
 
         $requisitos = [];
@@ -238,10 +238,14 @@ class CursoRequisitoController extends BaseController
             $requisitos[] = CursoRequisito::requisitoCartaPermiso();
         }
 
-        app(\Modules\Taller\Services\BorradorWizardService::class)
-            ->guardarSlice(\Illuminate\Support\Facades\Auth::id(), 'requisitos', $requisitos, 5);
+        $servicio->guardarSlice(\Illuminate\Support\Facades\Auth::id(), 'requisitos', $requisitos, 5);
 
-        // Paso 5a guardado: avanza a la revisión pre-flight (el curso se
+        if ($request->input('accion') === 'salir' || $request->filled('guardar_y_salir')) {
+            return redirect()->route('taller.cursos.index')
+                ->with('success', 'Borrador guardado exitosamente.');
+        }
+
+        // Paso 5 guardado: avanza a la revisión pre-flight (el curso se
         // crea solo en finalizar(), nunca aquí).
         return redirect()->route('taller.cursos.wizard.revision')
             ->with('success', 'Requisitos guardados. Revisa el resumen antes de crear el curso.');
@@ -253,11 +257,9 @@ class CursoRequisitoController extends BaseController
     public function edit($id_curso)
     {
         $curso = Curso::with('requisitos')->findOrFail($id_curso);
-        
-        // Validar permisos
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::EDITAR_CURSO) && !hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
-            abort(403, 'No tienes permiso para editar este curso.');
-        }
+
+        // Validar permisos via Policy
+        $this->authorize('gestionarRequisitos', $curso);
 
         return view('taller::a.CursoRequisitosEditar', compact('curso'))
             ->with('esParaMenores', $curso->esParaMenores());
@@ -270,10 +272,8 @@ class CursoRequisitoController extends BaseController
     {
         $curso = Curso::findOrFail($id_curso);
 
-        // Validar permisos
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::EDITAR_CURSO) && !hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
-            abort(403, 'No tienes permiso para editar este curso.');
-        }
+        // Validar permisos via Policy
+        $this->authorize('gestionarRequisitos', $curso);
 
         $validados = $request->validate([
             'requisitos' => 'nullable|array',

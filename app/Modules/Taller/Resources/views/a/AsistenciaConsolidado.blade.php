@@ -19,6 +19,11 @@
                         <h3 class="fw-bold text-dark mb-0">Lista Consolidada de Asistencia</h3>
                     </div>
                     <div class="d-flex gap-2 flex-wrap">
+                        @can('gestionarAsistencia', $curso)
+                        <button class="btn btn-primary rounded-pill px-3 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalMarcarManual">
+                            <i class="fas fa-user-check me-2"></i> Marcar Manual
+                        </button>
+                        @endcan
                         <button class="btn btn-success rounded-pill px-4 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalGenerarToken">
                             <i class="fas fa-qrcode me-2"></i> Generar Enlace / QR
                         </button>
@@ -132,13 +137,23 @@
                                     $asistio = isset($asistenciasMap[$key]);
                                 @endphp
                                 @if($asistio)
-                                    <span class="badge bg-success rounded-pill px-2 py-1" title="Asistió el {{ $asistio['fecha_hora_marcado'] ?? '' }}">
+                                    <span class="badge bg-success rounded-pill px-2 py-1" title="Asistió{{ !empty($asistio['fecha_hora_marcado']) ? ': ' . \Carbon\Carbon::parse($asistio['fecha_hora_marcado'])->format('d/m/Y H:i') : '' }}">
                                         <i class="fas fa-check"></i>
                                     </span>
                                 @else
-                                    <span class="badge bg-light text-muted rounded-pill px-2 py-1">
-                                        <i class="fas fa-times"></i>
-                                    </span>
+                                    @can('gestionarAsistencia', $curso)
+                                        <button type="button" class="btn btn-link p-0 text-decoration-none border-0 bg-transparent" 
+                                            onclick="prepararMarcarManual('{{ $actividad->id_contenido_curso }}', '{{ $inscripcion->id_persona }}')"
+                                            title="Marcar asistencia manual">
+                                            <span class="badge bg-light text-muted rounded-pill px-2 py-1 border hover-primary">
+                                                <i class="fas fa-plus"></i>
+                                            </span>
+                                        </button>
+                                    @else
+                                        <span class="badge bg-light text-muted rounded-pill px-2 py-1">
+                                            <i class="fas fa-times"></i>
+                                        </span>
+                                    @endcan
                                 @endif
                             </td>
                             @endforeach
@@ -152,7 +167,7 @@
                                     }
                                     $pct = $totalAct > 0 ? round(($totalAsist / $totalAct) * 100) : 0;
                                 @endphp
-                                <span class="fw-bold {{ $pct >= 80 ? 'text-success' : ($pct >= 50 ? 'text-warning' : 'text-danger') }}">
+                                <span class="fw-bold {{ asistenciaColorTexto($pct) }}">
                                     {{ $pct }}%
                                 </span>
                                 <small class="text-muted d-block">({{ $totalAsist }}/{{ $totalAct }})</small>
@@ -174,6 +189,51 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Marcar Asistencia Manual -->
+<div class="modal fade" id="modalMarcarManual" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 1rem;">
+            <div class="modal-header bg-primary text-white" style="border-radius: 1rem 1rem 0 0;">
+                <h5 class="modal-title fw-bold"><i class="fas fa-user-check me-2"></i> Marcar Asistencia Manual</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formMarcarManual" onsubmit="enviarMarcarManual(event)">
+                @csrf
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label for="selectManualActividad" class="form-label fw-bold">Actividad:</label>
+                        <select name="contenido_id" id="selectManualActividad" class="form-select" required>
+                            <option value="">Seleccionar actividad...</option>
+                            @foreach($actividades as $act)
+                            <option value="{{ $act->id_contenido_curso }}">
+                                {{ $act->titulo }} ({{ $act->fecha_contenido ? \Carbon\Carbon::parse($act->fecha_contenido)->format('d/m/Y') : 'Sin fecha' }})
+                            </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="selectManualParticipante" class="form-label fw-bold">Participante:</label>
+                        <select name="id_persona" id="selectManualParticipante" class="form-select" required>
+                            <option value="">Seleccionar participante...</option>
+                            @foreach($curso->inscripciones as $insc)
+                            <option value="{{ $insc->id_persona }}">
+                                {{ $insc->persona->primer_nombre ?? '' }} {{ $insc->persona->primer_apellido ?? '' }} (C.I. {{ $insc->persona->dni ?? 'N/A' }})
+                            </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light" style="border-radius: 0 0 1rem 1rem;">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">
+                        <i class="fas fa-check me-1"></i> Registrar Asistencia
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -359,6 +419,9 @@
             const resp = await fetch(rutaTokensActivos, {
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
             });
+            if (!resp.ok) {
+                throw new Error('Error al sincronizar tokens (' + resp.status + ')');
+            }
             const data = await resp.json();
 
             if (data.success) {
@@ -371,7 +434,12 @@
                     ocultarTokenActivo();
                 }
             }
-        } catch (e) { console.error('Error cargando tokens', e); }
+        } catch (e) {
+            console.error('Error cargando tokens', e);
+            if (typeof showToast === 'function') {
+                showToast('Aviso: no se pudo sincronizar el estado de los QR activos');
+            }
+        }
     }
 
     function mostrarTokenActivo(data) {
@@ -670,6 +738,38 @@
             alert('Error de red al procesar la solicitud');
         });
     });
+
+    // ─── Marcar Asistencia Manual ───────────────────────────────────────────
+    function prepararMarcarManual(contenidoId, personaId) {
+        document.getElementById('selectManualActividad').value = contenidoId;
+        document.getElementById('selectManualParticipante').value = personaId;
+        const modalEl = document.getElementById('modalMarcarManual');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+
+    function enviarMarcarManual(e) {
+        e.preventDefault();
+        const contenidoId = document.getElementById('selectManualActividad').value;
+        const personaId = document.getElementById('selectManualParticipante').value;
+        if (!contenidoId || !personaId) return;
+
+        const url = "{{ url('/taller/cursos/' . $curso->crypt_id . '/contenido') }}/" + contenidoId + "/marcar-manual";
+
+        peticionConFeedback(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ id_persona: personaId })
+        }, {
+            loadingTitle: 'Registrando asistencia...',
+            successTitle: 'Asistencia Registrada'
+        }).then(() => {
+            location.reload();
+        });
+    }
 
     // ─── Cargar token activo al iniciar ─────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function() {

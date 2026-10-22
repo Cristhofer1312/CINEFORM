@@ -20,9 +20,17 @@ class StorePaso3Request extends FormRequest
 
     public function rules()
     {
+        $esSalir = $this->input('accion') === 'salir' || $this->filled('guardar_y_salir');
+
+        $reglas = self::reglasBloques();
+        if ($esSalir) {
+            $reglas['contenidos.*.titulo'] = 'nullable|string|max:255';
+            $reglas['contenidos.*.fecha_contenido'] = 'nullable|date';
+        }
+
         return array_merge(
             ['contenidos' => 'nullable|array'],
-            self::reglasBloques()
+            $reglas
         );
     }
 
@@ -36,7 +44,7 @@ class StorePaso3Request extends FormRequest
             'contenidos.*.titulo' => 'required_with:contenidos|string|max:255',
             'contenidos.*.descripcion_breve' => 'nullable|string|max:500',
             'contenidos.*.url_contenido' => 'nullable|url|max:500',
-            'contenidos.*.fecha_contenido' => 'nullable|date',
+            'contenidos.*.fecha_contenido' => 'required_with:contenidos|date',
             'contenidos.*.hora_inicio' => 'nullable|date_format:H:i',
             'contenidos.*.hora_fin' => 'nullable|date_format:H:i',
         ];
@@ -45,15 +53,27 @@ class StorePaso3Request extends FormRequest
     public function withValidator($validator)
     {
         $validator->after(function ($validator) {
-            // Rango desde la sesión (flujo HTTP normal). finalizar() usa el
-            // borrador BD vía validarRangoContenidos() para no depender de ella.
+            if ($this->input('accion') === 'salir' || $this->filled('guardar_y_salir')) {
+                return;
+            }
+
+            // Rango desde la sesión o fallback a BD si la sesión expiró (UX-01)
             $borrador = session('wizard_curso.datos', []);
+            $fechaInicio = $borrador['fecha_inicio'] ?? null;
+            $fechaFin = $borrador['fecha_fin'] ?? null;
+
+            if ((! $fechaInicio || ! $fechaFin) && \Illuminate\Support\Facades\Auth::check()) {
+                $borradorBD = app(\Modules\Taller\Services\BorradorWizardService::class)->actual(\Illuminate\Support\Facades\Auth::id());
+                $p2 = $borradorBD->payload['paso2'] ?? [];
+                $fechaInicio = $fechaInicio ?: ($p2['fecha_inicio'] ?? null);
+                $fechaFin = $fechaFin ?: ($p2['fecha_fin'] ?? null);
+            }
 
             try {
                 self::validarRangoContenidos(
                     $this->input('contenidos', []),
-                    $borrador['fecha_inicio'] ?? null,
-                    $borrador['fecha_fin'] ?? null
+                    $fechaInicio,
+                    $fechaFin
                 );
             } catch (\Illuminate\Validation\ValidationException $e) {
                 foreach ($e->errors() as $campo => $mensajes) {
@@ -82,24 +102,33 @@ class StorePaso3Request extends FormRequest
             if (! is_array($contenido)) {
                 continue;
             }
+            $nombreBloque = self::tituloStatic($contenido, (int) $index);
+
             // Fecha del bloque dentro del rango del curso (paso 2).
-            $fc = isset($contenido['fecha_contenido']) ? self::parseFechaStatic($contenido['fecha_contenido']) : null;
-            if ($fc && $inicio && $fin && ($fc->lt($inicio) || $fc->gt($fin))) {
-                $errores["contenidos.$index.fecha_contenido"][] =
-                    'La fecha del bloque "'.self::tituloStatic($contenido, (int) $index).'" debe estar entre '.$inicio->format('d/m/Y').' y '.$fin->format('d/m/Y').'.';
+            if (empty($contenido['fecha_contenido'])) {
+                if ($inicio && $fin) {
+                    $errores["contenidos.$index.fecha_contenido"][] =
+                        'La fecha de clase es obligatoria para el bloque "'.$nombreBloque.'".';
+                }
+            } else {
+                $fc = self::parseFechaStatic($contenido['fecha_contenido']);
+                if ($fc && $inicio && $fin && ($fc->lt($inicio) || $fc->gt($fin))) {
+                    $errores["contenidos.$index.fecha_contenido"][] =
+                        'La fecha del bloque "'.$nombreBloque.'" debe estar entre '.$inicio->format('d/m/Y').' y '.$fin->format('d/m/Y').'.';
+                }
             }
 
             // Las clases llevan hora de inicio y fin secuenciales.
             if (empty($contenido['hora_inicio'] ?? '')) {
-                $errores["contenidos.$index.hora_inicio"][] = 'La hora de inicio es obligatoria para las clases.';
+                $errores["contenidos.$index.hora_inicio"][] = 'La hora de inicio es obligatoria para el bloque "'.$nombreBloque.'".';
             }
             if (empty($contenido['hora_fin'] ?? '')) {
-                $errores["contenidos.$index.hora_fin"][] = 'La hora de fin es obligatoria para las clases.';
+                $errores["contenidos.$index.hora_fin"][] = 'La hora de fin es obligatoria para el bloque "'.$nombreBloque.'".';
             }
             if (isset($contenido['hora_inicio'], $contenido['hora_fin'])
                 && $contenido['hora_inicio'] !== '' && $contenido['hora_fin'] !== ''
                 && $contenido['hora_fin'] <= $contenido['hora_inicio']) {
-                $errores["contenidos.$index.hora_fin"][] = 'La hora de fin debe ser posterior a la hora de inicio.';
+                $errores["contenidos.$index.hora_fin"][] = 'La hora de fin debe ser posterior a la hora de inicio en el bloque "'.$nombreBloque.'".';
             }
         }
 
@@ -136,6 +165,8 @@ class StorePaso3Request extends FormRequest
     {
         return [
             'contenidos.*.titulo.required_with' => 'Cada bloque debe tener un título.',
+            'contenidos.*.fecha_contenido.required_with' => 'Cada bloque de clase debe tener una fecha.',
+            'contenidos.*.fecha_contenido.date' => 'La fecha de clase debe ser una fecha válida.',
             'contenidos.*.hora_inicio.date_format' => 'La hora de inicio debe tener formato HH:MM (24h).',
             'contenidos.*.hora_fin.date_format' => 'La hora de fin debe tener formato HH:MM (24h).',
         ];

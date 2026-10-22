@@ -16,6 +16,8 @@ class BorradorWizardService
 {
     /**
      * Recupera o crea el borrador activo de la sesión para el usuario.
+     * Si la sesión expiró pero el usuario tiene un borrador en BD,
+     * lo recupera y rehidrata la sesión para no perder el trabajo.
      */
     public function actual(int $userId): CursoBorrador
     {
@@ -30,6 +32,25 @@ class BorradorWizardService
             }
         }
 
+        // Fallback persistente: buscar el borrador más reciente del usuario
+        $borradorReciente = CursoBorrador::where('user_id', $userId)
+            ->latest('updated_at')
+            ->first();
+
+        if ($borradorReciente) {
+            $this->sincronizarSesion($borradorReciente);
+
+            return $borradorReciente;
+        }
+
+        return $this->crear($userId);
+    }
+
+    public function reiniciar(int $userId): CursoBorrador
+    {
+        CursoBorrador::where('user_id', $userId)->delete();
+        session()->forget('wizard_curso');
+
         return $this->crear($userId);
     }
 
@@ -42,7 +63,7 @@ class BorradorWizardService
             'payload' => [],
         ]);
 
-        session()->put('wizard_curso.token', $borrador->token);
+        $this->sincronizarSesion($borrador);
 
         return $borrador;
     }

@@ -13,8 +13,12 @@ class UpdateCursoRequest extends FormRequest
      */
     public function authorize()
     {
-        return hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO)
-            || hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::EDITAR_CURSO);
+        $param = $this->route('curso');
+        $curso = $param instanceof \Modules\Taller\Entities\Curso
+            ? $param
+            : \Modules\Taller\Entities\Curso::find($param);
+
+        return $curso ? $this->user()->can('editar', $curso) : false;
     }
 
     /**
@@ -50,7 +54,7 @@ class UpdateCursoRequest extends FormRequest
             'es_nacional'           => 'nullable|boolean',
             'foto'                  => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'fecha_inicio'          => 'sometimes|required|date',
-            'fecha_fin'             => 'sometimes|required|date|after_or_equal:fecha_inicio',
+            'fecha_fin'             => 'sometimes|required|date|after:fecha_inicio',
             'localidades'           => 'nullable|array',
             'localidades.*'         => [\Illuminate\Validation\Rule::exists(\Modules\Parametros\Entities\Estados::class, 'id')],
 
@@ -61,17 +65,35 @@ class UpdateCursoRequest extends FormRequest
             'contenidos.*.id_tipo_evaluacion'   => 'nullable|integer',
             'contenidos.*.ponderacion'          => 'nullable|numeric|min:0|max:100',
             'contenidos.*.url_contenido'        => 'nullable|url|max:500',
-            'contenidos.*.fecha_contenido'      => 'nullable|date',
+            'contenidos.*.fecha_contenido'      => 'required_with:contenidos|date',
             'contenidos.*.hora_inicio'          => 'nullable|date_format:H:i',
             'contenidos.*.hora_fin'             => 'nullable|date_format:H:i',
             'contenidos.*.descripcion_breve'    => 'nullable|string|max:500',
         ];
     }
 
+    protected function prepareForValidation()
+    {
+        if ($this->has('fecha_fin') && ! $this->has('fecha_inicio')) {
+            $id = $this->route('curso');
+            $curso = $id ? \Modules\Taller\Entities\Curso::find($id) : null;
+            if ($curso && $curso->fecha_inicio) {
+                $this->merge(['fecha_inicio' => $curso->fecha_inicio->format('Y-m-d')]);
+            }
+        }
+        if ($this->has('fecha_inicio') && ! $this->has('fecha_fin')) {
+            $id = $this->route('curso');
+            $curso = $id ? \Modules\Taller\Entities\Curso::find($id) : null;
+            if ($curso && $curso->fecha_fin) {
+                $this->merge(['fecha_fin' => $curso->fecha_fin->format('Y-m-d')]);
+            }
+        }
+    }
+
     /**
      * Las clases deben tener hora de inicio y fin (secuenciales).
      * Las evaluaciones solo conservan la fecha de entrega, sin horas.
-     * El rango de fechas lo valida la regla 'fecha_fin.after_or_equal'.
+     * El rango de fechas lo valida la regla 'fecha_fin.after'.
      *
      * Nota: Se eliminaron las reglas de trimestre que bloqueaban la edición
      * (Regla 1 ahora es informativa; Regla 2 "el curso no puede cruzar
@@ -85,7 +107,15 @@ class UpdateCursoRequest extends FormRequest
             $fechaInicio = $this->input('fecha_inicio');
             $fechaFin = $this->input('fecha_fin');
 
-            if ($fechaInicio && $fechaFin && $trimestre >= 1 && $trimestre <= 4) {
+            if ((! $fechaInicio || ! $fechaFin) && $this->route('curso')) {
+                $curso = \Modules\Taller\Entities\Curso::find($this->route('curso'));
+                if ($curso) {
+                    $fechaInicio = $fechaInicio ?: ($curso->fecha_inicio ? $curso->fecha_inicio->format('Y-m-d') : null);
+                    $fechaFin = $fechaFin ?: ($curso->fecha_fin ? $curso->fecha_fin->format('Y-m-d') : null);
+                }
+            }
+
+            if ($fechaInicio && $fechaFin) {
                 try {
                     $inicio = \Carbon\Carbon::parse($fechaInicio);
                     $fin = \Carbon\Carbon::parse($fechaFin);
@@ -101,8 +131,14 @@ class UpdateCursoRequest extends FormRequest
 
                 // Regla 3: La fecha del contenido debe estar dentro del rango del curso
                 foreach ($this->input('contenidos', []) as $index => $contenido) {
+                    $nombreBloque = $contenido['titulo'] ?? 'Bloque ' . ($index + 1);
                     $fechaContenido = $contenido['fecha_contenido'] ?? null;
-                    if ($fechaContenido) {
+                    if (empty($fechaContenido)) {
+                        $validator->errors()->add(
+                            "contenidos.$index.fecha_contenido",
+                            'La fecha de clase es obligatoria para el bloque "' . $nombreBloque . '".'
+                        );
+                    } else {
                         try {
                             $fc = \Carbon\Carbon::parse($fechaContenido);
                         } catch (\Throwable $e) {
@@ -111,7 +147,7 @@ class UpdateCursoRequest extends FormRequest
                         if ($fc->lt($inicio) || $fc->gt($fin)) {
                             $validator->errors()->add(
                                 "contenidos.$index.fecha_contenido",
-                                'La fecha del contenido "' . ($contenido['titulo'] ?? "Bloque " . ($index + 1)) . '" debe estar entre ' . $inicio->format('d/m/Y') . ' y ' . $fin->format('d/m/Y') . '.'
+                                'La fecha del contenido "' . $nombreBloque . '" debe estar entre ' . $inicio->format('d/m/Y') . ' y ' . $fin->format('d/m/Y') . '.'
                             );
                         }
                     }
@@ -167,12 +203,16 @@ class UpdateCursoRequest extends FormRequest
             'id_persona.required'   => 'Debe asignar un facilitador al curso.',
             'fecha_inicio.required' => 'La fecha de inicio es obligatoria.',
             'fecha_fin.required'    => 'La fecha de fin es obligatoria.',
-            'fecha_fin.after_or_equal' => 'La fecha de fin debe ser igual o posterior a la fecha de inicio.',
+            'fecha_fin.after'       => 'La fecha de finalización debe ser posterior a la fecha de inicio.',
             'cantidad_cupos.min'      => 'La cantidad de cupos debe ser al menos 1.',
             'telegram.url'          => 'El enlace de Telegram debe ser una URL válida.',
             'foto.image'            => 'La foto de presentación debe ser una imagen.',
             'foto.mimes'            => 'La foto de presentación debe ser un archivo JPG o PNG.',
             'contenidos.*.titulo.required_with' => 'Cada contenido debe tener un título.',
+            'contenidos.*.fecha_contenido.required_with' => 'Cada bloque de contenido debe tener una fecha de clase.',
+            'contenidos.*.fecha_contenido.date' => 'La fecha de clase debe ser una fecha válida.',
+            'contenidos.*.hora_inicio.date_format' => 'La hora de inicio debe tener formato HH:MM (24h).',
+            'contenidos.*.hora_fin.date_format'    => 'La hora de fin debe tener formato HH:MM (24h).',
         ];
     }
 }

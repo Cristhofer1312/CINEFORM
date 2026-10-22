@@ -64,7 +64,7 @@
 
                     </div>
                     @error('password')
-                    <label id="password-error" class="error" for="password">{{__('This field is required')}}</label>
+                    <label id="password-error" class="error" for="password">{{ $message }}</label>
                     @enderror
                     <div class="form-floating form-floating-custom mb-2">
                         <input
@@ -83,8 +83,8 @@
                         </div>
 
                     </div>
-                    @error('password')
-                    <label id="re_password-error" class="error" for="re_password">{{__('This field is required')}}</label>
+                    @error('re_password')
+                    <label id="re_password-error" class="error" for="re_password">{{ $message }}</label>
                     @enderror
                     
                     
@@ -104,7 +104,7 @@
                     </div>
                     
                     @error('captcha')
-                    <label id="captcha-error" class="error" for="captcha">{{__('This field is required')}}</label>
+                    <label id="captcha-error" class="error" for="captcha">{{ $message }}</label>
                     @enderror
                     <div class="row mt-3">
                         <div class="col-8 ">

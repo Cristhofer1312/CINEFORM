@@ -54,12 +54,12 @@ Route::prefix('security')->group(function () {
 
         Route::get('show-pdf/{pdf}/{page?}', [Modules\Security\Http\Controllers\SecurityController::class, 'show_pdf'])->name('show_pdf');
 
-        Route::get('profiles', [Modules\Security\Http\Controllers\ProfilesController::class, 'index'])->name('profiles');
-        Route::get('profiles-list', [Modules\Security\Http\Controllers\ProfilesController::class, 'list'])->name('profiles.list');
-        Route::match(['get', 'post'], 'profiles-create', [Modules\Security\Http\Controllers\ProfilesController::class, 'create'])->name('profiles.create');
-        Route::match(['get', 'post'], 'profiles-update/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'update'])->name('profiles.update');
-        Route::match(['get', 'post'], 'profiles-disabled/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'disabled'])->name('profiles.disabled');
-        Route::match(['get', 'post'], 'profiles-permissions/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'permissions'])->name('profiles.permissions');
+        Route::get('profiles', [Modules\Security\Http\Controllers\ProfilesController::class, 'index'])->name('profiles')->middleware('permiso:profiles,1');
+        Route::get('profiles-list', [Modules\Security\Http\Controllers\ProfilesController::class, 'list'])->name('profiles.list')->middleware('permiso:profiles,1');
+        Route::match(['get', 'post'], 'profiles-create', [Modules\Security\Http\Controllers\ProfilesController::class, 'create'])->name('profiles.create')->middleware('permiso:profiles,2');
+        Route::match(['get', 'post'], 'profiles-update/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'update'])->name('profiles.update')->middleware('permiso:profiles,10');
+        Route::match(['get', 'post'], 'profiles-disabled/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'disabled'])->name('profiles.disabled')->middleware('permiso:profiles,10');
+        Route::match(['get', 'post'], 'profiles-permissions/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'permissions'])->name('profiles.permissions')->middleware('permiso:profiles,11');
 
         //Route::get('users', [Modules\Security\Http\Controllers\UsersController::class, 'index'])->name('users');
         Route::get('users-list', [Modules\Security\Http\Controllers\UsersController::class, 'list'])->name('users.list');

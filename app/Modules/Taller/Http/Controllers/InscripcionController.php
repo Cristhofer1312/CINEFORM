@@ -18,49 +18,49 @@ class InscripcionController extends BaseController
      */
     public function create($id_curso)
     {
-        $curso = Curso::with('requisitos')->findOrFail($id_curso);
+        $curso = Curso::with(['requisitos', 'actividadFormativa'])->findOrFail($id_curso);
 
-        // Verificar permiso formal de inscripción
-        if (!hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::INSCRIBIRSE_CURSO)) {
-            abort(403, 'No tienes los permisos necesarios para inscribirte en este programa.');
-        }
+        $this->authorize('inscribirse', [Inscripcion::class, $curso]);
 
         $user = $this->getUsuarioAutenticado();
 
         if ($this->usuarioSinDatosPersonales()) {
-            return redirect()->back()->with('error', 'No se encontraron los datos personales del usuario.');
+            return redirect()->route('taller.cursos.show', $curso->id_curso)
+                ->with('error', 'No se encontraron los datos personales del usuario.');
         }
 
-        // Verificar si ya está inscrito
-        $inscripcionExistente = Inscripcion::where('id_curso', $curso->id_curso)
+        // Verificar si ya cuenta con postulación previa
+        $inscripcionExistente = Inscripcion::with('respuestas')
+            ->where('id_curso', $curso->id_curso)
             ->where('id_persona', $user->personalData->id_persona)
             ->first();
 
         if ($inscripcionExistente) {
-            if ($inscripcionExistente->esRechazada()) {
-                return redirect()->back()->with('error', 'Tu inscripción fue rechazada o retirada previamente por un administrador. Si consideras que es un error, por favor contacta a la coordinación.');
+            if ($inscripcionExistente->esAprobado()) {
+                return redirect()->route('taller.cursos.show', $curso->id_curso)
+                    ->with('info', 'Ya te encuentras formalmente inscrito y admitido en este curso.');
             }
-            return redirect()->back()->with('error', 'Ya estás inscrito en este curso.');
+            if ($inscripcionExistente->esPostulado()) {
+                return redirect()->route('taller.cursos.show', $curso->id_curso)
+                    ->with('info', 'Tu postulación ya ha sido enviada y está en proceso de revisión.');
+            }
+            if ($inscripcionExistente->esDenegado()) {
+                return redirect()->route('taller.cursos.show', $curso->id_curso)
+                    ->with('error', 'Tu postulación a este curso fue denegada de forma definitiva.');
+            }
+            // Si $inscripcionExistente->esRechazado(), se le permite continuar a la vista para corregir postulación (UX-11).
         }
 
-        // Verificar cupos
-        $inscritos = Inscripcion::activas()->where('id_curso', $curso->id_curso)->count();
-        if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
-            return redirect()->back()->with('error', 'No hay cupos disponibles para este curso.');
+        // Verificar cupos si es inscripción nueva (una postulación rechazada que se corrige ya fue evaluada)
+        if (!$inscripcionExistente || !$inscripcionExistente->esRechazado()) {
+            $inscritos = Inscripcion::activas()->where('id_curso', $curso->id_curso)->count();
+            if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
+                return redirect()->route('taller.cursos.show', $curso->id_curso)
+                    ->with('error', 'No hay cupos disponibles para este curso.');
+            }
         }
 
-        $datos = array("nombre" => $user->personalData->first_name);
-        $subject = 'Inscripcion Exitosa';
-        $for = [$user->personalData->email];
-        \Mail::send('security::users.correo', $datos, function ($email) use ($subject, $for) {
-            $email->subject($subject);
-            $email->to($for);
-            /*$email->attachData($pdfcontent, "Certificado.pdf", [
-                'mime' => 'application/pdf',
-
-            ]);*/
-        });
-        return view('taller::a.CursoInscribirse', compact('curso'));
+        return view('taller::a.CursoInscribirse', compact('curso', 'inscripcionExistente'));
     }
 
     /**
@@ -80,9 +80,7 @@ class InscripcionController extends BaseController
         $user = $this->getUsuarioAutenticado();
 
         // Validaciones básicas de negocio...
-        if (!hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::INSCRIBIRSE_CURSO)) {
-            return redirect()->back()->with('error', 'No tienes los permisos necesarios para inscribirte en este programa.');
-        }
+        $this->authorize('inscribirse', [Inscripcion::class, $curso]);
 
         if ($this->usuarioSinDatosPersonales()) {
             return redirect()->back()->with('error', 'No se encontraron los datos personales del usuario.');
@@ -94,9 +92,22 @@ class InscripcionController extends BaseController
             return redirect()->back()->with('error', 'El curso no se encuentra en estado de inscripción.');
         }
 
-        $inscritos = Inscripcion::activas()->where('id_curso', $curso->id_curso)->count();
-        if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
-            return redirect()->back()->with('error', 'No hay cupos disponibles para este curso.');
+        $existente = Inscripcion::with('respuestas')
+            ->where('id_curso', $curso->id_curso)
+            ->where('id_persona', $user->personalData->id_persona)
+            ->first();
+
+        // Si ya tiene una postulación y no está en estado rechazado, bloquear duplicados
+        if ($existente && !$existente->esRechazado()) {
+            return redirect()->route('taller.cursos.show', $curso->id_curso)
+                ->with('error', 'Ya cuentas con una postulación activa en este programa.');
+        }
+
+        if (!$existente || !$existente->esRechazado()) {
+            $inscritos = Inscripcion::activas()->where('id_curso', $curso->id_curso)->count();
+            if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
+                return redirect()->back()->with('error', 'No hay cupos disponibles para este curso.');
+            }
         }
 
         $cedula = $user->personalData->dni;
@@ -105,49 +116,61 @@ class InscripcionController extends BaseController
 
         $basePath = "{$actividadSlug}/{$codigoProcinec}/{$cedula}";
 
-        $existente = Inscripcion::where('id_curso', $curso->id_curso)
-            ->where('id_persona', $user->personalData->id_persona)
-            ->first();
-
-        if ($existente) {
-            return redirect()->back()->with('error', 'Ya cuentas con una postulación en este programa.');
-        }
-
         DB::beginTransaction();
         try {
-            // Crear inscripción principal
-            $inscripcion = Inscripcion::create([
-                'id_curso' => $curso->id_curso,
-                'id_persona' => $user->personalData->id_persona,
-                'fecha_inscripcion' => Carbon::now(),
-                'estado' => Inscripcion::ESTADO_POSTULADO
-            ]);
+            if ($existente && $existente->esRechazado()) {
+                // Modo Corrección (UX-11): reutilizar y actualizar la postulación existente
+                $inscripcion = $existente;
+                $inscripcion->estado = Inscripcion::ESTADO_POSTULADO;
+                $inscripcion->fecha_inscripcion = Carbon::now();
+                $inscripcion->motivo_estado = null;
+                $inscripcion->save();
+                $esCorreccion = true;
+            } else {
+                // Modo Creación: nueva postulación
+                $inscripcion = Inscripcion::create([
+                    'id_curso' => $curso->id_curso,
+                    'id_persona' => $user->personalData->id_persona,
+                    'fecha_inscripcion' => Carbon::now(),
+                    'estado' => Inscripcion::ESTADO_POSTULADO
+                ]);
+                $esCorreccion = false;
+            }
 
             // Procesar respuestas. La carta de permiso solo cuenta en cursos
             // dirigidos a menores; si quedó una fila antigua en un curso para
             // adultos, se ignora en lugar de bloquear la inscripción.
             $esParaMenores = $curso->esParaMenores();
+            $respuestasPrevias = $inscripcion->respuestas->keyBy('id_requisito');
+
             foreach ($curso->requisitos as $req) {
                 if (! $esParaMenores && CursoRequisito::esCartaPermisoDocumento($req)) {
                     continue;
                 }
 
+                $key = 'req_' . $req->id_requisito;
+                $respPrevia = $respuestasPrevias->get($req->id_requisito);
+
                 if ($req->tipo === 'pregunta') {
-                    $key = 'req_' . $req->id_requisito;
-                    if ($req->obligatorio && !$request->filled($key)) {
+                    if ($req->obligatorio && !$request->filled($key) && (!$respPrevia || empty($respPrevia->respuesta_texto))) {
                         throw new \Exception("La pregunta '{$req->titulo}' es obligatoria.");
                     }
 
                     if ($request->filled($key)) {
-                        \Modules\Taller\Entities\InscripcionRespuesta::create([
-                            'id_inscripcion' => $inscripcion->id_inscripcion,
-                            'id_requisito' => $req->id_requisito,
-                            'respuesta_texto' => $request->input($key)
-                        ]);
+                        \Modules\Taller\Entities\InscripcionRespuesta::updateOrCreate(
+                            [
+                                'id_inscripcion' => $inscripcion->id_inscripcion,
+                                'id_requisito' => $req->id_requisito,
+                            ],
+                            [
+                                'respuesta_texto' => $request->input($key)
+                            ]
+                        );
                     }
                 } elseif ($req->tipo === 'documento') {
-                    $key = 'req_' . $req->id_requisito;
-                    if ($req->obligatorio && !$request->hasFile($key)) {
+                    $tieneArchivoPrevio = $respPrevia && !empty($respPrevia->ruta_archivo);
+
+                    if ($req->obligatorio && !$request->hasFile($key) && !$tieneArchivoPrevio) {
                         throw new \Exception("El documento '{$req->titulo}' es obligatorio.");
                     }
 
@@ -165,19 +188,27 @@ class InscripcionController extends BaseController
 
                         $path = $file->storeAs("public/{$basePath}", $finalFileName);
 
-                        \Modules\Taller\Entities\InscripcionRespuesta::create([
-                            'id_inscripcion' => $inscripcion->id_inscripcion,
-                            'id_requisito' => $req->id_requisito,
-                            'ruta_archivo' => str_replace('public/', '', $path)
-                        ]);
+                        \Modules\Taller\Entities\InscripcionRespuesta::updateOrCreate(
+                            [
+                                'id_inscripcion' => $inscripcion->id_inscripcion,
+                                'id_requisito' => $req->id_requisito,
+                            ],
+                            [
+                                'ruta_archivo' => str_replace('public/', '', $path)
+                            ]
+                        );
                     }
                 }
             }
 
             DB::commit();
 
+            $mensajeExito = $esCorreccion
+                ? 'Tu postulación ha sido corregida y enviada nuevamente para revisión.'
+                : 'Te has postulado exitosamente en el programa.';
+
             return redirect()->route('taller.cursos.show', $curso->id_curso)
-                ->with('success', 'Te has inscrito exitosamente en el programa.');
+                ->with('success', $mensajeExito);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -198,14 +229,13 @@ class InscripcionController extends BaseController
         $user = $this->getUsuarioAutenticado();
 
         $inscripcion = Inscripcion::findOrFail($id);
+        $this->authorize('cancelar', $inscripcion);
+
         $curso = $inscripcion->curso;
         $estadoActual = $curso->estado_actual->id_estado ?? null;
 
-        // ── Rama Administrativa: usuario con permiso de cancelar inscripciones ──
-        $puedeCancelarInscripciones = hasPermissionRoute(
-            'taller.cursos.index',
-            \App\Constants\SecurityAction::CANCELAR_INSCRIPCION
-        );
+        // ── Rama Administrativa: gestor con permiso de cancelar/rehabilitar inscripciones ──
+        $puedeCancelarInscripciones = $user->can('rehabilitar', $inscripcion);
 
         if ($puedeCancelarInscripciones) {
             $estadosPermitidos = [
@@ -281,20 +311,8 @@ class InscripcionController extends BaseController
     public function rehabilitar($id)
     {
         $inscripcion = Inscripcion::findOrFail($id);
+        $this->authorize('rehabilitar', $inscripcion);
         $curso = $inscripcion->curso;
-
-        // Verificar permisos
-        $puedeCancelarInscripciones = hasPermissionRoute(
-            'taller.cursos.index',
-            \App\Constants\SecurityAction::CANCELAR_INSCRIPCION
-        );
-
-        if (!$puedeCancelarInscripciones) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tienes permisos para rehabilitar participantes.'
-            ], 403);
-        }
 
         if (!$inscripcion->esRecuperable()) {
             return response()->json([
@@ -449,14 +467,11 @@ class InscripcionController extends BaseController
         }
 
         $inscripcion = $respuesta->inscripcion;
-        $persona = $this->getUsuarioAutenticado()->personalData;
-
-        $esDueño = $inscripcion && $inscripcion->id_persona === $persona->id_persona;
-        $esGestor = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::VER_PARTICIPANTES);
-
-        if (!$esDueño && !$esGestor) {
-            abort(403, 'No tienes permiso para ver este documento.');
+        if (!$inscripcion) {
+            abort(404, 'Inscripción no encontrada.');
         }
+
+        $this->authorize('verDocumento', $inscripcion);
 
         return \Illuminate\Support\Facades\Storage::disk('public')->download($respuesta->ruta_archivo);
     }
@@ -469,13 +484,7 @@ class InscripcionController extends BaseController
         $curso = Curso::findOrFail($id_curso);
         $inscripcion = Inscripcion::with(['respuestas.requisito', 'persona'])->findOrFail($id_inscripcion);
 
-        // Validar permisos (Gestores, o Facilitador del curso)
-        $esGestor = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO);
-        $esFacilitador = $curso->id_persona == optional($this->getUsuarioAutenticado()->personalData)->id_persona;
-
-        if (!$esGestor && !$esFacilitador) {
-            abort(403, 'No tienes permisos para ver estos documentos.');
-        }
+        $this->authorize('ver', $inscripcion);
 
         return view('taller::a.CursoParticipantesRespuestas', compact('curso', 'inscripcion'));
     }
@@ -488,14 +497,7 @@ class InscripcionController extends BaseController
         $respuesta = \Modules\Taller\Entities\InscripcionRespuesta::findOrFail($id_respuesta);
 
         $inscripcion = Inscripcion::findOrFail($respuesta->id_inscripcion);
-        $curso = Curso::findOrFail($inscripcion->id_curso);
-
-        $esGestor = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO);
-        $esFacilitador = $curso->id_persona == optional($this->getUsuarioAutenticado()->personalData)->id_persona;
-
-        if (!$esGestor && !$esFacilitador) {
-            abort(403, 'No tienes permisos para descargar este documento.');
-        }
+        $this->authorize('verDocumento', $inscripcion);
 
         if (!$respuesta->ruta_archivo || !\Illuminate\Support\Facades\Storage::disk('public')->exists($respuesta->ruta_archivo)) {
             abort(404, 'El archivo no existe o fue eliminado.');
@@ -511,13 +513,6 @@ class InscripcionController extends BaseController
 
     private function autorizarGestionPostulacion(Inscripcion $inscripcion): void
     {
-        $personalData = $this->getUsuarioAutenticado()->personalData;
-
-        $esGestor = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO);
-        $esFacilitador = $inscripcion->curso && $inscripcion->curso->id_persona == $personalData->id_persona;
-
-        if (!$esGestor && !$esFacilitador) {
-            abort(403, 'No tienes permiso para gestionar las postulaciones de este curso.');
-        }
+        $this->authorize('gestionar', $inscripcion);
     }
 }

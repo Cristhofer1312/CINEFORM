@@ -77,9 +77,12 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-6 col-lg-1 d-flex gap-2">
-                    <button type="submit" class="btn btn-primary btn-sm fw-bold rounded-pill px-3 w-100">
+                <div class="col-md-12 col-lg-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm fw-bold rounded-pill px-3">
                         <i class="fas fa-filter me-1"></i> Aplicar
+                    </button>
+                    <button type="button" id="btn-limpiar-filtros" class="btn btn-outline-secondary btn-sm fw-bold rounded-pill px-3" title="Restablecer filtros">
+                        <i class="fas fa-undo me-1"></i> Limpiar
                     </button>
                 </div>
             </form>
@@ -236,6 +239,34 @@
         function crearChart(id, config) {
             const ctx = document.getElementById(id);
             if (!ctx) return null;
+            const container = ctx.parentElement;
+
+            // Verificar si hay datos significativos
+            const dataset = config.data && config.data.datasets && config.data.datasets[0];
+            const hasLabels = config.data && config.data.labels && config.data.labels.length > 0;
+            const hasData = dataset && dataset.data && dataset.data.some(val => Number(val) > 0);
+
+            // Eliminar placeholder previo si existe
+            const existingPlaceholder = container.querySelector('.chart-empty-placeholder');
+            if (existingPlaceholder) existingPlaceholder.remove();
+
+            if (!hasLabels || !hasData) {
+                ctx.style.display = 'none';
+                if (charts[id]) {
+                    charts[id].destroy();
+                    delete charts[id];
+                }
+                const placeholder = document.createElement('div');
+                placeholder.className = 'chart-empty-placeholder d-flex flex-column align-items-center justify-content-center h-100 text-muted py-4';
+                placeholder.innerHTML = `
+                    <i class="fas fa-chart-pie opacity-25 fa-2x mb-2"></i>
+                    <span class="small opacity-75">Sin datos para los filtros seleccionados</span>
+                `;
+                container.appendChild(placeholder);
+                return null;
+            }
+
+            ctx.style.display = 'block';
             if (charts[id]) charts[id].destroy();
             charts[id] = new Chart(ctx, config);
             return charts[id];
@@ -308,13 +339,13 @@
         function renderKpis(kpis) {
             const row = document.getElementById('kpis-row');
             const cards = [
-                { icon: 'fa-graduation-cap', color: 'primary', label: 'Total Cursos', value: kpis.total_cursos },
-                { icon: 'fa-user-check', color: 'success', label: 'Inscritos Aprobados', value: kpis.inscripciones_aprobadas },
-                { icon: 'fa-users', color: 'info', label: 'Participantes Únicos', value: kpis.participantes_unicos },
-                { icon: 'fa-award', color: 'warning', label: 'Certificados Aprobados', value: kpis.certificados_aprobados },
-                { icon: 'fa-hourglass-half', color: 'secondary', label: 'Certificados Pendientes', value: kpis.certificados_pendientes },
-                { icon: 'fa-times-circle', color: 'danger', label: 'Certificados Denegados', value: kpis.certificados_denegados },
-                { icon: 'fa-chair', color: 'dark', label: 'Ocupación de Cupos', value: kpis.ocupacion_promedio + '%' }
+                { icon: 'fa-graduation-cap', color: 'primary', label: 'Total Cursos', value: kpis.total_cursos, tooltip: 'Cantidad total de cursos registrados en el sistema bajo los filtros seleccionados.' },
+                { icon: 'fa-user-check', color: 'success', label: 'Inscritos Aprobados', value: kpis.inscripciones_aprobadas, tooltip: 'Total de postulaciones admitidas como participantes oficiales.' },
+                { icon: 'fa-users', color: 'info', label: 'Participantes Únicos', value: kpis.participantes_unicos, tooltip: 'Número de personas distintas formándose en el sistema.' },
+                { icon: 'fa-award', color: 'warning', label: 'Certificados Aprobados', value: kpis.certificados_aprobados, tooltip: 'Certificados otorgados tras completar satisfactoriamente los requisitos.' },
+                { icon: 'fa-hourglass-half', color: 'secondary', label: 'Certificados Pendientes', value: kpis.certificados_pendientes, tooltip: 'Participantes que finalizaron y esperan validación de certificado.' },
+                { icon: 'fa-times-circle', color: 'danger', label: 'Certificados Denegados', value: kpis.certificados_denegados, tooltip: 'Participantes que no alcanzaron los requisitos mínimos para certificar.' },
+                { icon: 'fa-chair', color: 'dark', label: 'Ocupación de Cupos', value: kpis.ocupacion_promedio + '%', tooltip: 'Porcentaje promedio de cupos cubiertos respecto al cupo total ofertado.' }
             ];
 
             row.innerHTML = cards.map(c => `
@@ -324,14 +355,25 @@
                             <div class="rounded-circle d-flex align-items-center justify-content-center bg-${c.color} bg-opacity-10 text-${c.color}" style="width:48px;height:48px;flex-shrink:0;">
                                 <i class="fas ${c.icon} fa-lg"></i>
                             </div>
-                            <div>
+                            <div class="flex-grow-1">
                                 <div class="fw-bold text-dark fs-5">${c.value}</div>
-                                <div class="text-muted small" style="font-size:0.8rem;">${c.label}</div>
+                                <div class="text-muted small d-flex align-items-center" style="font-size:0.8rem;">
+                                    <span>${c.label}</span>
+                                    <i class="fas fa-info-circle ms-1 text-muted opacity-75" data-bs-toggle="tooltip" data-bs-placement="top" title="${c.tooltip}" style="cursor:help;font-size:0.75rem;"></i>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             `).join('');
+
+            // Inicializar tooltips de Bootstrap si están disponibles
+            if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+                const tooltipTriggerList = [].slice.call(row.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                tooltipTriggerList.map(function (el) {
+                    return new bootstrap.Tooltip(el);
+                });
+            }
         }
 
         function renderCharts(data) {
@@ -383,6 +425,15 @@
 
         document.getElementById('filtros-form').addEventListener('submit', function (e) {
             e.preventDefault();
+            aplicarFiltros();
+        });
+
+        document.getElementById('btn-limpiar-filtros')?.addEventListener('click', function () {
+            document.getElementById('filtro-anio').value = '';
+            document.getElementById('filtro-modalidad').value = '';
+            document.getElementById('filtro-estado').value = '';
+            document.getElementById('filtro-actividad').value = '';
+            document.getElementById('filtro-aspecto').value = '';
             aplicarFiltros();
         });
 

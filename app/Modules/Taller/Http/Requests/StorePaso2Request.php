@@ -23,19 +23,21 @@ class StorePaso2Request extends FormRequest
 
     public function rules()
     {
+        $esSalir = $this->input('accion') === 'salir' || $this->filled('guardar_y_salir');
+
         return [
-            'id_persona' => 'required|exists:'.\Modules\Comun\Entities\PersonalData::class.',id_persona',
-            'fecha_inicio' => 'required|date',
-            'fecha_fin' => 'required|date|after_or_equal:fecha_inicio',
-            'correlativo' => 'required|integer|min:1',
+            'id_persona' => ($esSalir ? 'nullable' : 'required').'|exists:'.\Modules\Comun\Entities\PersonalData::class.',id_persona',
+            'fecha_inicio' => ($esSalir ? 'nullable' : 'required').'|date',
+            'fecha_fin' => ($esSalir ? 'nullable' : 'required').'|date|after:fecha_inicio',
+            'correlativo' => ($esSalir ? 'nullable' : 'required').'|integer|min:1',
             'anio' => 'nullable|integer|min:2020|max:2100',
             'duracion' => 'nullable|integer|min:1',
             'horas' => 'nullable|integer|min:1',
-            'cantidad_cupos' => 'required|integer|min:1',
+            'cantidad_cupos' => ($esSalir ? 'nullable' : 'required').'|integer|min:1',
             'telegram' => 'nullable|url|max:255',
-            'direccion_corta' => 'required|string|max:150',
+            'direccion_corta' => ($esSalir ? 'nullable' : 'required').'|string|max:150',
             'es_nacional' => 'nullable|boolean',
-            'localidades' => 'required_unless:es_nacional,true,1|array',
+            'localidades' => $esSalir ? 'nullable|array' : 'required_unless:es_nacional,true,1|array',
             'localidades.*' => [Rule::exists(Estados::class, 'id')],
         ];
     }
@@ -69,7 +71,7 @@ class StorePaso2Request extends FormRequest
             'id_persona.required' => 'Debe asignar un facilitador al curso.',
             'fecha_inicio.required' => 'La fecha de inicio es obligatoria.',
             'fecha_fin.required' => 'La fecha de fin es obligatoria.',
-            'fecha_fin.after_or_equal' => 'La fecha de fin debe ser igual o posterior a la fecha de inicio.',
+            'fecha_fin.after' => 'La fecha de finalización debe ser posterior a la fecha de inicio.',
             'cantidad_cupos.required' => 'Debe indicar la cantidad de cupos disponibles.',
             'direccion_corta.required' => 'La dirección del curso es obligatoria.',
             'localidades.required_unless' => 'Debe seleccionar al menos una localidad cuando el curso no es de alcance nacional.',

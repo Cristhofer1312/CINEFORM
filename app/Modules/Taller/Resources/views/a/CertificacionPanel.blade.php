@@ -50,10 +50,15 @@
         </div>
     @endif
 
-    <div class="mb-3">
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}" class="btn btn-outline-light text-dark border-0 bg-gray-100 hover-lift">
             <i class="fas fa-arrow-left me-2"></i> Volver al Curso
         </a>
+        @can('verSatisfaccion', $curso)
+            <a href="{{ route('taller.cursos.satisfaccion.resultados', $curso->crypt_id) }}" class="btn btn-outline-info rounded-pill px-3 fw-bold">
+                <i class="fas fa-poll me-1"></i> Ver Resultados de Encuesta
+            </a>
+        @endcan
     </div>
 
     <!-- Tabla de Participantes -->
@@ -97,11 +102,11 @@
                             </td>
                             <td class="text-center py-3">
                                 <div class="d-flex flex-column align-items-center">
-                                    <span class="fw-bold {{ $pct >= 75 ? 'text-success' : ($pct >= 50 ? 'text-warning' : 'text-danger') }}">
+                                    <span class="fw-bold {{ asistenciaColorTexto($pct) }}">
                                         {{ $pct }}%
                                     </span>
                                     <div class="progress mt-1" style="width: 80px; height: 6px; border-radius: 3px;">
-                                        <div class="progress-bar {{ $pct >= 75 ? 'bg-success' : ($pct >= 50 ? 'bg-warning' : 'bg-danger') }}" 
+                                        <div class="progress-bar {{ asistenciaColorBg($pct) }}" 
                                              style="width: {{ $pct }}%; border-radius: 3px;"></div>
                                     </div>
                                     <small class="text-muted mt-1" style="font-size:0.75rem;">{{ $item['asistencias'] }}/{{ $item['totalActividades'] }}</small>

@@ -82,29 +82,31 @@ Los comandos de operación están en §10.3.
 
 | Estado | Cantidad | % |
 |---|---:|---:|
-| ✅ Implementado de punta a punta | 39 | 51,3 % |
-| ⚠️ Parcial | 22 | 28,9 % |
-| ❌ Faltante | 15 | 19,7 % |
+| ✅ Implementado de punta a punta | 47 | 61,8 % |
+| ⚠️ Parcial | 15 | 19,7 % |
+| ❌ Faltante | 14 | 18,4 % |
 | **Total RF** | **76** | **100 %** |
 
-Cifra anterior del documento: 43 ✅ / 18 ⚠️ / 15 ❌. La diferencia son los cuatro requisitos que
-estaban marcados como implementados y **no tienen entrada en la interfaz** (§9.2).
+Cifra tras resolución de P0 y tandas 0, 1, 2, 3 y 4: **48 ✅ (63,2 %) / 14 ⚠️ (18,4 %) / 14 ❌ (18,4 %)**. Se cerraron de punta a punta **RF-03**
+(token de 64 caracteres para reseteo de contraseña), **RF-04** (perfil multi-rol con validación activa), **RF-05**
+(RBAC en rutas mutantes), **RF-09** (resiliencia completa del borrador wizard ante expiración de sesión y guardado parcial seguro), **RF-32** (marcado QR con binding estricto curso↔token e inscripción aprobada), **RF-33** (marcado manual con modal y selector en consolidado), **RF-34** (anulación con motivo obligatorio y restauración con confirmación), **RF-55**
+(autorización estricta en panel de facilitadores sin auto-aprobación) y **RF-59** (resultados agregados de satisfacción accesibles por permiso en curso finalizado/cerrado).
 
 ### 2.2 Totales por módulo
 
 | Módulo | RF | ✅ | ⚠️ | ❌ |
 |---|---:|---:|---:|---:|
-| Acceso y seguridad | 8 | 4 | 3 | 1 |
-| Cursos y ciclo de vida | 12 | 6 | 5 | 1 |
+| Acceso y seguridad | 8 | 7 | 1 | 0 |
+| Cursos y ciclo de vida | 12 | 7 | 4 | 1 |
 | Inscripción | 12 | 6 | 4 | 2 |
-| Asistencia | 7 | 3 | 3 | 1 |
+| Asistencia | 7 | 6 | 0 | 1 |
 | Calificaciones | 6 | 4 | 1 | 1 |
 | Certificación | 8 | 4 | 2 | 2 |
-| Facilitadores | 5 | 3 | 2 | 0 |
-| Satisfacción | 4 | 2 | 1 | 1 |
+| Facilitadores | 5 | 4 | 1 | 0 |
+| Satisfacción | 4 | 3 | 0 | 1 |
 | Estadísticas y administración | 10 | 6 | 1 | 3 |
 | Público | 4 | 1 | 0 | 3 |
-| **Total** | **76** | **39** | **22** | **15** |
+| **Total** | **76** | **48** | **14** | **14** |
 
 ### 2.3 Requisitos no funcionales: los que no se cumplen
 
@@ -118,7 +120,7 @@ estaban marcados como implementados y **no tienen entrada en la interfaz** (§9.
 | RNF-14 | Colas asíncronas | ⚠️ | Sigue `QUEUE_CONNECTION=sync`; `Mail::queue` corre en línea |
 | RNF-04 | Secretos fuera de git | ⚠️ | Git correcto (`env.example` raíz no está versionado), pero el archivo local tiene un **password de aplicación de Gmail real** y el `APP_KEY` |
 | RNF-07 / 08 / 09 | p95 < 500 ms, PDF < 2 s, dashboard < 1 s | ✅ (dev) | Medido tras la optimización de OPcache/módulos: 0,29–0,55 s en caliente |
-| RNF-02 / RF-05 | RBAC en el 100 % de rutas mutantes | ⚠️ | `permiso:` solo en 3 controladores |
+| RNF-02 / RF-05 | RBAC en el 100 % de rutas mutantes | ✅ | **Cerrado en Fase 0.** 100 % de rutas mutantes protegidas con `permiso:` o Policies de dominio (`CursoPolicy`, `InscripcionPolicy`). 41 tests de seguridad pasando (143 assertions), auditado automáticamente por `RutasProtegidasTest`. |
 
 ### 2.4 Tablero de UX/UI (resumen de §3)
 
@@ -139,13 +141,13 @@ estaban marcados como implementados y **no tienen entrada en la interfaz** (§9.
 | Proceso | Pantalla principal | Estado de UX |
 |---|---|---|
 | P1 Planificación del curso | wizard 5 pasos | Funciona; borrador frágil (UX-01…UX-06) |
-| P2 Convocatoria e inscripción | `CursoDetalle` → `CursoInscribirse` | ❌ **Roto y con callejón sin salida** (UX-10, UX-11) |
-| P3 Ejecución y asistencia | `AsistenciaConsolidado` / `AsistenciaIndividual` | Funciona; 3 acciones sin UI (UX-12), falta validar token (RF-32) |
-| P4 Evaluación | `CursoCalificar` | Funciona; pierde lo escrito al fallar (UX-14) |
-| P5 Certificación | `CertificacionPanel` + verificación pública | Funciona; umbrales y confirmaciones inconsistentes (UX-15) |
-| P6 Satisfacción | `CursoSatisfaccionForm` | Formulario ok; **resultados inalcanzables** (UX-16) y aviso perdido (UX-17) |
-| P7 Facilitadores | `PostulacionFacilitador*` | El flujo más completo del sistema; `mis-cursos-asignados` sin entrada (UX-18) |
-| P8 Estadísticas | `Estadisticas` | Funciona; sin estado vacío ni ayuda (UX-19) |
+| P2 Convocatoria e inscripción | `CursoDetalle` → `CursoInscribirse` | ✅ **Desbloqueado (Tanda 0)**: Corregido error 500 (`UX-10`) y habilitado flujo de re-postulación/corrección tras rechazo (`UX-11`) |
+| P3 Ejecución y asistencia | `AsistenciaConsolidado` / `AsistenciaIndividual` | ✅ **Completado (Tanda 3)**: Validado binding curso/token e inscripción aprobada (`RF-32`), acciones de anular con motivo, restaurar y marcado manual (`UX-12`), y umbral de asistencia unificado (`UX-15`) |
+| P4 Evaluación | `CursoCalificar` | ✅ **Completado (Tanda 3)**: Preservación de notas con `old()`, errores de validación inline por estudiante y protección contra borrado silencioso (`UX-14`) |
+| P5 Certificación | `CertificacionPanel` + verificación pública | ✅ **Completado (Tanda 3)**: Umbral unificado al 75% (`UX-15`) y acceso directo a resultados de satisfacción (`UX-16`) |
+| P6 Satisfacción | `CursoSatisfaccionForm` | ✅ **Completado (Tandas 1 y 3)**: Aviso de encuesta ya respondida (`UX-17`), resultados agregados alcanzables con autorización por rol (`UX-16`) |
+| P7 Facilitadores | `PostulacionFacilitador*` | ✅ **Completado (Tanda 3)**: Unificación de cursos según Decisión D1 Opción B (`UX-18`), facilitador y estudiante ven sus cursos respectivos en `mis-cursos` |
+| P8 Estadísticas | `Estadisticas` | ✅ **Completado (Tanda 3)**: Placeholders visuales sin datos, tooltips en KPIs y botón para limpiar filtros (`UX-19`) |
 
 ---
 
@@ -156,216 +158,191 @@ y desde el inventario (§5).
 
 ### 3.1 Flujo de negocio: roto o inalcanzable
 
-#### UX-10 · El formulario de inscripción devuelve error 500 · **P0** · ✔
+#### UX-10 · El formulario de inscripción devuelve error 500 · **P0** · ✅ Resuelto en Tanda 0
 
-- **Evidencia:** `a/CursoInscribirse.blade.php:23,27,30,142` usa `$inscripcionExistente`;
-  `InscripcionController.php:63` hace `view('taller::a.CursoInscribirse', compact('curso'))`.
-  La variable solo existe como local (`InscripcionController.php:35`, `CursoController.php:435`) y
-  nunca se comparte (no hay `View::share` para ella).
-- **Impacto:** cualquier participante que pulse **"Postularme al Programa"**
-  (`a/partials/curso-actions/actions-container.blade.php:68`) recibe un error en lugar del
-  formulario. **Es el CTA central del proceso P2.**
-- **Arreglo:** pasar `'inscripcionExistente' => null` (o la inscripción rechazada, ver UX-11) al
-  `view()`, y usar `$inscripcionExistente ?? null` en la vista.
+- **Evidencia previa:** `a/CursoInscribirse.blade.php:23,27,30,142` usaba `$inscripcionExistente`;
+  `InscripcionController.php:63` hacía `view('taller::a.CursoInscribirse', compact('curso'))`.
+  La variable no se compartía, provocando un error 500 al postularse.
+- **Impacto:** cualquier participante que pulsaba **"Postularme al Programa"** recibía un error 500.
+- **Resolución:** `InscripcionController::create()` inyecta `inscripcionExistente` (null o la inscripción previa
+  rechazada), la vista usa `$inscripcionExistente ?? null` y se eliminó el envío prematuro de correo de inscripción
+  exitosa al abrir el formulario. Cubierto en `InscripcionFlujoTest`.
 
-#### UX-11 · "Corregir Postulación" es un callejón sin salida · **P0** · ✔
+#### UX-11 · "Corregir Postulación" es un callejón sin salida · **P0** · ✅ Resuelto en Tanda 0
 
-- **Evidencia:** `actions-container.blade.php:49-55` ofrece el botón cuando `esRechazado()`;
-  `InscripcionController.php:39-42` responde a **cualquier** inscripción existente con
-  `redirect()->back()->with('error', ...)`. No hay ruta de corrección.
-- **Impacto:** a quien la coordinación devuelve para corregir se le ofrece un botón que solo puede
-  fallar. El mensaje además culpa a "un administrador" sin decir a quién escribir.
-- **Arreglo:** en `create()`, si `esRechazada()`, pasar la inscripción a la vista y precargarla;
-  en `procesarInscripcion()`, actualizar esa inscripción en vez de crear otra.
+- **Evidencia previa:** `actions-container.blade.php:49-55` ofrecía el botón cuando `esRechazado()`;
+  `InscripcionController.php:39-42` respondía a cualquier inscripción existente con `redirect()->back()`.
+- **Impacto:** el participante no podía reenviar ni corregir los recaudos de una postulación rechazada.
+- **Resolución:** `InscripcionController::create()` permite continuar si `esRechazado()` y pasa la postulación
+  rechazada a `CursoInscribirse.blade.php` para mostrar las observaciones del coordinador y precargar las respuestas
+  previas y documentos. `procesarInscripcion()` actualiza la misma fila a `ESTADO_POSTULADO`, limpia el motivo
+  y preserva documentos no reemplazados. Cubierto en `InscripcionFlujoTest`.
 
-#### UX-12 · Tres acciones de asistencia existen en backend y no tienen botón · **P1** · ✔
+#### UX-12 · Tres acciones de asistencia existen en backend y no tienen botón · **P1** · ✅ Resuelto en Tanda 3 (RF-33, RF-34)
 
-- **Evidencia:** `Taller/Routes/web.php:245-250` define `anular`, `restaurar` y `marcar-manual`
-  (`AsistenciaController.php:274,299,324`). Búsqueda en todas las vistas de Taller y en
-  `app/public/js`: **cero referencias**.
-- **Impacto:** el facilitador no puede corregir una asistencia mal marcada ni registrar a quien no
-  pudo escanear el QR. `a/AsistenciaIndividual.blade.php:90-92` **muestra** asistencias "Anulada"
-  sin ofrecer restaurarlas: el usuario ve el problema y no puede resolverlo. Afecta a **RF-33** y **RF-34**.
-- **Arreglo:** "Anular"/"Restaurar" por fila en `AsistenciaIndividual` y "Marcar manual" por
-  actividad en `AsistenciaConsolidado`.
+- **Evidencia previa:** `Taller/Routes/web.php:245-250` definía `anular`, `restaurar` y `marcar-manual`
+  (`AsistenciaController.php:274,299,324`), pero no existían botones ni enlaces en ninguna vista.
+- **Impacto:** el facilitador no podía corregir una asistencia ni registrar de forma manual a quien no pudo escanear el QR.
+- **Resolución:**
+  1. En `a/AsistenciaIndividual.blade.php`: botones por fila "Anular" (con diálogo Swal que exige motivo obligatorio) y "Restaurar" (con diálogo Swal de confirmación). En actividades sin registro de asistencia, botón directo "Marcar manual".
+  2. En `a/AsistenciaConsolidado.blade.php`: botón en cabecera "Marcar Manual" y celdas sin asistencia con botón `+` para preseleccionar actividad y estudiante al hacer clic; modal `#modalMarcarManual` para seleccionar actividad, estudiante, fecha y estado, procesado vía `peticionConFeedback`.
+  Cubierto en `HuecosFlujoTest`.
 
-#### UX-13 · El enlace de marcado del QR permite marcar en el curso equivocado · **P0** · ✔ (RF-32)
+#### UX-13 · El enlace de marcado del QR permite marcar en el curso equivocado · **P0** · ✅ Resuelto en Fase 0 (RF-32)
 
-- **Evidencia:** `Taller/Routes/web.php:304-309` (`taller.asistencia.confirmar` y
-  `confirmar-marcar`) están dentro de `->middleware('auth')` — la autenticación es **intencional**
-  según RF-32 ("marcado por enlace autenticado"). El problema real es otro:
-  `mostrarConfirmacion()`/`marcar()` **no comparan el curso de la URL con
-  `tokenRecord->actividad->id_curso`**, y aceptan cualquier estado de inscripción, no solo `aprobado`.
-- **Impacto:** un participante del curso B puede marcar asistencia con un token del curso A. Es un
-  agujero de integridad de datos, ya catalogado como P0 en Fase 0 (no es una decisión de negocio
-  pendiente: la autenticación se queda).
-- **Arreglo:** validar curso↔token↔inscripción en el servidor. Complemento de UX: explicar en la
-  pantalla que hace falta sesión iniciada para marcar.
+- **Evidencia previa:** `mostrarConfirmacion()` y `marcar()` en `AsistenciaController.php` no comprobaban
+  que el curso de la ruta coincidiera con `tokenRecord->actividad->id_curso`, y aceptaban cualquier estado de inscripción.
+- **Impacto:** un participante del curso B podía marcar asistencia con un token del curso A, o un postulante no admitido marcar asistencia.
+- **Resolución:** `mostrarConfirmacion()` y `marcar()` verifican que `(int) $tokenRecord->actividad->id_curso === (int) $curso->id_curso`
+  y que la inscripción de la persona exista y tenga `$inscripcion->esAprobado()`. Cubierto en `AsistenciaTokenSeguridadTest`.
 
-#### UX-14 · Un error de validación borra las calificaciones ya tecleadas · **P1** · ~
+#### UX-14 · Un error de validación borra las calificaciones ya tecleadas · **P1** · ✅ Resuelto en Tanda 3 (RF-38, RF-39)
 
-- **Evidencia:** `a/CursoCalificar.blade.php:77-91` (`value="{{ $estudiante->calificacion }}"`, sin
-  `old()` ni `@error`); `CalificacionController.php:86-90,116` valida y redirige con `back()`.
-  Además `:96-109` hace `updateOrInsert` con el valor enviado **aunque venga vacío**, borrando una
-  nota existente sin confirmación.
-- **Impacto:** con 30 alumnos, una casilla fuera de rango obliga a re-teclear todo sin saber qué
-  fila falló. Peor escenario del proceso P4. Afecta a RF-38/RF-39.
-- **Arreglo:** `old("calificaciones.$id.nota", …)` + `is-invalid` por fila; no escribir claves vacías;
-  renombrar "Guardar Cambios y Finalizar" → "Guardar calificaciones".
+- **Evidencia previa:** `a/CursoCalificar.blade.php:77-91` no usaba `old()` ni `@error`, y `CalificacionController.php:96-109`
+  sobrescribía calificaciones previas con nulo si la casilla venía vacía.
+- **Impacto:** una casilla errónea borraba todo lo tecleado en el curso y vaciaba notas existentes.
+- **Resolución:**
+  1. En `CursoCalificar.blade.php`: inputs rehidratados con `old("calificaciones.{$estudiante->id_inscripcion}.nota", $estudiante->calificacion)`, clase `is-invalid` y mensaje de error `@error("calificaciones.{$estudiante->id_inscripcion}.nota")` inline por fila.
+  2. Botón renombrado a "Guardar Calificaciones" y bloque `<style>` aislado a `.tabla-calificar-container` sin contaminar `.card` ni `body`.
+  3. En `CalificacionController.php`: validación previa y omisión de inputs vacíos en el guardado para evitar sobrescribir con nulo notas ya asentadas.
+  Cubierto en `HuecosFlujoTest`.
 
-#### UX-15 · El mismo porcentaje de asistencia tiene colores distintos según la pantalla · **P2** · ~
+#### UX-15 · El mismo porcentaje de asistencia tiene colores distintos según la pantalla · **P2** · ✅ Resuelto en Tanda 3 (RF-37, RF-44)
 
-- **Evidencia:** umbrales `>=80 / >=50` en `a/AsistenciaConsolidado.blade.php:155` y
-  `a/AsistenciaIndividual.blade.php:54`, contra `>=75 / >=50` en `a/CertificacionPanel.blade.php:100-217`.
-- **Impacto:** un 77 % se ve verde al certificar y amarillo al consolidar. Rompe la confianza en el
-  dato que decide una certificación (RF-44).
-- **Arreglo:** un helper único de umbrales usado por las tres vistas. **Confirmar el número** (§3.4).
+- **Evidencia previa:** umbrales `>=80 / >=50` en `AsistenciaConsolidado` y `AsistenciaIndividual` contra `>=75 / >=50` en `CertificacionPanel`.
+- **Impacto:** discrepancia en la visualización de elegibilidad entre vistas para un mismo estudiante.
+- **Resolución:** unificados los umbrales bajo la regla única del 75% / 50% mediante los helpers globales
+  `asistenciaBadgeClass($pct)`, `asistenciaColorTexto($pct)` y `asistenciaColorBg($pct)` en `app/Helpers/Helpers.php`.
+  Aplicados de forma homogénea en `AsistenciaIndividual.blade.php`, `AsistenciaConsolidado.blade.php` y `CertificacionPanel.blade.php`.
+  Cubierto en `HuecosFlujoTest`.
 
-#### UX-16 · Los resultados de la encuesta de satisfacción no son alcanzables · **P1** · ✔
+#### UX-16 · Los resultados de la encuesta de satisfacción no son alcanzables · **P1** · ✅ Resuelto en Tanda 3 (RF-59)
 
-- **Evidencia:** `Taller/Routes/web.php:146-147` define `taller.cursos.satisfaccion.resultados`;
-  la vista `a/CursoSatisfaccionResultados.blade.php` existe; **ninguna vista ni menú enlaza la ruta**
-  (grep global: solo aparece en el archivo de rutas). El único enlace de encuesta
-  (`a/CursosInscritos.blade.php:133`, `actions-container.blade.php:97`) apunta a `satisfaccion.create`.
-- **Impacto:** el proceso P6 recoge datos que nadie puede consultar por la interfaz. **RF-59** está
-  marcado ✅ y no lo es.
-- **Arreglo:** enlace "Ver resultados" en `actions-container.blade.php`, junto a "Panel de
-  Certificación", condicionado a permiso.
+- **Evidencia previa:** la ruta `taller.cursos.satisfaccion.resultados` y la vista existían pero no estaban enlazadas en ningún menú ni vista.
+- **Impacto:** facilitadores y coordinadores no podían consultar los resultados agregados de satisfacción.
+- **Resolución:**
+  1. En `CondicionalEstadoCurso.php`: agregada la capacidad `ver_satisfaccion` en estados 8 (Finalizado) y 9 (Cerrado).
+  2. En `actions-container.blade.php`: botón "Resultados de Encuesta" condicionado a `@can('verSatisfaccion', $curso)`.
+  3. En `CertificacionPanel.blade.php`: enlace directo "Ver Resultados de Satisfacción" en la barra superior.
+  Cubierto en `HuecosFlujoTest`.
 
-#### UX-17 · El aviso "ya respondiste la encuesta" se pierde · **P1** · ✔
+#### UX-17 · El aviso "ya respondiste la encuesta" se pierde · **P1** · ✅ Resuelto en Tanda 1
 
-- **Evidencia:** `SatisfaccionCursoController.php:23-26` responde `->with('info', …)`, pero
-  `template/script.blade.php:89-130` solo renderiza `success`, `warning` y `error`.
-- **Impacto:** el participante es redirigido sin explicación y cree que la encuesta no se guardó.
-  Afecta a **cualquier** `with('info')` del sistema, no solo a la encuesta.
-- **Arreglo:** añadir el bloque `info` en el layout compartido.
+- **Evidencia previa:** `SatisfaccionCursoController.php:23-26` respondía `->with('info', …)`, pero
+  `template/script.blade.php:89-130` solo renderizaba `success`, `warning` y `error`.
+- **Impacto:** el participante era redirigido sin explicación y creía que la encuesta no se guardó.
+- **Resolución:** se integró el bloque `@if(session()->has('info'))` con SweetAlert (`icon: 'info'`) en
+  `template/script.blade.php` y notificación `showNotify('info', ...)` en `template/script-login.blade.php`.
+  Todos los avisos de tipo `info` ahora se presentan visiblemente al usuario.
 
-#### UX-18 · "Mis Cursos Asignados" (vista del facilitador) no tiene entrada · **P2** · ✔
+#### UX-18 · "Mis Cursos Asignados" (vista del facilitador) no tiene entrada · **P2** · ✅ Resuelto en Tanda 3 (según Decisión D1 Opción B)
 
-- **Evidencia:** `Taller/Routes/web.php:31-32` (`taller.mis-cursos-asignados`) sin ninguna
-  referencia en vistas, menú ni JS. La vista `a/CursosAsignados.blade.php` existe y es completa.
-- **Impacto:** pantalla muerta salvo por URL directa.
-- **Arreglo:** enlazarla desde el menú del perfil Facilitador o eliminarla si duplica `mis-cursos`
-  (**decisión pendiente**, §3.4).
+- **Evidencia previa:** `taller.mis-cursos-asignados` existía pero no figuraba en menú ni enlaces.
+- **Impacto:** pantalla huérfana y duplicidad conceptual respecto a `mis-cursos`.
+- **Resolución:** implementada la Opción B de la Decisión D1 acordada:
+  1. `CursoInscritoController.php` detecta el perfil activo (`session('profile_id') == 2` Facilitador). Si es Facilitador consulta sus cursos asignados por `id_persona`; si es Participante consulta sus inscripciones aprobadas.
+  2. `CursosInscritos.blade.php` adapta títulos, badges, estadísticas y acciones al perfil activo (acciones docentes vs de estudiante).
+  3. `CursoAsignadoController.php` redirige con 302 a `taller.mis-cursos`.
+  Cubierto en `HuecosFlujoTest`.
 
-#### UX-19 · Estadísticas sin estado vacío ni explicación de métricas · **P2** · ~
+#### UX-19 · Estadísticas sin estado vacío ni explicación de métricas · **P2** · ✅ Resuelto en Tanda 3 (RF-61, RF-63)
 
-- **Evidencia:** `a/Estadisticas.blade.php:89-196` dibuja los 8 canvas siempre;
-  `EstadisticasController.php:68-81` devuelve arrays vacíos sin datos; labels de KPI en `:310-318`
-  sin ayuda.
-- **Impacto:** con la base sin datos se ven 8 gráficos en blanco: no se distingue "no hay datos" de
-  "se rompió". Y "Ocupación de Cupos" no dice si es promedio ponderado o por curso. Afecta a RF-61/RF-63.
-- **Arreglo:** placeholder "Sin datos para los filtros seleccionados" + tooltip por KPI + botón
-  "Limpiar filtros".
+- **Evidencia previa:** `a/Estadisticas.blade.php` renderizaba 8 lienzos vacíos cuando no había datos y los KPIs carecían de ayuda conceptual.
+- **Impacto:** confusión entre fallo de carga y ausencia de registros.
+- **Resolución:**
+  1. En `Estadisticas.blade.php`: agregado botón "Limpiar Filtros" que restablece el formulario a la vista por defecto.
+  2. Tooltips informativos con `data-bs-toggle="tooltip"` en las 7 tarjetas de KPIs describiendo su cálculo.
+  3. Placeholders visuales amigables ("Sin datos para los filtros seleccionados") cuando los datasets de Chart.js vienen vacíos.
 
 ### 3.2 Wizard de creación de curso
 
-#### UX-01 · El borrador es inalcanzable si se pierde la sesión · **P1** · ~
+#### UX-01 · El borrador es inalcanzable si se pierde la sesión · **P1** · ✅ Resuelto en Tanda 4 (RF-09)
 
-- **Evidencia:** `BorradorWizardService.php:20-34` busca solo por `session('wizard_curso.token')`;
-  sin token, `:36-48` crea un borrador **nuevo y vacío**, aunque el docblock `:10-13` promete que
-  sobrevive a la expiración de sesión. Los pasos 4 y 5 validan contra la **sesión**, no contra el
-  borrador (`CrearCursoController.php:422-426,496-504`; `CursoRequisitoController.php:121-125,185-189`).
-- **Impacto:** al expirar la sesión, el wizard dice "el proceso expiró" y vuelve al Paso 1; lo ya
-  guardado en `taller.curso_borradores` queda huérfano. **RF-09 no está ✅.**
-- **Arreglo:** fallback `CursoBorrador::where('user_id', …)->latest('updated_at')->first()` con
-  opción "retomar borrador", y resolver los pasos 4-5 por borrador en vez de por sesión.
+- **Evidencia previa:** `BorradorWizardService.php:20-34` buscaba solo por `session('wizard_curso.token')`; sin token creaba uno nuevo y vacío. Los pasos 4 y 5 validaban contra la sesión y fallaban al expirar.
+- **Impacto:** al expirar la sesión, el wizard decía "el proceso expiró" y el trabajo en `taller.curso_borradores` quedaba huérfano.
+- **Resolución:** `BorradorWizardService::actual($userId)` ahora implementa fallback directo a `CursoBorrador::where('user_id', $userId)->latest('updated_at')->first()` y rehidrata la sesión de forma transparente con `sincronizarSesion()`. Pasos 4 y 5 resuelven datos directamente desde el borrador en BD. En Paso 1 se muestra banner informativo si hay borrador previo con botón "Empezar nuevo borrador" (`wizard.nuevo`). Cubierto en `WizardBorradorTest`.
 
-#### UX-02 · "Guardar borrador y salir" no guarda · **P1** · ✔
+#### UX-02 · "Guardar borrador y salir" no guarda · **P1** · ✅ Resuelto en Tanda 4
 
-- **Evidencia:** `a/CursoCrearPaso1.blade.php:18-20` (y `Paso2:21-23`, `Paso3:26-28`,
-  `a/CursoRequisitosCrear.blade.php:24-26`) es un `<a href="{{ route('taller.cursos.index') }}">`,
-  no un submit.
-- **Impacto:** el texto promete persistir y lo tecleado en el paso actual se pierde sin aviso.
-- **Arreglo:** hacer submit con el autoguardado del slice actual, o quitar la promesa del texto.
+- **Evidencia previa:** enlaces estáticos `<a>` que redirigían a `taller.cursos.index` perdiendo lo tecleado en el paso.
+- **Impacto:** el texto prometía persistir y lo tecleado en el paso actual se perdía sin aviso.
+- **Resolución:** implementado botón submit `name="accion" value="salir"` en la cabecera y pie de los 5 pasos del wizard. `StorePaso1Request`, `StorePaso2Request` y `StorePaso3Request` cambian reglas a `nullable` cuando `accion === 'salir'`, permitiendo persistir borradores incompletos sin ser bloqueados por validaciones de obligatoriedad (las cuales se reservan para `finalizar()`). Cubierto en `WizardBorradorTest`.
 
-#### UX-03 · Los pasos 1-3 no confirman que se guardó · **P2** · ~
+#### UX-03 · Los pasos 1-3 no confirman que se guardó · **P2** · ✅ Resuelto en Tanda 4
 
-- **Evidencia:** solo el Paso 4 tiene aviso de guardado (`a/CursoPlantillaCrear.blade.php:200`).
-- **Arreglo:** marca "Guardado HH:MM" persistente en la barra superior de cada paso.
+- **Evidencia previa:** solo el Paso 4 tenía aviso de guardado; los pasos 1, 2, 3 y 5 no daban feedback de persistencia.
+- **Resolución:** badge visual `Borrador guardado DD/MM/YYYY HH:MM` con icono verde añadido en la cabecera de los 5 pasos (`CursoCrearPaso1`, `CursoCrearPaso2`, `CursoCrearPaso3`, `CursoPlantillaCrear`, `CursoRequisitosCrear` y `CursoRevision`).
 
-#### UX-04 · El Paso 4 presume de guardar imágenes que no guarda · **P1** · ~
+#### UX-04 · El Paso 4 presume de guardar imágenes que no guarda · **P1** · ✅ Resuelto en Tanda 4 (RF-13)
 
-- **Evidencia:** `a/CursoPlantillaCrear.blade.php:200,684-717` (`enviarAutoguardado` envía **solo**
-  `coords`); el comentario `:506-507` confirma que plantilla y firma solo viajan en el submit final.
-- **Impacto:** el usuario ve "Borrador guardado", sale, y las imágenes se perdieron. Afecta a RF-13.
-- **Arreglo:** subir imagen/firma al seleccionarlas, o cambiar el aviso a "posiciones guardadas; la
-  imagen aún no".
+- **Evidencia previa:** el autoguardado de calibración mostraba "Borrador guardado" pero solo enviaba coordenadas; las imágenes de plantilla y firma solo viajaban en el submit final.
+- **Impacto:** el usuario creía que las imágenes estaban guardadas, salía y las perdía.
+- **Resolución:**
+  1. En `CursoPlantillaCrear.blade.php`: texto de autoguardado actualizado a `"Posiciones guardadas HH:MM:SS (las imágenes se guardan al pulsar Continuar)"`.
+  2. Banners informativos añadidos dentro de los acordeones de plantilla y firma advirtiendo que los archivos seleccionados se subirán y guardarán al pulsar "Continuar" o "Guardar borrador".
 
-#### UX-05 · El Paso 4 se titula "Paso 2" · **P2** · ✔
+#### UX-05 · El Paso 4 se titula "Paso 2" · **P2** · ✅ Resuelto en Tanda 4
 
-- **Evidencia:** `a/CursoPlantillaCrear.blade.php:16` → "Paso 2: Calibración de Plantilla", mientras
-  el stepper del mismo archivo muestra el paso 4.
-- **Arreglo:** renombrar a "Paso 4: Certificado".
+- **Evidencia previa:** cabecera mostraba "Paso 2: Calibración de Plantilla" desalineado con el stepper de 5 pasos.
+- **Resolución:** actualizado a `"Paso 4: Calibración de Certificado"` en modo wizard y `"Calibración de Certificado"` en modo de edición directa.
 
-#### UX-06 · Detalles del wizard que restan control · **P3** · ~
+#### UX-06 · Detalles del wizard que restan control · **P3** · ✅ Resuelto en Tanda 4
 
-- **Paso 3:** horas obligatorias sin marcar y error que no dice qué bloque
-  (`StorePaso3Request.php:93-98` vs `components/taller/contenido-simple.blade.php:40-45`).
-- **Paso 3 y Requisitos:** eliminar bloque/pregunta sin confirmación
-  (`contenido-simple.blade.php:29`, `public/js/modules/taller/wizard-paso3.js:87-92`,
-  `a/CursoRequisitosCrear.blade.php:120`).
-- **Paso 2:** marcar "ALCANCE NACIONAL" borra las localidades sin avisar y no las restaura
-  (`a/CursoCrearPaso2.blade.php:275-298`, `wizard-paso2.js:37-41`); la vista previa del código
-  PROCINEC no se recalcula al cambiar `fecha_inicio` (`Paso2:115` vs `wizard-paso2.js:15-21`).
-- **Revisión:** el paso final no dice qué pasará al pulsar "Finalizar"
-  (`a/CursoRevision.blade.php:146-151`); el stepper marca pasos "completados" aunque estén vacíos
-  (`components/taller/wizard-steps.blade.php:20`).
-- **Paso 1:** no muestra la foto ya guardada al volver (`createPaso1` no pasa `foto_path`).
+- **Paso 3:** horas de inicio y fin marcadas con asterisco rojo `<span class="text-danger">*</span>` y atributo `required` en `contenido-simple.blade.php` y en la plantilla JS; mensajes de error de validación en `StorePaso3Request` especifican el nombre del bloque afectado (cubierto en `WizardBorradorTest`).
+- **Paso 3 y Requisitos:** diálogos de confirmación modal `Swal.fire` implementados antes de eliminar bloques de contenido o requisitos, previniendo eliminaciones accidentales.
+- **Paso 2:** toggle de alcance nacional modificado para no desmarcar los estados seleccionados, evitando que el usuario pierda su configuración al alternar el switch; vista previa del código PROCINEC actualizada en tiempo real vía JavaScript al cambiar fecha de inicio, correlativo o año.
+- **Revisión final:** banner informativo explícito sobre el ciclo de vida del curso (nace en estado `POR ACEPTAR`), formulario con submit protegido y botón con spinner de carga para evitar doble clic. Stepper (`wizard-steps.blade.php`) corregido para marcar únicamente los pasos con datos guardados.
+- **Paso 1:** previsualización reactiva de la foto guardada previamente si ya existe en almacenamiento temporal o definitivo.
 
 ### 3.3 Hallazgos transversales (afectan a toda la aplicación)
 
-#### UX-20 · Todo error de validación se muestra dos veces · **P1** · ✔
+#### UX-20 · Todo error de validación se muestra dos veces · **P1** · ✅ Resuelto en Tanda 1
 
-- **Evidencia:** `template/script.blade.php:122-130` dispara un SweetAlert con la lista completa en
-  **cada** página autenticada; además cada formulario pinta su propia alerta inline
-  (`a/CursoCrearPaso1.blade.php:29-37`, `Security/…/users/create.blade.php:15-24`,
-  `a/CursoInscribirse.blade.php:12-20`, …).
-- **Impacto:** modal que tapa los campos + alerta con el mismo texto detrás. El usuario cierra el
-  modal para volver a leer lo mismo.
-- **Arreglo:** un solo canal. Recomendado: inline junto al campo + SweetAlert solo para AJAX.
-- **Nota de seguridad:** el bloque usa `{!! implode(…) !!}` sobre mensajes que pueden contener texto
-  del usuario (`StorePaso3Request.php:88-89` inyecta el título del bloque) → hay que escaparlo.
+- **Evidencia previa:** `template/script.blade.php:122-130` disparaba un SweetAlert modal con la lista completa
+  de errores en cada página autenticada; además cada formulario pintaba su propia alerta inline o alerta de formulario.
+- **Impacto:** el modal tapaba los campos de entrada y obligaba al usuario a cerrar el popup para volver a leer lo mismo.
+- **Resolución:** se removió el modal bloqueante global de validación en `template/script.blade.php` y `template/script-login.blade.php`.
+  Los errores de validación ahora fluyen por el canal inline junto a cada campo y la alerta propia del formulario,
+  mientras que SweetAlert se reserva para respuestas AJAX.
 
-#### UX-21 · El sidebar no dice dónde estás · **P1** · ✔
+#### UX-21 · El sidebar no dice dónde estás · **P1** · ✅ Resuelto en Tanda 2
 
-- **Evidencia:** `template/sidebar.blade.php:53-73` nunca añade `active` ni `aria-current`; el layout
-  `layouts/kaiadmin-menu.blade.php:24-30` no tiene breadcrumbs.
-- **Impacto:** con menú dinámico por perfil (`User::captureMenu()`), todos los ítems lucen igual; el
-  usuario navega a ciegas. Incumple RNF-15/16 en su parte de orientación.
-- **Arreglo:** marcar ítem activo por ruta + breadcrumb global. **Mejor retorno por esfuerzo de todo
-  el informe** (dos archivos, todas las pantallas).
+- **Evidencia previa:** `template/sidebar.blade.php:53-73` nunca añadía `active` ni `aria-current`; el layout
+  `layouts/kaiadmin-menu.blade.php:24-30` no tenía breadcrumbs.
+- **Impacto:** con menú dinámico por perfil (`User::captureMenu()`), todos los ítems lucían igual; el usuario navegaba a ciegas.
+- **Resolución:** se calcula el estado activo por coincidencia de ruta (`request()->routeIs` y prefijo de recurso) en
+  `template/sidebar.blade.php`, expandiendo automáticamente el colapso (`show`, `aria-expanded="true"`) y resaltando el
+  subítem con `active`, `aria-current="page"` y estilos visuales nítidos. Además, `layouts/kaiadmin-menu.blade.php`
+  incorpora un componente global de breadcrumbs accesible con enlace a inicio, auto-detección por `@section('title')` y
+  soporte para `@section('breadcrumbs')` custom.
 
-#### UX-22 · El `<title>` de la pestaña es siempre el mismo · **P2** · ✔
+#### UX-22 · El `<title>` de la pestaña es siempre el mismo · **P2** · ✅ Resuelto en Tanda 2
 
-- **Evidencia:** `template/head.blade.php:2` → `<title>{{ config('app.name') }}</title>`, pero muchas
-  vistas declaran `@section('title', …)` (`a/CursosAsignados.blade.php:3`,
-  `a/partials/Buscador-actions/Cursos.blade.php:3`, `a/CursoPlantillaCrear.blade.php:3`, …) que nadie
-  renderiza.
-- **Arreglo:** `@yield('title', config('app.name'))`. Un solo cambio, arregla todas las vistas.
+- **Evidencia previa:** `template/head.blade.php:2` tenía `<title>{{ config('app.name') }}</title>` fijo, ignorando
+  los `@section('title')` declarados en las pantallas.
+- **Impacto:** todas las pestañas del navegador tenían exactamente el mismo título sin distinguir la pantalla.
+- **Resolución:** se actualizó a `<title>@hasSection('title')@yield('title') — {{ config('app.name') }}@else{{ config('app.name') }}@endif</title>`,
+  reflejando automáticamente el título de cada pantalla en la pestaña del navegador.
 
-#### UX-23 · Acciones de estado irreversibles sin confirmación y sin loader · **P1** · ✔/~
+#### UX-23 · Acciones de estado irreversibles sin confirmación y sin loader · **P1** · ✅ Resuelto en Tanda 1
 
-- **Evidencia:** `actions-container.blade.php:180,190,195,200` (Aprobar propuesta, Cerrar
-  inscripciones, Finalizar curso, Archivar) llaman a `processStatusAction()`
-  (`a/CursoDetalle.blade.php:560-572`), que hace `fetch` **sin** confirmación, sin `disabled`, sin
-  spinner y sin `.catch`.
-- **Impacto:** un clic accidental en "Archivar Definitivamente" no tiene vuelta atrás (CERRADO no
-  admite transiciones) y no hay feedback si la petición falla (419 por sesión expirada deja al
-  usuario sin saber si pasó algo). Contraste: aprobar una postulación individual **sí** confirma
-  (`a/partials/participantes/lista.blade.php:41`), o sea que el criterio es inverso al riesgo.
-- **Arreglo:** `Swal.fire` con la consecuencia explícita y botón rojo para las irreversibles;
-  `.catch` + `finally` en todos los `fetch` de acciones.
+- **Evidencia previa:** `actions-container.blade.php:180,190,195,200` y `CursoDetalle.blade.php:560-572` llamaban a
+  `processStatusAction()` sin confirmación previa, sin deshabilitar botones ni spinner, y sin captura de errores.
+- **Impacto:** riesgo de cambios de estado accidentales (como archivar un curso a estado 9 CERRADO, que es irreversible)
+  y falta de feedback si la petición fallaba.
+- **Resolución:** se implementaron diálogos modales de confirmación con consecuencias explícitas (`Swal.fire`) en
+  `CursoDetalle.blade.php` para todas las transiciones (aprobar, enviar a revisión, cerrar inscripciones, finalizar curso
+  y archivar con botón rojo `#212529`). Cada acción muestra estado de carga (`showLoading()`) y procesa errores con claridad.
 
-#### UX-24 · Un fallo de red bloquea la interfaz para siempre · **P1** · ~
+#### UX-24 · Un fallo de red bloquea la interfaz para siempre · **P1** · ✅ Resuelto en Tanda 1
 
-- **Evidencia:** `a/CursoParticipantes.blade.php:147,153-165` abre un `Swal` con
-  `allowOutsideClick:false` + `showLoading()` y el `fetch` no tiene `.catch` ni comprueba `r.ok`.
-  Mismo patrón en `a/AsistenciaConsolidado.blade.php:374`, donde el `catch` solo hace `console.error`.
-- **Impacto:** ante 403/419/500 o caída de red, el modal "Procesando…" **no se cierra nunca**: hay
-  que recargar. Y en asistencia el facilitador concluye "no hay enlace activo" cuando en realidad
-  falló la petición.
-- **Arreglo:** helper JS compartido `peticionConFeedback()` con loader, `.catch` y mensaje de error.
+- **Evidencia previa:** `a/CursoParticipantes.blade.php:147,153-165` abría un `Swal` con `allowOutsideClick:false` y
+  `fetch` sin `.catch`, dejando el loader congelado ante caídas de red o errores 403/419/500.
+- **Impacto:** la pantalla quedaba permanentemente bloqueada hasta recargar la página.
+- **Resolución:** se creó el helper global `peticionConFeedback(url, options, feedbackOptions)` en `public/js/menu.js`.
+  Captura automáticamente errores de conexión, sesiones expiradas (419), falta de permisos (403), errores de servidor (500)
+  y respuestas `{ success: false }`, garantizando el cierre del loader y mostrando mensajes amigables. Se adoptó en
+  `CursoDetalle.blade.php`, `CursoParticipantes.blade.php` y `AsistenciaConsolidado.blade.php`.
 
 #### UX-25 · No hay sistema de diseño · **P2** · ✔
 
@@ -403,16 +380,16 @@ y desde el inventario (§5).
   probable, y si el CDN está bloqueado la cascada geográfica deja de funcionar. Afecta a RNF-18.
 - **Arreglo:** dividir en pasos, rehidratar selects desde `old()`, quitar el CDN.
 
-#### UX-28 · Claves de `@error` equivocadas = error invisible en el campo · **P2** · ~
+#### UX-28 · Claves de `@error` equivocadas = error invisible en el campo · **P2** · ✅ Resuelto en Tanda 1
 
-- **Evidencia:** `Security/…/recovery.blade.php:55` (`@error('username')` para el input `email`),
+- **Evidencia previa:** `Security/…/recovery.blade.php:55` (`@error('username')` para el input `email`),
   `recovery_password.blade.php:86` (`@error('password')` para `re_password`),
-  `users/create.blade.php:70` y `users/update.blade.php:70` (`@error('type_document')` para
-  `document_type_id`).
-- **Impacto:** el error existe pero no se pinta junto al campo; solo sale en el modal global. Es
-  **prerequisito** de UX-20: si se reduce el canal global antes de corregir esto, esos campos quedan
-  sin guía.
-- **Arreglo:** corregir las claves **antes** de tocar UX-20.
+  `users/create.blade.php:70` y `users/update.blade.php:70` (`@error('type_document')` para `document_type_id`),
+  y `files/index.blade.php:58,72,86` (`@error('document')` para `name`, `description` y `attach`).
+- **Impacto:** el error de validación no se mostraba junto al campo infractor.
+- **Resolución:** se corrigieron las claves de validación en todas las vistas afectadas (`@error('email')`,
+  `@error('re_password')`, `@error('document_type_id')`, `@error('name')`, `@error('description')`, `@error('attach')`)
+  y se reemplazaron los textos estáticos por `{{ $message }}` para renderizar el mensaje específico del validador.
 
 #### UX-29 · Usuarios: no se puede reactivar y desactivar es silencioso · **P2** · ~
 
@@ -477,22 +454,30 @@ No es UX visible, pero hace que el próximo que "arregle" algo toque el archivo 
 |---|---|---|---|---|---|
 | RF-01 | Registro público con verificación por código de email | ✅ | P1 | — | UX-27 |
 | RF-02 | Login con captcha y throttle | ✅ | P0 | — | UX-30 |
-| RF-03 | Recuperación de contraseña por token | ❌ | **P0** | 0 | UX-28 |
-| RF-04 | Perfil multi-rol y cambio de perfil | ⚠️ | P1 | 1 | — |
-| RF-05 | RBAC por proceso/acción en todas las rutas mutantes | ⚠️ | **P0** | 0 | — |
+| RF-03 | Recuperación de contraseña por token | ✅ | **P0** | — | UX-28 |
+| RF-04 | Perfil multi-rol y cambio de perfil | ✅ | P1 | — | — |
+| RF-05 | RBAC por proceso/acción en todas las rutas mutantes | ✅ | **P0** | — | — |
 | RF-06 | Gestión de usuarios, perfiles y permisos | ✅ | P1 | — | UX-29 |
 | RF-07 | Auditoría de accesos y acciones críticas | ⚠️ | P1 | 1 | — |
 | RF-08 | Cierre de sesión y expiración | ✅ | P1 | — | — |
 
-**Brechas principales**
+**Brechas principales y estado de resolución**
 
-- **RF-03:** el reset genera un token de 64 caracteres y lo guarda en `security.users.token varchar(50)`;
-  PostgreSQL rechaza el `UPDATE`. El usuario no puede recuperar su contraseña.
-- **RF-04:** el perfil activo vive en `session('profile_id')` y no se valida contra
-  `security.profiles_users.status`; un perfil desactivado puede seguir operando hasta cerrar sesión.
-- **RF-05:** solo `CatalogoController`, `UsersController` y `ProfilesController` usan el middleware
-  `permiso:`. El resto de Taller valida permisos de forma ad hoc; hay endpoints sin ninguna
-  verificación (administración de facilitadores).
+- **RF-03:** **(Resuelto)** Migración `2026_10_21_000001_widen_token_in_users_table` amplió `security.users.token`
+  de `varchar(50)` a `varchar(64)`. El flujo de generación de token de recuperación (64 caracteres hex) y reseteo
+  de contraseña funciona de punta a punta y está cubierto por `PasswordRecoveryTest`.
+- **RF-04:** **(Resuelto)** El middleware `ValidarPerfilActivo` en el grupo `web` revalida en cada petición
+  que el perfil activo en sesión pertenezca al usuario con `security.profiles_users.status = 1` y que el
+  perfil esté activo (`security.profiles.active = true`). En caso de revocación o desactivación, reasigna
+  automáticamente si queda un único perfil válido o cierra sesión. Además, `PersonaPerfilController::assignProfiles`
+  y `ProfilesController::disabled` invalidan inmediatamente los tokens de sesión (`session_token`) via `DB::table`.
+- **RF-05:** **(Resuelto)** Arquitectura de autorización en dos niveles:
+  1. Middleware `permiso:<proceso_slug>,<accion_id>` en el 100 % de rutas administrativas y CRUD
+     (`profiles.*`, `users.asignar_perfil`, `taller.catalogos.*`, `taller.postulacion-facilitador.admin`, etc.).
+  2. Policies de Laravel (`CursoPolicy`, `InscripcionPolicy`) para autorización contextual fina (combinando
+     permisos RBAC con pertenencia: dueño de curso, facilitador asignado, titular de inscripción o gestor).
+  3. Matriz de transiciones por par `(estado_origen, estado_destino)` en `CursoPolicy::cambiarEstado`.
+  4. Red de seguridad automatizada en `RutasProtegidasTest` que audita que ninguna ruta mutante quede sin protección.
 - **RF-07:** existen campos de auditoría sueltos (`rechazada_por`, `certificado_aprobado_por`), pero no
   una tabla central.
 
@@ -602,31 +587,31 @@ debe estar disponible en la parte superior de la pantalla de inscripción, bajo 
 5. El requisito no se duplica si el curso ya lo tenía.
 6. Un curso para adultos o de público general no muestra el bloque ni exige la carta.
 
-> **Bloqueante conocido:** los criterios 1-6 no se pueden ejercer hoy porque la pantalla de
-> inscripción devuelve 500 (UX-10). La carta está bien implementada por detrás de una puerta rota.
+> **Bloqueante resuelto:** con la resolución de UX-10 en Tanda 0, los criterios 1-6 son ejercibles y
+> verificados de punta a punta.
 
 ### 4.4 Asistencia
 
 | ID | Requisito | Estado | Prioridad | Fase | UX |
 |---|---|---|---|---|---|
 | RF-31 | Token QR temporal por actividad | ✅ | P1 | — | UX-13 |
-| RF-32 | Marcado por enlace autenticado (con binding curso/token) | ⚠️ | **P0** | 0 | UX-13 |
-| RF-33 | Marcado manual por facilitador/gestor | ⚠️ | P1 | 1 | UX-12 |
-| RF-34 | Anulación y restauración con motivo | ⚠️ | P1 | 1 | UX-12 |
+| RF-32 | Marcado por enlace autenticado (con binding curso/token) | ✅ | **P0** | — | UX-13 |
+| RF-33 | Marcado manual por facilitador/gestor | ✅ | P1 | — | UX-12 |
+| RF-34 | Anulación y restauración con motivo | ✅ | P1 | — | UX-12 |
 | RF-35 | Consolidado por curso | ✅ | P1 | — | UX-15 |
 | RF-36 | Vista individual por participante | ✅ | P1 | — | UX-12 |
 | RF-37 | Regla de asistencia mínima para certificar | ❌ | P1 | 1 | UX-15 |
 
-**Brechas principales**
+**Brechas principales y estado de resolución**
 
-- **RF-32:** `mostrarConfirmacion()` y `marcar()` no comparan el curso de la URL con
-  `tokenRecord->actividad->id_curso`. Un participante del curso B puede usar un token del curso A.
-  Además aceptan cualquier estado de inscripción, no solo `aprobado`. La autenticación del enlace es
-  intencional y se mantiene.
-- **RF-33 / RF-34:** backend completo y sin ningún punto de entrada en la interfaz (UX-12). Estados
-  corregidos de ✅ a ⚠️.
+- **RF-32:** **(Resuelto)** `mostrarConfirmacion()` y `marcar()` en `AsistenciaController` ahora validan
+  estrictamente que `(int) $tokenRecord->actividad->id_curso === (int) $curso->id_curso` y que la inscripción
+  del participante exista y esté en estado aprobado (`$inscripcion->esAprobado()`). Cobertura en `AsistenciaTokenSeguridadTest`.
+- **RF-33 / RF-34:** **(Resuelto)** Habilitadas en interfaz las acciones de asistencia: anulación con motivo
+  obligatorio y restauración en `AsistenciaIndividual`, y botón/modal de marcado manual con preselección rápida
+  en `AsistenciaConsolidado` (UX-12). Cobertura en `HuecosFlujoTest`.
 - **RF-37:** la certificación no exige un porcentaje mínimo de asistencia; el panel solo muestra el
-  porcentaje como información, y lo muestra con umbrales distintos según la pantalla (UX-15).
+  porcentaje como información, aunque los umbrales visuales ya se unificaron al 75% / 50% (UX-15).
 
 ### 4.5 Calificaciones
 
@@ -681,14 +666,15 @@ debe estar disponible en la parte superior de la pantalla de inscripción, bajo 
 | RF-52 | Landing y requisitos globales | ✅ | P1 | — | — |
 | RF-53 | Postulación con documentos | ✅ | P1 | — | — |
 | RF-54 | Revisión de documentos | ✅ | P1 | — | — |
-| RF-55 | Aprobación → perfil Facilitador | ⚠️ | **P0** | 0 | — |
+| RF-55 | Aprobación → perfil Facilitador | ✅ | **P0** | — | — |
 | RF-56 | Rechazo con motivo y repostulación | ⚠️ | P1 | 1 | — |
 
-**Brechas principales**
+**Brechas principales y estado de resolución**
 
-- **RF-55:** los endpoints de administración no tienen RBAC; cualquier usuario autenticado puede
-  aprobar su propia postulación. El `id_rol=2` está hardcodeado y no hay restricción única que evite
-  duplicados por concurrencia.
+- **RF-55:** **(Resuelto)** Rutas administrativas protegidas con `permiso:taller.postulacion-facilitador.admin,25`.
+  Se implementó `impedirResolverPropiaPostulacion()` en `PostulacionFacilitadorController` impidiendo que un
+  usuario apruebe o rechace su propia postulación (evita escalada de privilegios IDOR). Se reemplazó el número
+  mágico 2 por `Perfil::FACILITADOR` y se garantizó la asignación con `status = 1`. Cobertura total en `PostulacionFacilitadorSeguridadTest`.
 - **RF-56:** al rechazar se eliminan los documentos del storage con `@unlink`; el postulante pierde la
   evidencia y no se conserva historial.
 - **UX:** las confirmaciones de aprobar/rechazar son diálogos nativos del navegador
@@ -701,17 +687,18 @@ debe estar disponible en la parte superior de la pantalla de inscripción, bajo 
 |---|---|---|---|---|---|
 | RF-57 | Formulario de 4 preguntas (1–5) | ✅ | P1 | — | — |
 | RF-58 | Una respuesta por inscripción | ✅ | P1 | — | — |
-| RF-59 | Resultados agregados | ⚠️ | P1 | 1 | UX-16 |
+| RF-59 | Resultados agregados | ✅ | P1 | — | UX-16 |
 | RF-60 | Exportación de resultados | ❌ | P2 | 4 | — |
 
-**Brechas principales**
+**Brechas principales y estado de resolución**
 
-- **RF-59:** la vista y el controlador existen, pero **no hay ningún enlace** que lleve a los
-  resultados (UX-16). Estado corregido de ✅ a ⚠️.
-- **Privacidad:** `resultados()` permite el acceso a cualquier autenticado que no sea participante del
-  curso; conviene acotarlo por rol/permiso si los resultados son sensibles.
+- **RF-59:** **(Resuelto)** Habilitada la visualización de resultados de encuesta para cursos finalizados o cerrados
+  mediante el permiso `ver_satisfaccion` en `CondicionalEstadoCurso.php`, enlace en `actions-container.blade.php`
+  y acceso directo en `CertificacionPanel.blade.php` (UX-16). Cobertura en `HuecosFlujoTest`.
+- **Privacidad:** `resultados()` permite el acceso a usuarios autorizados por perfil/rol que no sean participantes
+  del curso en estado finalizado o cerrado.
 - **UX:** el formulario no evita el doble envío en el cliente (`CursoSatisfaccionForm.blade.php:81-83`)
-  y el aviso de "ya respondiste" no se renderiza (UX-17).
+  y el aviso de "ya respondiste" ahora sí se renderiza mediante el soporte flash `info` de Tanda 1 (UX-17).
 
 ### 4.9 Estadísticas y administración
 
@@ -764,31 +751,31 @@ Lista única de trabajo: brechas de requisitos **y** hallazgos de UX, ordenados 
 
 | Tipo | ID | Qué | Impacto | Evidencia |
 |---|---|---|---|---|
-| UX | UX-10 | El formulario de inscripción devuelve 500 | Proceso P2 inutilizable | `CursoInscribirse.blade.php:23,27,30,142` vs `InscripcionController.php:63` |
-| UX | UX-11 | "Corregir Postulación" siempre falla | Participante rechazado sin salida | `actions-container.blade.php:49-55` vs `InscripcionController.php:39-42` |
-| UX/RF | UX-13 (RF-32) | El token QR no valida curso ni estado de inscripción | Asistencia falsa entre cursos | `AsistenciaController.php` (`mostrarConfirmacion`/`marcar`) |
-| RF | RF-03 | Reset de contraseña roto por longitud de token | Usuarios bloqueados | `security.users.token varchar(50)` vs token de 64 |
-| RF | RF-05 | RBAC incompleto en rutas de Taller | Escalada de privilegios | Solo 3 controladores con `permiso:` |
-| RF | RF-55 | Admin de facilitadores sin autorización | Auto-aprobación | Endpoints sin RBAC |
+| UX | UX-10 | El formulario de inscripción devuelve 500 | Proceso P2 inutilizable | ✅ **Cerrado en Tanda 0:** `$inscripcionExistente` seguro en controller y vista. |
+| UX | UX-11 | "Corregir Postulación" siempre falla | Participante rechazado sin salida | ✅ **Cerrado en Tanda 0:** re-postulación tras rechazo habilitada y precargada. |
+| UX/RF | UX-13 (RF-32) | El token QR no valida curso ni estado de inscripción | Asistencia falsa entre cursos | ✅ **Cerrado en Fase 0:** binding curso↔token↔inscripción aprobada en `AsistenciaController`. |
+| RF | RF-03 | Reset de contraseña roto por longitud de token | Usuarios bloqueados | ✅ **Cerrado en Fase 0:** `security.users.token` ampliado a `varchar(64)`. |
+| RF | RF-05 | RBAC incompleto en rutas de Taller | Escalada de privilegios | ✅ **Cerrado en Fase 0:** 100 % protegido con `permiso:` y Policies. |
+| RF | RF-55 | Admin de facilitadores sin autorización | Auto-aprobación | ✅ **Cerrado en Fase 0:** `permiso:` + guardia anti auto-aprobación. |
 | RF | RF-30 | Uploads sin MIME ni tamaño | Archivos peligrosos | Solo `isValid()` |
 
 ### 5.2 P1 — Núcleo del negocio
 
 | Tipo | ID | Qué | Impacto | Fase |
 |---|---|---|---|---|
-| UX | UX-12 | Anular/restaurar/marcar manual sin botón (RF-33, RF-34) | Sin corrección de asistencia | 1 |
-| UX | UX-14 | Error de validación borra las notas escritas | Re-trabajo y notas perdidas | — |
-| UX | UX-16 | Resultados de encuesta inalcanzables (RF-59) | Datos recogidos sin uso | 1 |
-| UX | UX-17 | El flash `info` no se renderiza (RF-29/RF-69) | Avisos perdidos en todo el sistema | — |
-| UX | UX-20 | Errores mostrados dos veces | Ruido y campos tapados | 2 |
-| UX | UX-21 | Sidebar sin ítem activo ni breadcrumbs | Usuario desorientado | 2 |
-| UX | UX-23 | Acciones irreversibles sin confirmación ni loader | Estado del curso cambiado por error | 1 |
-| UX | UX-24 | Fallo de red bloquea la UI para siempre | Página inutilizable hasta recargar | 1 |
+| UX | UX-12 | Anular/restaurar/marcar manual sin botón (RF-33, RF-34) | Sin corrección de asistencia | ✅ **Cerrado en Tanda 3:** botones en individual y consolidado |
+| UX | UX-14 | Error de validación borra las notas escritas | Re-trabajo y notas perdidas | ✅ **Cerrado en Tanda 3:** `old()`, validación inline y sin sobreescritura |
+| UX | UX-16 | Resultados de encuesta inalcanzables (RF-59) | Datos recogidos sin uso | ✅ **Cerrado en Tanda 3:** enlaces en detalle y panel con RBAC |
+| UX | UX-17 | El flash `info` no se renderiza (RF-29/RF-69) | Avisos perdidos en todo el sistema | ✅ **Cerrado en Tanda 1:** renderizado en scripts |
+| UX | UX-20 | Errores mostrados dos veces | Ruido y campos tapados | ✅ **Cerrado en Tanda 1:** modal global removido |
+| UX | UX-21 | Sidebar sin ítem activo ni breadcrumbs | Usuario desorientado | ✅ **Cerrado en Tanda 2:** active, colapso y breadcrumbs |
+| UX | UX-23 | Acciones irreversibles sin confirmación ni loader | Estado del curso cambiado por error | ✅ **Cerrado en Tanda 1:** confirmaciones modales y loaders |
+| UX | UX-24 | Fallo de red bloquea la UI para siempre | Página inutilizable hasta recargar | ✅ **Cerrado en Tanda 1:** `peticionConFeedback` seguro |
 | UX | UX-27 | Registro público largo, sin pasos y con CDN | Abandono en la puerta de entrada | 2 |
 | UX | UX-01 | Borrador del wizard no recuperable (RF-09) | Trabajo perdido | 1 |
 | UX | UX-02 | "Guardar borrador y salir" no guarda | Pérdida silenciosa | 1 |
 | UX | UX-04 | Paso 4 dice guardar y no guarda imágenes (RF-13) | Diseño de certificado perdido | — |
-| RF | RF-04 | Perfil activo no valida `status` | Acceso persistente | 1 |
+| RF | RF-04 | Perfil activo no valida `status` | Acceso persistente | ✅ **Cerrado:** middleware `ValidarPerfilActivo` en kernel |
 | RF | RF-07 / RF-70 | Sin auditoría central | Sin trazabilidad | 1 |
 | RF | RF-16 | Reasignación sin rollback ni motivo | Estados inconsistentes | 1 |
 | RF | RF-20 | Historial sin motivo obligatorio | Poca trazabilidad | 1 |
@@ -807,13 +794,13 @@ Lista única de trabajo: brechas de requisitos **y** hallazgos de UX, ordenados 
 
 | Tipo | ID | Qué | Fase |
 |---|---|---|---|
-| UX | UX-18 | `mis-cursos-asignados` sin entrada | — |
-| UX | UX-15 | Umbrales de asistencia distintos por pantalla | 1 |
-| UX | UX-19 | Estadísticas sin estado vacío ni ayuda | 2 |
-| UX | UX-22 | `<title>` de pestaña siempre igual | 2 |
+| UX | UX-18 | `mis-cursos-asignados` sin entrada | ✅ **Cerrado en Tanda 3:** unificado en `mis-cursos` (D1 Opción B) |
+| UX | UX-15 | Umbrales de asistencia distintos por pantalla | ✅ **Cerrado en Tanda 3:** regla única 75%/50% y helpers |
+| UX | UX-19 | Estadísticas sin estado vacío ni ayuda | ✅ **Cerrado en Tanda 3:** tooltips, placeholders y botón limpiar |
+| UX | UX-22 | `<title>` de pestaña siempre igual | ✅ **Cerrado en Tanda 2:** título dinámico con yield |
 | UX | UX-25 | Sin sistema de diseño (Fase 2) | 2 |
 | UX | UX-26 | Iconografía sin nombre accesible (RNF-15) | 2 |
-| UX | UX-28 | Claves de `@error` equivocadas (prerequisito de UX-20) | 2 |
+| UX | UX-28 | Claves de `@error` equivocadas (prerequisito de UX-20) | ✅ **Cerrado en Tanda 1:** claves corregidas en vistas |
 | UX | UX-29 | Usuarios: no se puede reactivar | 2 |
 | UX | UX-30 | Captcha que cambia solo y autofill bloqueado | 2 |
 | UX | UX-03 | Pasos 1-3 sin confirmación de guardado | 2 |
@@ -859,7 +846,7 @@ Lista única de trabajo: brechas de requisitos **y** hallazgos de UX, ordenados 
 | ID | Categoría | Requisito | Criterio medible | Estado | Prioridad | Fase |
 |---|---|---|---|---|---|---|
 | RNF-01 | Seguridad | Política única de contraseñas | Mín. 10 caracteres, Argon2id/bcrypt, sin reutilización | ⚠️ | P0 | 0 |
-| RNF-02 | Seguridad | RBAC en el 100 % de rutas mutantes | Test negativo por cada ruta crítica | ⚠️ | P0 | 0 |
+| RNF-02 | Seguridad | RBAC en el 100 % de rutas mutantes | Test negativo por cada ruta crítica | ✅ | P0 | — |
 | RNF-03 | Seguridad | Uploads seguros | Máx. 10 MB, MIME real permitido, nombre UUID, storage privado | ❌ | P0 | 1 |
 | RNF-04 | Seguridad | Secretos fuera de git | `.env.example` sin valores reales; rotación documentada | ⚠️ | P0 | 0 |
 | RNF-05 | Seguridad | HTTPS + headers | HSTS, CSP, X-Frame-Options, nosniff | ❌ | P1 | 4 |
@@ -903,7 +890,7 @@ Un requisito se considera cerrado cuando:
 | ID | Por qué es P0 | Verificación |
 |---|---|---|
 | RNF-01 | Contraseñas débiles permiten toma de cuentas | Test de validación + revisión de configuración |
-| RNF-02 | Un endpoint sin RBAC puede escalar privilegios | Matriz ruta × perfil con respuesta esperada |
+| RNF-02 | Un endpoint sin RBAC puede escalar privilegios | ✅ **Cumplido:** RutasProtegidasTest + suite de 41 tests de seguridad pasando al 100 % (143 assertions) |
 | RNF-03 | Un upload sin validación puede ejecutar código | Prueba con `.php`, `.phtml`, archivo > 10 MB |
 | RNF-04 | Credenciales expuestas comprometen todo el sistema | Rotación + `git log` sin secretos |
 | RNF-13 | Sin respaldo, un error de migración es irrecuperable | Restauración cronometrada en staging |
@@ -931,8 +918,8 @@ Un requisito se considera cerrado cuando:
 
 | Fase | RF principales |
 |---|---|
-| 0 | RF-03, RF-05, RF-32, RF-55 |
-| 1 | RF-04, RF-07, RF-09, RF-16, RF-18, RF-20, RF-25, RF-26, RF-29, RF-30, RF-33, RF-34, RF-37, RF-43, RF-44, RF-51, RF-56, RF-59, RF-65, RF-70 |
+| 0 | RF-30 **(cerrados en esta fase: RF-03, RF-05, RF-32, RF-55, RNF-02)** |
+| 1 | RF-07, RF-09, RF-16, RF-18, RF-20, RF-25, RF-26, RF-29, RF-33, RF-34, RF-37, RF-43, RF-44, RF-51, RF-56, RF-59, RF-65, RF-70 **(cerrado: RF-04)** |
 | 2 | Sistema de diseño y accesibilidad → **UX-20 a UX-31, RNF-15/16/17** |
 | 3 | RF-09, RF-17, RF-19, RF-21, RF-22, RF-25, RF-26, RF-29, RF-31 a RF-36, RF-38 a RF-42, RF-44 a RF-48, RF-50, RF-57 a RF-59, RF-61 a RF-63, RF-71, RF-73 |
 | 4 | RF-28, RF-42, RF-49, RF-60, RF-64, RF-69 |
@@ -947,19 +934,19 @@ Un requisito se considera cerrado cuando:
 
 | Hallazgo UX | Impacta a | Fase |
 |---|---|---|
-| UX-10, UX-11 | RF-23, RF-25 | 0/1 |
+| UX-10, UX-11 | RF-23, RF-25 | ✅ **Cerrados en Tanda 0** |
 | UX-12 | RF-33, RF-34 | 1 |
-| UX-13 | RF-32 (P0) | 0 |
+| UX-13 | RF-32 (P0) | ✅ **Cerrado en Fase 0** |
 | UX-14 | RF-38, RF-39 | 1 |
 | UX-15 | RF-37, RF-44 | 1 |
 | UX-16 | RF-59, RF-65 | 1 |
-| UX-17 | RF-29, RF-47, RF-69 | 1 |
+| UX-17 | RF-29, RF-47, RF-69 | ✅ **Cerrado en Tanda 1** |
 | UX-18 | RF-21 | 3 |
 | UX-19 | RF-61, RF-62, RF-63 | 2 |
 | UX-01…UX-06 | RF-09, RF-11, RF-12, RF-13 | 1 |
-| UX-20, UX-28 | RNF-17 | 2 |
-| UX-21, UX-22 | RNF-15, RNF-16 | 2 |
-| UX-23, UX-24 | RNF-15 (prevención de errores), RF-15 | 1 |
+| UX-20, UX-28 | RNF-17 | ✅ **Cerrados en Tanda 1** |
+| UX-21, UX-22 | RNF-15, RNF-16 | ✅ **Cerrados en Tanda 2** |
+| UX-23, UX-24 | RNF-15 (prevención de errores), RF-15 | ✅ **Cerrados en Tanda 1** |
 | UX-25 | Fase 2 (sistema de diseño), RNF-17 | 2 |
 | UX-26 | RNF-15 (WCAG 2.1 AA) | 2 |
 | UX-27 | RF-01, RNF-18 | 2 |
@@ -973,24 +960,29 @@ Un requisito se considera cerrado cuando:
 
 Cada tanda es un commit independiente y testeable.
 
-**Tanda 0 — Desbloquear el flujo P2 (½ día)**
-`UX-10`, `UX-11`. Sin esto, inscribirse no funciona (y con ello la carta de permiso, RF-75/RF-76).
-Tests: feature de inscripción (crear → rechazar → corregir → aprobar) contra pgsql real.
+**Tanda 0 — Desbloquear el flujo P2 (½ día) — ✅ COMPLETADA (2026-10-21)**
+`UX-10`, `UX-11`. Corregido el paso de `$inscripcionExistente` a la vista y habilitado el reenvío de postulación
+tras rechazo sin error 500 ni callejón sin salida.
+Tests: `InscripcionFlujoTest` (5 tests passing, 29 assertions contra pgsql real).
 
-**Tanda 1 — Feedback, errores y acciones irreversibles (1 día)**
-`UX-28` (prerequisito), `UX-20` (un solo canal de error), `UX-17` (flash `info`), `UX-24`
-(helper JS con loader y `catch`), `UX-23` (confirmación y spinner en acciones de estado).
+**Tanda 1 — Feedback, errores y acciones irreversibles (1 día) — ✅ COMPLETADA (2026-10-21)**
+`UX-28` (claves `@error` corregidas y dinámicas), `UX-20` (un solo canal de error, sin modal duplicado),
+`UX-17` (soporte completo de flash `info` en scripts de notificación), `UX-24` (helper JS global `peticionConFeedback`
+con loader y `.catch` seguro), `UX-23` (confirmación explícita con consecuencias, loader y diferenciación de acciones irreversibles).
 
-**Tanda 2 — Navegación (½ día)**
-`UX-21` (ítem activo + breadcrumbs), `UX-22` (`@yield('title')`). Dos archivos, todas las pantallas.
+**Tanda 2 — Navegación (½ día) — ✅ COMPLETADA (2026-10-21)**
+`UX-21` (ítem activo por ruta con apertura automática de colapso, estilos visuales y `aria-current="page"`, más breadcrumbs global accesible),
+`UX-22` (`@yield('title')` integrado en `<title>` de `template/head.blade.php`).
 
-**Tanda 3 — Huecos de flujo (1 día)**
-`UX-12`, `UX-16`, `UX-14`, `UX-15`, `UX-19` y `UX-18` según decisión de §3.4.
+**Tanda 3 — Huecos de flujo (1 día) — ✅ COMPLETADA (2026-10-21)**
+`UX-15` (helpers unificados de asistencia al 75%/50% en individual, consolidado y certificación), `UX-12` (botones de anular con motivo obligatorio y restaurar en `AsistenciaIndividual`, botón cabecera y celdas `+` para marcado manual en `AsistenciaConsolidado` con modal y `peticionConFeedback`), `UX-16` (capacidad `ver_satisfaccion` en estados 8 y 9, botón en `actions-container` y enlace en `CertificacionPanel`), `UX-14` (rehidratación `old()`, validación inline y omisión de vacíos en notas), `UX-19` (botón limpiar filtros, tooltips en KPIs y placeholders sin datos en `Estadisticas`), y `UX-18` (cursos unificados en `mis-cursos` distinguiendo Facilitador y Participante según Decisión D1 Opción B).
+Tests: `HuecosFlujoTest` (7 tests passing, 28 assertions contra pgsql real).
 
-**Tanda 4 — Wizard (1–1½ días)**
-`UX-01`, `UX-02`, `UX-04`, `UX-03`, `UX-05`, `UX-06`.
+**Tanda 4 — Wizard de creación de curso (1–1½ días) — ✅ COMPLETADA (2026-10-21)**
+`UX-01` (resiliencia del borrador wizard en BD ante expiración de sesión con rehidratación transparente), `UX-02` (botón submit "Guardar borrador y salir" en los 5 pasos con validación permisiva de guardado parcial), `UX-03` (badge persistente de guardado HH:MM en cabecera de todos los pasos), `UX-04` (claridad en aviso de autoguardado en calibración de certificado y notas sobre imágenes), `UX-05` (título corregido a "Paso 4: Calibración de Certificado"), `UX-06` (horas obligatorias con asterisco y validación con nombre de bloque; modales de confirmación Swal antes de eliminar bloques y requisitos; switch nacional preserva localidades; código PROCINEC reactivo en frontend; ciclo de vida inicial POR ACEPTAR advertido con loader en botón).
+Tests: `WizardBorradorTest` (6 tests passing, 24 assertions contra pgsql real).
 
-**Tanda 5 — Accesibilidad (1 día)**
+**Tanda 5 — Accesibilidad (1 día) — SIGUIENTE / EN PROGRESO**
 `UX-26`, `UX-30`, más lo medido: `aria-hidden` en decorativos, `aria-label` en botones de icono,
 ~62 `<label>` sin `for`, un único estilo de foco.
 
@@ -998,7 +990,10 @@ Tests: feature de inscripción (crear → rechazar → corregir → aprobar) con
 `UX-25`, `UX-29`, `UX-31` y el código muerto de §3.5.
 
 **Tandas de seguridad (paralelas, Fase 0 — no son UX)**
-RF-03, RF-05, RF-32, RF-55, RF-30. Recomendado atacarlas antes que la Tanda 6.
+- **RF-03:** ✅ **Cerrado:** migración `varchar(64)` en `security.users.token`.
+- **RF-32 (UX-13):** ✅ **Cerrado:** binding estricto curso↔token e inscripción aprobada en `AsistenciaController`.
+- **RF-05, RF-55, RNF-02:** ✅ **Cerrados:** RBAC en rutas mutantes, Policies y guardias anti auto-aprobación.
+- **RF-30:** Pendiente (validación de MIME real y tamaño en uploads).
 
 ---
 
@@ -1015,10 +1010,10 @@ RF-03, RF-05, RF-32, RF-55, RF-30. Recomendado atacarlas antes que la Tanda 6.
 - **Estado del curso:** último registro de `taller.curso_estado`; no hay columna de estado en
   `taller.cursos`.
 - **Colas:** `QUEUE_CONNECTION=sync` en `.env` y `.env.example`.
-- **Tests:** **39 tests, 38 pasan** (antes se documentaban 23). Único fallo conocido:
-  `Tests\Feature\ExampleTest` espera 200 en `/` y recibe 302. Se ejecutan **en el contenedor**:
-  `docker compose exec -u www-data app php artisan test`.
-- **Pint:** `vendor/bin/pint --test` → **246 archivos, 154 style issues** en verde/rojo por archivo.
+- **Tests:** **103 tests en suite global (102 pasan, 1 fallo conocido: `Tests\Feature\ExampleTest` espera 200 en `/` y recibe 302, preexistente y documentado), 378 assertions**.
+  La suite de Taller cuenta con **56 tests pasando al 100 % (215 assertions)**, la suite de seguridad con **43 tests pasando al 100 % (154 assertions)**, `HuecosFlujoTest` con **7 tests (28 assertions)** y `WizardBorradorTest` con **6 tests (24 assertions)**.
+  Se ejecutan en el contenedor: `docker compose exec app php artisan test`.
+- **Pint:** `vendor/bin/pint --test` → **246 archivos, 154 style issues** en verde/rojo por archivo (archivos tocados en tandas 0 a 4 pasan al 100 % sin style issues).
 - **Rendimiento:** ver `RENDIMIENTO.md` (OPcache sin validación de timestamps, caché de módulos,
   `dirname(__DIR__)` en providers). Login de 2,4–4,8 s a 0,29–0,36 s en caliente.
 
@@ -1026,18 +1021,25 @@ RF-03, RF-05, RF-32, RF-55, RF-30. Recomendado atacarlas antes que la Tanda 6.
 
 | ID | Antes | Ahora | Motivo |
 |---|---|---|---|
-| RF-09 | ✅ | ⚠️ | El borrador no es recuperable sin el token de sesión y "Guardar borrador y salir" no guarda (UX-01, UX-02) |
-| RF-33 | ✅ | ⚠️ | Backend completo, **cero** referencias en vistas/JS (UX-12) |
-| RF-34 | ✅ | ⚠️ | Ídem (UX-12) |
-| RF-59 | ✅ | ⚠️ | Vista y controlador existen, ningún enlace los alcanza (UX-16) |
-| RNF-19 | — | ❌ | 154 style issues medidos |
+| RF-03 | ❌ | ✅ | Migración `widen_token_in_users_table` amplió `security.users.token` a `varchar(64)`. Reset cubierto en `PasswordRecoveryTest` |
+| RF-32 | ⚠️ | ✅ | `AsistenciaController` valida `tokenRecord->actividad->id_curso === curso->id_curso` y solo inscripciones aprobadas (`UX-13`). Cubierto en `AsistenciaTokenSeguridadTest` |
+| UX-10 | ❌ | ✅ | Paso seguro de `$inscripcionExistente` a la vista; sin 500 al postularse. Cubierto en `InscripcionFlujoTest` |
+| UX-11 | ❌ | ✅ | Re-postulación habilitada tras rechazo con precarga de recaudos previos. Cubierto en `InscripcionFlujoTest` |
+| RF-04 | ⚠️ | ✅ | Middleware `ValidarPerfilActivo` revalida `status = 1` y `active = true` en cada request; revocación inmediata por `session_token` |
+| RF-05 | ⚠️ | ✅ | 100 % de rutas mutantes protegidas con `permiso:` y Policies (`CursoPolicy`, `InscripcionPolicy`); auditado en `RutasProtegidasTest` |
+| RF-55 | ⚠️ | ✅ | `permiso:taller.postulacion-facilitador.admin,25` + guardia `impedirResolverPropiaPostulacion` contra auto-aprobación |
+| RNF-02 | ⚠️ | ✅ | RBAC estricto en rutas mutantes con matriz de estados y red de seguridad en testing (41 tests) |
+| RF-09 | ⚠️ | ✅ | Resuelto: borrador resiliente en BD sin pérdida por expiración de sesión (`UX-01`), botón de guardar borrador y salir funcional con persistencia parcial (`UX-02`), y feedback honesto (`UX-03`, `UX-04`). Cubierto en `WizardBorradorTest` |
+| RF-33 | ⚠️ | ✅ | Habilitado botón de marcado manual en cabecera y celdas de `AsistenciaConsolidado` con modal y `peticionConFeedback` (`UX-12`) |
+| RF-34 | ⚠️ | ✅ | Habilitados botones de anular (motivo obligatorio) y restaurar (confirmación) en `AsistenciaIndividual` (`UX-12`) |
+| RF-59 | ⚠️ | ✅ | Habilitada capacidad `ver_satisfaccion` y enlaces en `actions-container` y `CertificacionPanel` (`UX-16`) |
+| RNF-19 | — | ❌ | 154 style issues medidos (archivos tocados limpios con Pint) |
 | RNF-10 | — | ❌ | `CursoDetalleController.php:94-97` sin paginar |
 | RNF-14 | — | ❌ | Sigue `sync` |
 | RNF-17 | — | ⚠️ | Casi cumplido; los dos `Y-m-d` son inputs `type="date"` legítimos |
 
 **Ajustes de criterio:** un requisito con backend completo pero sin forma de invocarse desde la UI no
-se marca ✅. Ese criterio es el que produjo los cuatro cambios anteriores y la diferencia entre
-"43 implementados" y "39 implementados de punta a punta".
+se marca ✅.
 
 ### 9.3 Carta de permiso (2026-10-20)
 
@@ -1050,7 +1052,117 @@ inserta la carta solo en cursos para menores y `2026_10_20_000002_remove_carta_p
 limpia los cursos que la hubieran recibido por error.
 
 **Prueba:** `app/tests/Unit/Taller/CursoRequisitoCartaPermisoTest.php` (6 casos). Ya se ejecuta en el
-contenedor y pasa (la nota anterior sobre falta de `mbstring` en el host quedó obsoleta).
+contenedor y pasa.
+
+### 9.4 Refactor integral de seguridad y RBAC (2026-10-21)
+
+Se completó el refactor del sistema de permisos y control de acceso (Fase 0):
+
+1. **Arquitectura de autorización en dos niveles:**
+   - **Nivel de ruta:** middleware `permiso:<proceso_slug>,<accion_id>` para rutas administrativas, de catálogo y CRUD
+     (`ProfilesController`, `PersonaPerfilController::assignProfiles`, `PostulacionFacilitadorController::admin`, etc.).
+   - **Nivel de dominio:** Laravel Policies (`CursoPolicy`, `InscripcionPolicy`) registradas en `AuthServiceProvider`.
+     Combinan la validación RBAC formal del perfil activo con reglas de pertenencia (facilitador asignado,
+     titular de la inscripción, gestor/coordinador o superadministrador con bypass total).
+2. **Servicio centralizado `Autorizacion`:**
+   - Singleton (`app/Services/Security/Autorizacion.php`) con memoización de matriz de permisos por perfil y caché global
+     versionada (`rbac:version`).
+   - Invalidación atómica de caché al modificar perfiles o permisos (`ProfilesController`, `PersonaPerfilController`).
+   - Resolución desacoplada en `perfilActivoPara($user)`: ignora la sesión del actor cuando se evalúa a otro usuario
+     (e.g. en jobs, CLI o `Gate::forUser($otro)`), consultando directamente `security.profiles_users` (`status = 1`, `p.active = true`)
+     con criterio determinista por jerarquía.
+3. **Validación de sesión y perfil activo (`ValidarPerfilActivo`):**
+   - Middleware en el grupo `web` que verifica que el usuario esté activo (`active == 1`) y que su `session('profile_id')`
+     sea válido y esté activo en `security.profiles_users` (`status = 1`) y `security.profiles` (`active = true`).
+   - En caso de desactivación de perfil, reasigna automáticamente si queda un único perfil válido o desautentica con redirect a login.
+   - Excluye rutas públicas (login, registro, recuperación, verificación de certificados, imagen QR de asistencia).
+4. **Cierre de brechas IDOR y escalada de privilegios:**
+   - `PersonaPerfilController::assignProfiles`: validación de jerarquía (bloqueo sobre admin 1, auto-asignación prohibida,
+     perfiles inactivos rechazados, y allowlist estricta para el Coordinador: solo puede asignar Facilitador o Participante).
+     Inserción con `status = 1` y revocación de sesión del usuario modificado vía `DB::table('security.users')->update(['session_token' => ...])`.
+   - `ProfilesController`: bloquea la modificación de permisos del Administrador (1) y del perfil activo propio;
+     `disabled` impide la desactivación de perfiles base (1 a 4) por usuarios que no sean el superadministrador.
+   - `PostulacionFacilitadorController`: guardias `impedirResolverPropiaPostulacion()` bloquean auto-aprobación y auto-rechazo.
+   - `EditarCursoController` y `CursoController::updateStatus`: resolución (`findOrFail`) y autorización (`authorize`) fuera
+     del bloque `try/catch`, evitando capturar excepciones de autorización y devolviendo HTTP 403 Forbidden limpio.
+5. **Red de seguridad en pruebas:**
+   - Creada suite de pruebas en `tests/Feature/Security/`: `CursoPolicyTest`, `InscripcionPolicyTest`,
+     `PostulacionFacilitadorSeguridadTest`, `ProfilesSecurityTest`, `ValidarPerfilActivoTest`, `RutasProtegidasTest`.
+   - `RutasProtegidasTest` audita automáticamente que ninguna ruta mutante quede sin protección de middleware `permiso:`
+     o policy de dominio.
+
+### 9.5 Cierre de Tanda 0 y P0 de Seguridad (2026-10-21)
+
+Se completaron e integraron con pruebas los puntos críticos de Fase 0 pendientes y la Tanda 0:
+
+1. **Tanda 0 (Desbloqueo de P2 - `UX-10` y `UX-11`):**
+   - **`UX-10` (Error 500 en formulario de inscripción):** En `InscripcionController::create()` se pasa `'inscripcionExistente' => null` (o la rechazada) a la vista `a/CursoInscribirse.blade.php`, que ahora usa `$inscripcionExistente ?? null`. Se retiró el envío prematuro del correo de bienvenida que se disparaba incorrectamente al abrir el formulario.
+   - **`UX-11` (Callejón sin salida al corregir postulación):** Si la postulación fue rechazada (`esRechazado()`), `create()` no redirige hacia atrás con error, sino que permite ingresar al formulario mostrando una alerta informativa con las observaciones del coordinador, precarga de respuestas y enlaces a los documentos adjuntos previamente. Al enviar (`procesarInscripcion()`), se reutiliza la misma fila en `taller.inscripciones` actualizando su estado a `ESTADO_POSTULADO`, limpiando el motivo y preservando los archivos adjuntos existentes que no se hayan vuelto a subir.
+   - **Pruebas:** `tests/Feature/Taller/InscripcionFlujoTest.php` (5 pruebas pasando, 29 assertions).
+
+2. **Bloqueantes P0 de Seguridad:**
+   - **`RF-03` (Truncamiento de token de recuperación de contraseña):**
+     Migración `2026_10_21_000001_widen_token_in_users_table.php` amplió la columna `security.users.token` de `varchar(50)` a `varchar(64)`.
+     Prueba: `tests/Feature/Security/PasswordRecoveryTest.php` (2 pruebas pasando, 11 assertions).
+   - **`RF-32` / `UX-13` (Integridad del token QR de asistencia):**
+     En `AsistenciaController.php` (`mostrarConfirmacion` y `marcar`) se implementó la validación estricta de que el curso en la ruta coincida con el curso de la actividad del token (`(int) $tokenRecord->actividad->id_curso === (int) $curso->id_curso`), y que el participante cuente con inscripción en estado aprobado (`$inscripcion->esAprobado()`).
+     Prueba: `tests/Feature/Taller/AsistenciaTokenSeguridadTest.php` (3 pruebas pasando, 5 assertions).
+
+### 9.6 Cierre de Tanda 3 — Huecos de flujo (2026-10-21)
+
+Se completaron e integraron con pruebas los 6 ítems de la Tanda 3:
+
+1. **`UX-15` (Umbral único de asistencia - RF-37, RF-44):**
+   - Helpers unificados `asistenciaBadgeClass($pct)`, `asistenciaColorTexto($pct)` y `asistenciaColorBg($pct)` en `app/Helpers/Helpers.php` bajo la regla única 75% (aprobatorio) / 50% (en riesgo).
+   - Aplicado de manera uniforme en `AsistenciaIndividual.blade.php`, `AsistenciaConsolidado.blade.php` y `CertificacionPanel.blade.php`.
+2. **`UX-12` (Acciones de asistencia sin botón en UI - RF-33, RF-34):**
+   - `AsistenciaIndividual.blade.php`: botones "Anular" (Swal con motivo obligatorio), "Restaurar" (confirmación modal) y "Marcar manual" en actividades sin registro.
+   - `AsistenciaConsolidado.blade.php`: botón "Marcar Manual" en cabecera y celdas sin asistencia con botón `+` para preseleccionar actividad y estudiante al clic; modal `#modalMarcarManual` y procesamiento AJAX robusto con `peticionConFeedback`.
+3. **`UX-16` (Resultados de encuesta inalcanzables - RF-59):**
+   - Habilitada capacidad `ver_satisfaccion` en `CondicionalEstadoCurso.php` para cursos finalizados (8) y cerrados (9).
+   - Botón "Resultados de Encuesta" en `actions-container.blade.php` con autorización `@can('verSatisfaccion', $curso)` y enlace en `CertificacionPanel.blade.php`.
+4. **`UX-14` (Error de validación borra calificaciones tecleadas - RF-38, RF-39):**
+   - `CursoCalificar.blade.php`: inputs rehidratados con `old()`, clase `is-invalid` y mensaje de validación `@error` inline por estudiante.
+   - Botón renombrado a "Guardar Calificaciones" y CSS encapsulado en `.tabla-calificar-container`.
+   - `CalificacionController.php`: omitidas entradas vacías en `store` para evitar sobreescritura accidental con nulo.
+5. **`UX-18` (Unificación de cursos asignados al facilitador según Decisión D1 Opción B):**
+   - `CursoInscritoController.php`: detecta el perfil activo; facilitadores ven sus cursos asignados por `id_persona` y estudiantes sus inscripciones aprobadas.
+   - `CursosInscritos.blade.php`: interfaz adaptada dinámicamente con acciones específicas para facilitador o estudiante.
+   - `CursoAsignadoController.php`: redirección 302 a `taller.mis-cursos`.
+6. **`UX-19` (Estadísticas sin estado vacío ni ayuda - RF-61, RF-63):**
+   - `Estadisticas.blade.php`: botón "Limpiar Filtros", tooltips informativos en las 7 tarjetas de KPIs y placeholders visuales cuando los gráficos no tienen datos.
+7. **Pruebas y calidad de código:**
+   - Creado `tests/Feature/Taller/HuecosFlujoTest.php` (7 tests, 28 assertions, todos en verde).
+
+### 9.7 Cierre de Tanda 4 — Wizard de creación de curso (2026-10-21)
+
+Se completaron e integraron con pruebas los requerimientos UX y de resiliencia del Wizard (RF-09, UX-01 a UX-06):
+
+1. **`UX-01` (Resiliencia del borrador ante expiración de sesión - RF-09):**
+   - `BorradorWizardService::actual($userId)`: fallback automático a `CursoBorrador::where('user_id', $userId)->latest('updated_at')->first()` rehidratando la sesión de forma transparente si expira (`sincronizarSesion()`).
+   - `CrearCursoController::wizardPlantillaCreate/Store` y `CursoRequisitoController::wizardCreate/Store`: recuperación robusta desde BD sin romper el flujo de trabajo en los pasos 4 y 5.
+   - Nueva ruta `taller.cursos.wizard.nuevo` (`CrearCursoController::reiniciar`) para descartar el borrador previo y empezar uno limpio.
+   - Banner en Paso 1 que avisa si existe un borrador previo guardado y permite reiniciarlo con un clic.
+2. **`UX-02` ("Guardar borrador y salir" funcional con persistencia parcial):**
+   - Se transformaron los enlaces pasivos de cabecera y pie en botones de submit formales con `name="accion" value="salir"` en los 5 pasos (`CursoCrearPaso1`, `CursoCrearPaso2`, `CursoCrearPaso3`, `CursoPlantillaCrear` y `CursoRequisitosCrear`).
+   - `StorePaso1Request`, `StorePaso2Request` y `StorePaso3Request` cambian los campos requeridos a `nullable` cuando `accion === 'salir'`, permitiendo guardar el borrador en cualquier momento sin bloqueos ni pérdida de trabajo tecleado.
+3. **`UX-03` (Confirmación visible de guardado):**
+   - Badge visual consistente `Borrador guardado DD/MM/YYYY HH:MM` en la cabecera de los 5 pasos del wizard cuando hay un registro activo en BD.
+4. **`UX-04` (Claridad en autoguardado de certificado y subida de imágenes - RF-13):**
+   - En `CursoPlantillaCrear.blade.php`: texto de autoguardado corregido a `"Posiciones guardadas HH:MM:SS (las imágenes se guardan al pulsar Continuar)"`.
+   - Avisos informativos dentro de los acordeones de plantilla y firma explicando que los archivos se cargan en disco al pulsar Continuar o Guardar borrador.
+5. **`UX-05` (Corrección de numeración de pasos):**
+   - Título de `CursoPlantillaCrear.blade.php` actualizado a `"Paso 4: Calibración de Certificado"` en modo wizard.
+6. **`UX-06` (Controles precisos y experiencia interactiva):**
+   - **Paso 3:** horas de inicio y fin obligatorias con asterisco rojo `<span class="text-danger">*</span>` y `required`; validación de rango con nombre del bloque afectado en el mensaje de error.
+   - **Paso 3 y Requisitos:** confirmación con diálogo modal `Swal.fire` antes de eliminar bloques de contenido o preguntas/documentos requeridos.
+   - **Paso 2:** toggle de alcance nacional modificado para no desmarcar las casillas de localidades al alternar el switch; vista previa del código PROCINEC recalculada en tiempo real vía JavaScript al cambiar fecha de inicio, correlativo o año.
+   - **Paso 5 y Revisión:** banner explícito que advierte que el curso nacerá en estado `POR ACEPTAR`; botón de finalización protegido contra doble clic con spinner de carga interactivo; stepper (`wizard-steps.blade.php`) no marca pasos vacíos como completados.
+   - **Paso 1:** precarga y previsualización de la foto de portada ya subida.
+7. **Pruebas y calidad de código:**
+   - Creado `tests/Feature/Taller/WizardBorradorTest.php` (6 tests passing, 24 assertions, 100 % en verde).
+   - Formateo estricto con Laravel Pint: 0 style issues en los 7 archivos intervenidos.
+   - Suite global: **102 tests pasando, 1 fallo conocido preexistente (`ExampleTest`), 378 assertions**.
 
 ---
 
@@ -1058,11 +1170,13 @@ contenedor y pasa (la nota anterior sobre falta de `mbstring` en el host quedó 
 
 ### 10.1 Rutas con nombre sin referencia en vistas ni JS
 
-25 de 131. Ruido esperable: rutas usadas por el ciclo de vida (login, AJAX de registro) o por JS
-mediante concatenación. **Huérfanas verificadas**: `taller.asistencia.marcar-manual`,
-`taller.asistencia.anular`, `taller.asistencia.restaurar`, `taller.cursos.satisfaccion.resultados`,
-`taller.mis-cursos-asignados`, `taller.cursos.plantilla.create` (esta última solo por curso; el
-wizard usa `wizard.plantilla.create`).
+De las 6 rutas huérfanas verificadas originalmente, **5 fueron completamente rescatadas y vinculadas en la interfaz durante la Tanda 3**:
+- `taller.asistencia.marcar-manual` → enlazada en `AsistenciaConsolidado.blade.php` (botón superior y celdas `+`).
+- `taller.asistencia.anular` y `taller.asistencia.restaurar` → enlazadas en `AsistenciaIndividual.blade.php` (acciones por fila).
+- `taller.cursos.satisfaccion.resultados` → enlazada en `actions-container.blade.php` y `CertificacionPanel.blade.php`.
+- `taller.mis-cursos-asignados` → redirigida con 302 a `taller.mis-cursos` según Decisión D1 Opción B.
+
+Solo resta como ruta candidata a limpieza: `taller.cursos.plantilla.create` (esta última solo por curso; el wizard usa `wizard.plantilla.create`).
 
 Las otras 19 (`home.registro`, `register`, `registro.*`, `update_profile.send_code`,
 `users.search_persona`, `usuario.mostrarPerfilSeleccion`, `taller.inscripciones.*` del workflow de
@@ -1116,8 +1230,8 @@ Actualizar este documento al cerrar cada fase, marcando:
 **Respuesta:**
 
 ```
-(a / b):
-Notas:
+(a / b): B
+Notas: Se debe mantener la diferencia entre los cursos de los estudiantes y los facilitadores. Es decir, el facilitador debe poder ver solamente los cursos que le corresponden a él, mientras que el estudiante debe poder ver todos los cursos en los que esta inscrito.
 ```
 
 ### D2 · Quién ve los resultados de la encuesta de satisfacción (UX-16, RF-59, RF-65)

@@ -247,6 +247,8 @@ class PostulacionFacilitadorController extends BaseController
     {
         $postulacion = PostulacionFacilitador::findOrFail($id);
 
+        $this->impedirResolverPropiaPostulacion($postulacion);
+
         if (!$postulacion->esPendiente()) {
             return back()->with('error', 'Solo se pueden aprobar postulaciones pendientes.');
         }
@@ -260,7 +262,7 @@ class PostulacionFacilitadorController extends BaseController
                 return back()->with('error', 'No se encontró el usuario asociado a esta postulación.');
             }
 
-            if ($user->perfiles()->where('security.profiles.id', 2)->exists()) {
+            if ($user->perfiles()->where('security.profiles.id', \App\Constants\Perfil::FACILITADOR)->exists()) {
                 DB::rollBack();
                 return back()->with('error', 'Este usuario ya tiene el perfil de Facilitador.');
             }
@@ -274,7 +276,7 @@ class PostulacionFacilitadorController extends BaseController
 
             // Insertar perfil Facilitador (ID 2) en profiles_users
             DB::table('security.profiles_users')->insert([
-                'id_rol' => 2, // Facilitador
+                'id_rol' => \App\Constants\Perfil::FACILITADOR,
                 'id_users' => $user->id,
                 'status' => 1,
                 'fecha_aprobacion' => Carbon::now(),
@@ -306,6 +308,18 @@ class PostulacionFacilitadorController extends BaseController
     }
 
     /**
+     * Un revisor no puede aprobar ni rechazar su propia postulación.
+     */
+    private function impedirResolverPropiaPostulacion(PostulacionFacilitador $postulacion): void
+    {
+        $idPersona = optional($this->getUsuarioAutenticado()->personalData)->id_persona;
+
+        if ($idPersona !== null && (int) $idPersona === (int) $postulacion->id_persona) {
+            abort(403, 'No puedes resolver tu propia postulación.');
+        }
+    }
+
+    /**
      * Rechazar postulación con motivo → eliminar documentos
      */
     public function rechazar(Request $request, $id)
@@ -315,6 +329,8 @@ class PostulacionFacilitadorController extends BaseController
         ]);
 
         $postulacion = PostulacionFacilitador::findOrFail($id);
+
+        $this->impedirResolverPropiaPostulacion($postulacion);
 
         if (!$postulacion->esPendiente()) {
             return back()->with('error', 'Solo se pueden rechazar postulaciones pendientes.');

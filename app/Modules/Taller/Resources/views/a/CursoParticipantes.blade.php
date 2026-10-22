@@ -144,25 +144,20 @@
             cancelButtonText: 'Cancelar'
         }).then((result) => {
             if (result.isConfirmed) {
-                Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-                
                 const data = new FormData();
                 data.append('_token', '{{ csrf_token() }}');
                 if (showInput) data.append('motivo', result.value);
 
-                fetch(`{{ url('taller/inscripciones') }}/${id}/${action}`, {
+                peticionConFeedback(`{{ url('taller/inscripciones') }}/${id}/${action}`, {
                     method: 'POST',
-                    body: data
-                })
-                .then(r => r.json())
+                    body: data,
+                    headers: { 'Accept': 'application/json' }
+                }, { keepLoader: true })
                 .then(data => {
-                    if (data.success) {
-                        Swal.fire({ icon: 'success', title: 'Completado', text: data.message, timer: 1500, showConfirmButton: false })
-                        .then(() => window.location.reload());
-                    } else {
-                        Swal.fire({ icon: 'error', title: 'Error', text: data.message });
-                    }
-                });
+                    Swal.fire({ icon: 'success', title: 'Completado', text: data.message, timer: 1500, showConfirmButton: false })
+                    .then(() => window.location.reload());
+                })
+                .catch(() => {});
             }
         });
     }

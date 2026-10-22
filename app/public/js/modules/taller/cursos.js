@@ -108,9 +108,29 @@ const TallerModule = (() => {
             errorDiv.style.display = 'block';
         };
 
-        // Rango invertido: el formato ISO "YYYY-MM-DD" es comparable como string
-        if (fFin && fFin < fInicio) {
-            setError('La fecha de fin debe ser igual o posterior a la fecha de inicio.');
+        // Actualizar min de fecha_fin para que sea posterior a fecha_inicio
+        const fFinInput = document.getElementById('fecha_fin');
+        if (fFinInput && fInicio) {
+            const partes = fInicio.split('-').map(Number);
+            if (partes.length === 3 && !isNaN(partes[0])) {
+                const dt = new Date(partes[0], partes[1] - 1, partes[2]);
+                dt.setDate(dt.getDate() + 1);
+                const ny = dt.getFullYear();
+                const nm = String(dt.getMonth() + 1).padStart(2, '0');
+                const nd = String(dt.getDate()).padStart(2, '0');
+                fFinInput.min = `${ny}-${nm}-${nd}`;
+            }
+        }
+
+        // Acotar fecha_contenido de los bloques existentes al rango del curso
+        document.querySelectorAll('.contenido-item input[name*="[fecha_contenido]"]').forEach(input => {
+            if (fInicio) input.min = fInicio;
+            if (fFin) input.max = fFin;
+        });
+
+        // Rango invertido o igual: fecha_fin debe ser estrictamente posterior
+        if (fFin && fFin <= fInicio) {
+            setError('La fecha de finalización debe ser posterior a la fecha de inicio.');
             return;
         }
 
@@ -236,6 +256,11 @@ const TallerModule = (() => {
             `<option value="${t.id_tipo_evaluacion}">${t.nombre}</option>`
         ).join('');
 
+        const fInicioVal = document.getElementById('fecha_inicio')?.value || '';
+        const fFinVal = document.getElementById('fecha_fin')?.value || '';
+        const minAttr = fInicioVal ? `min="${fInicioVal}"` : '';
+        const maxAttr = fFinVal ? `max="${fFinVal}"` : '';
+
         const html = `
             <div class="col contenido-item animate__animated animate__zoomIn" data-index="${index}">
                 <div class="card border-0 shadow-card rounded-4 overflow-hidden content-card-edit mb-2">
@@ -287,7 +312,7 @@ const TallerModule = (() => {
                             <div class="row g-3 align-items-end">
                                 <div class="col-md-4">
                                     <label class="small text-muted fw-bold mb-1">FECHA DE CLASE</label>
-                                    <input type="date" name="contenidos[${index}][fecha_contenido]" class="form-control border-light-2 py-2">
+                                    <input type="date" name="contenidos[${index}][fecha_contenido]" class="form-control border-light-2 py-2" ${minAttr} ${maxAttr}>
                                 </div>
                                 <div class="col-md-4 horas-fields">
                                     <label class="small text-muted fw-bold mb-1">HORA DE INICIO</label>

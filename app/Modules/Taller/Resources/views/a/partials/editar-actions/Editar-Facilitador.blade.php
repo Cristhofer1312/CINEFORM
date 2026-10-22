@@ -203,6 +203,8 @@
                                 :index="$index" 
                                 :contenido="$contenido" 
                                 :tiposEvaluacion="$tiposEvaluacion" 
+                                :rango-inicio="$curso->fecha_inicio ? $curso->fecha_inicio->format('Y-m-d') : null"
+                                :rango-fin="$curso->fecha_fin ? $curso->fecha_fin->format('Y-m-d') : null"
                             />
                         @endforeach
                     </div>

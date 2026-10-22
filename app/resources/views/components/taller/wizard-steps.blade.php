@@ -17,8 +17,9 @@ $completados = is_array($completados) ? $completados : [];
             @foreach($pasos as $numero => $paso)
                 @php
                     $esActual = ((int) $actual) === $numero;
-                    $estaCompleto = in_array($numero, $completados, true) || $numero < ((int) $actual);
-                    $esClicable = $estaCompleto && ! $esActual;
+                    $estaCompleto = in_array($numero, $completados, true);
+                    $puedeNavegar = $estaCompleto || $numero < ((int) $actual);
+                    $esClicable = $puedeNavegar && ! $esActual;
                 @endphp
                 <li class="flex-fill text-center wizard-step {{ $esActual ? 'active' : '' }} {{ $estaCompleto ? 'done' : '' }}">
                     @if($esClicable)

@@ -59,13 +59,17 @@
         @if(session()->has('success'))
             showNotify('success', @json(session('success')));
         @endif
-        
-        
-        @if($errors->any())
-            showNotify('danger', '{{$errors->first()}}');
-        @enderror
 
+        @if(session()->has('info'))
+            showNotify('info', @json(session('info')));
+        @endif
 
-          
+        @if(session()->has('warning'))
+            showNotify('warning', @json(session('warning')));
+        @endif
+
+        @if(session()->has('error'))
+            showNotify('danger', @json(session('error')));
+        @endif
     });
 </script>

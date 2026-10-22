@@ -12,7 +12,14 @@
                         </ol>
                     </nav>
                     <h2 class="fw-bold text-dark mb-0">Confirma antes de crear</h2>
-                    <p class="text-muted small mb-0"><i class="fas fa-check-circle me-1 text-primary"></i> Resumen de lo ingresado en los pasos 1 al 4.</p>
+                    <p class="text-muted small mb-0 d-flex align-items-center flex-wrap gap-2">
+                        <span><i class="fas fa-check-circle me-1 text-primary"></i> Resumen de lo ingresado en los pasos 1 al 4.</span>
+                        @if(!empty($borrador->updated_at))
+                            <span class="badge bg-light text-muted border py-1 px-2 rounded-pill small">
+                                <i class="fas fa-check-circle text-success me-1"></i> Borrador guardado {{ $borrador->updated_at->format('d/m/Y H:i') }}
+                            </span>
+                        @endif
+                    </p>
                 </div>
                 <div class="text-end">
                     <a href="{{ route('taller.cursos.wizard.requisitos.create') }}" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
@@ -22,6 +29,14 @@
             </div>
 
             <x-taller.wizard-steps :actual="$pasoActual ?? 5" :completados="$completados ?? []" />
+
+            <div class="alert bg-white border border-primary border-opacity-25 rounded-4 shadow-sm p-3 mb-4 d-flex align-items-center gap-3">
+                <i class="fas fa-info-circle text-primary fs-3"></i>
+                <div>
+                    <div class="fw-bold text-dark">Ciclo de vida del curso</div>
+                    <small class="text-muted">Al confirmar, el curso se registrará formalmente con su código PROCINEC y pasará al estado inicial <strong>POR ACEPTAR</strong> para que el facilitador asignado apruebe o coordine la actividad.</small>
+                </div>
+            </div>
 
             @if ($errors->any())
                 <x-taller.alert type="danger" title="No se pudo crear">
@@ -63,7 +78,16 @@
                                 <dt class="small text-muted">CÓDIGO PREVISTO</dt>
                                 <dd class="font-monospace fw-bold">{{ $codigoPreview ?? '—' }}</dd>
                                 <dt class="small text-muted">FOTO</dt>
-                                <dd>{{ ! empty($hayFoto) ? 'Cargada' : 'Sin foto' }}</dd>
+                                <dd>
+                                    @if(! empty($hayFoto) && ! empty($fotoUrl))
+                                        <div class="d-flex align-items-center gap-2 mt-1">
+                                            <img src="{{ $fotoUrl }}" alt="Foto de portada" class="rounded border shadow-xs" style="width: 80px; height: 50px; object-fit: cover;">
+                                            <span class="badge bg-success bg-opacity-10 text-success fw-bold"><i class="fas fa-check-circle me-1"></i> Cargada</span>
+                                        </div>
+                                    @else
+                                        <span class="text-muted">Sin foto</span>
+                                    @endif
+                                </dd>
                             </dl>
                             <a href="{{ route('taller.cursos.wizard.paso1.create') }}" class="btn btn-sm btn-outline-primary rounded-pill mt-2">Editar paso 1</a>
                         </div>
@@ -143,9 +167,9 @@
                             <a href="{{ route('taller.cursos.index') }}" class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2">
                                 <i class="fas fa-save me-2"></i> Guardar borrador
                             </a>
-                            <form action="{{ route('taller.cursos.wizard.finalizar') }}" method="POST" class="d-inline">
+                            <form id="form-finalizar" action="{{ route('taller.cursos.wizard.finalizar') }}" method="POST" class="d-inline" onsubmit="return confirmarCreacion(event)">
                                 @csrf
-                                <button type="submit" class="btn btn-primary px-5 py-3 rounded-pill fw-bold shadow-lg">
+                                <button type="submit" id="btn-finalizar" class="btn btn-primary px-5 py-3 rounded-pill fw-bold shadow-lg">
                                     <i class="fas fa-rocket me-2"></i> Finalizar y crear curso
                                 </button>
                             </form>
@@ -155,4 +179,44 @@
             </div>
         </div>
     </div>
+
+    @push('scripts')
+    <script>
+        function confirmarCreacion(e) {
+            e.preventDefault();
+            const form = document.getElementById('form-finalizar');
+            const btn = document.getElementById('btn-finalizar');
+
+            const submitReal = () => {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Creando curso...';
+                }
+                form.submit();
+            };
+
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: '¿Crear el curso ahora?',
+                    text: 'El curso se registrará formalmente con código PROCINEC y pasará al estado POR ACEPTAR.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#1e3a8a',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="fas fa-rocket me-1"></i> Sí, crear curso',
+                    cancelButtonText: 'Revisar más'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        submitReal();
+                    }
+                });
+            } else {
+                if (confirm('¿Crear el curso ahora? Pasará al estado POR ACEPTAR.')) {
+                    submitReal();
+                }
+            }
+            return false;
+        }
+    </script>
+    @endpush
 @endsection

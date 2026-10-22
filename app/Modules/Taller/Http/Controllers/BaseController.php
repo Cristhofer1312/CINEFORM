@@ -4,9 +4,11 @@ namespace Modules\Taller\Http\Controllers;
 
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class BaseController extends Controller
 {
+    use AuthorizesRequests;
     protected function getUsuarioAutenticado()
     {
         return Auth::user()->load('personalData');

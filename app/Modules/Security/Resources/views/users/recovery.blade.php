@@ -52,8 +52,8 @@
 
                     </div>
                     
-                    @error('username')
-                    <label id="email-error" class="error" for="email">{{__('This field is required')}}</label>
+                    @error('email')
+                    <label id="email-error" class="error" for="email">{{ $message }}</label>
                     @enderror
                     
                     <div class="form-floating form-floating-custom mb-2">
@@ -72,7 +72,7 @@
                     </div>
                     
                     @error('captcha')
-                    <label id="captcha-error" class="error" for="captcha">{{__('This field is required')}}</label>
+                    <label id="captcha-error" class="error" for="captcha">{{ $message }}</label>
                     @enderror
                     <div class="row mt-4 align-items-center">
                         <div class="col-8">

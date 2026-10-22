@@ -76,19 +76,25 @@
                                 <div class="col-lg-2 col-md-3 mb-3 mb-lg-0 text-center px-lg-4">
                                     <input type="number" 
                                         name="calificaciones[{{ $estudiante->id_persona }}][nota]" 
-                                        class="form-control text-center py-2 fw-bold border bg-light shadow-none zen-input-grade"
-                                        value="{{ $estudiante->calificacion }}" min="0" max="100" step="0.01" placeholder="--"
+                                        class="form-control text-center py-2 fw-bold border bg-light shadow-none zen-input-grade @error("calificaciones.{$estudiante->id_persona}.nota") is-invalid @enderror"
+                                        value="{{ old("calificaciones.{$estudiante->id_persona}.nota", $estudiante->calificacion) }}" min="0" max="100" step="0.01" placeholder="--"
                                         style="font-size: 1.1rem; border-radius: 8px;">
+                                    @error("calificaciones.{$estudiante->id_persona}.nota")
+                                        <div class="invalid-feedback d-block small">{{ $message }}</div>
+                                    @enderror
                                 </div>
 
                                 <!-- Feedback -->
                                 <div class="col-lg-6 col-md-4">
                                     <input type="text" 
                                         name="calificaciones[{{ $estudiante->id_persona }}][observacion]" 
-                                        class="form-control border-0 border-bottom bg-transparent rounded-0 shadow-none ps-lg-4 py-2 zen-input-feedback"
-                                        value="{{ $estudiante->observacion }}"
+                                        class="form-control border-0 border-bottom bg-transparent rounded-0 shadow-none ps-lg-4 py-2 zen-input-feedback @error("calificaciones.{$estudiante->id_persona}.observacion") is-invalid @enderror"
+                                        value="{{ old("calificaciones.{$estudiante->id_persona}.observacion", $estudiante->observacion) }}"
                                         placeholder="Escribir feedback opcional..."
                                         style="font-size: 0.95rem;">
+                                    @error("calificaciones.{$estudiante->id_persona}.observacion")
+                                        <div class="invalid-feedback d-block small">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
                         </div>
@@ -103,7 +109,7 @@
                 @if(count($estudiantes) > 0)
                     <div class="py-5 text-end">
                         <button type="submit" class="btn btn-dark btn-lg rounded-3 px-5 py-3 fw-bold border-0 shadow-sm" style="background-color: #1e293b;">
-                            Guardar Cambios y Finalizar
+                            <i class="fas fa-save me-2"></i> Guardar Calificaciones
                         </button>
                     </div>
                 @endif
@@ -115,8 +121,7 @@
 
 @push('styles')
         <style>
-            body { background-color: #f8fafc; }
-            .card { border-radius: 16px; border: 1px solid #eef2f6; }
+            .calificar-container .card { border-radius: 16px; border: 1px solid #eef2f6; }
             
             .search-box-focus:focus-within {
                 border-color: #1e3a8a !important;

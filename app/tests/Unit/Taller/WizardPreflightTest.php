@@ -59,4 +59,23 @@ class WizardPreflightTest extends TestCase
 
         $this->assertTrue(true);
     }
+
+    public function test_rango_rechaza_bloque_sin_fecha_cuando_hay_rango_definido(): void
+    {
+        try {
+            StorePaso3Request::validarRangoContenidos(
+                [[
+                    'titulo' => 'Clase 1',
+                    'fecha_contenido' => '',
+                    'hora_inicio' => '09:00',
+                    'hora_fin' => '11:00',
+                ]],
+                '2026-03-01',
+                '2026-03-31'
+            );
+            $this->fail('Debió lanzar ValidationException por fecha_contenido vacía.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('contenidos.0.fecha_contenido', $e->errors());
+        }
+    }
 }

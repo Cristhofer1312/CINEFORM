@@ -99,6 +99,16 @@
             });
         @endif
 
+        @if(session()->has('info'))
+            Swal.fire({
+                icon: 'info',
+                title: 'Información',
+                text: @json(session('info')),
+                confirmButtonColor: '#1572e8',
+                confirmButtonText: 'Entendido'
+            });
+        @endif
+
         @if(session()->has('warning'))
             Swal.fire({
                 icon: 'warning',
@@ -114,16 +124,6 @@
                 icon: 'error',
                 title: 'Error',
                 text: @json(session('error')),
-                confirmButtonColor: '#dc3545',
-                confirmButtonText: 'Cerrar'
-            });
-        @endif
-
-        @if($errors->any())
-            Swal.fire({
-                icon: 'error',
-                title: 'Error de validación',
-                html: '<ul class="text-start ps-3">{!! implode("", array_map(fn($e) => "<li>$e</li>", $errors->all())) !!}</ul>',
                 confirmButtonColor: '#dc3545',
                 confirmButtonText: 'Cerrar'
             });

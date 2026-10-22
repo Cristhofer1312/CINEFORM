@@ -1,6 +1,6 @@
 @extends('layouts.kaiadmin-menu')
 
-@section('title', 'Mis Cursos Inscritos')
+@section('title', ($esFacilitador ?? false) ? 'Mis Cursos Asignados' : 'Mis Cursos Inscritos')
 
 @section('content')
 <div class="container-fluid py-4">
@@ -12,7 +12,7 @@
                 <div class="card-header bg-gradient-primary text-white py-3">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                         <h5 class="mb-0">
-                            <i class="fas fa-book-reader me-2"></i> Mis Cursos Inscritos
+                            <i class="fas {{ ($esFacilitador ?? false) ? 'fa-chalkboard-teacher' : 'fa-book-reader' }} me-2"></i> {{ ($esFacilitador ?? false) ? 'Mis Cursos Asignados' : 'Mis Cursos Inscritos' }}
                         </h5>
                         <span class="badge bg-white text-primary px-3 py-2 rounded-pill fw-bold">
                             Total: {{ $cursosInscritos->total() }}
@@ -120,29 +120,52 @@
                                                 @endif
                                             </div>
                                             <div class="d-flex gap-2">
-                                                @if(in_array($curso->estado_actual->id_estado ?? 0, [8, 9]))
-                                                    @if($curso->certificado_aprobado)
-                                                        @if($curso->ya_respondio)
-                                                            <a href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}"
-                                                               class="btn btn-sm btn-outline-primary"
-                                                               data-bs-toggle="tooltip"
-                                                               title="Descargar Certificado">
-                                                                <i class="fas fa-certificate"></i>
-                                                            </a>
-                                                        @else
-                                                            <a href="{{ route('taller.cursos.satisfaccion.create', $curso->crypt_id) }}"
-                                                               class="btn btn-sm btn-outline-info"
-                                                               data-bs-toggle="tooltip"
-                                                               title="Responder encuesta para descargar el certificado">
-                                                                <i class="fas fa-clipboard-check"></i>
-                                                            </a>
+                                                @if($esFacilitador ?? false)
+                                                    @if(in_array($curso->estado_actual->id_estado ?? 0, [7]))
+                                                        <a href="{{ route('taller.asistencia.consolidado', $curso->crypt_id) }}"
+                                                           class="btn btn-sm btn-outline-primary"
+                                                           data-bs-toggle="tooltip"
+                                                           title="Gestionar Asistencia">
+                                                            <i class="fas fa-qrcode"></i>
+                                                        </a>
+                                                    @endif
+                                                    @if(in_array($curso->estado_actual->id_estado ?? 0, [6, 7]))
+                                                        <a href="{{ route('taller.cursos.participantes', $curso->crypt_id) }}"
+                                                           class="btn btn-sm btn-outline-secondary"
+                                                           data-bs-toggle="tooltip"
+                                                           title="Ver Participantes">
+                                                            <i class="fas fa-users"></i>
+                                                        </a>
+                                                    @endif
+                                                    <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
+                                                        class="btn btn-sm btn-primary">
+                                                        <i class="fas fa-eye me-1"></i> Ver Curso
+                                                    </a>
+                                                @else
+                                                    @if(in_array($curso->estado_actual->id_estado ?? 0, [8, 9]))
+                                                        @if($curso->certificado_aprobado)
+                                                            @if($curso->ya_respondio)
+                                                                <a href="{{ route('taller.certificados.descargar', $curso->crypt_id) }}"
+                                                                   class="btn btn-sm btn-outline-primary"
+                                                                   data-bs-toggle="tooltip"
+                                                                   title="Descargar Certificado">
+                                                                    <i class="fas fa-certificate"></i>
+                                                                </a>
+                                                            @else
+                                                                <a href="{{ route('taller.cursos.satisfaccion.create', $curso->crypt_id) }}"
+                                                                   class="btn btn-sm btn-outline-info"
+                                                                   data-bs-toggle="tooltip"
+                                                                   title="Responder encuesta para descargar el certificado">
+                                                                    <i class="fas fa-clipboard-check"></i>
+                                                                </a>
+                                                            @endif
                                                         @endif
                                                     @endif
+                                                    <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
+                                                        class="btn btn-sm btn-success">
+                                                        <i class="fas fa-eye me-1"></i> Ver Curso
+                                                    </a>
                                                 @endif
-                                                <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}"
-                                                    class="btn btn-sm btn-success">
-                                                    <i class="fas fa-eye me-1"></i> Ver Curso
-                                                </a>
                                             </div>
                                         </div>
                                     </div>
@@ -151,21 +174,29 @@
                         @empty
                             <div class="col-12 py-5 text-center">
                                 <div class="mb-3">
-                                    <i class="fas fa-book-reader fa-4x text-muted"></i>
+                                    <i class="fas {{ ($esFacilitador ?? false) ? 'fa-chalkboard-teacher' : 'fa-book-reader' }} fa-4x text-muted"></i>
                                 </div>
                                 <h5 class="text-muted mb-3">
                                     @if(request()->filled('search') || request()->filled('id_estado'))
                                         No hay cursos que coincidan con los filtros
+                                    @elseif($esFacilitador ?? false)
+                                        No tienes cursos asignados como facilitador actualmente
                                     @else
                                         No estás inscrito en ningún curso aún
                                     @endif
                                 </h5>
                                 <p class="text-muted mb-4">
-                                    Explora nuestros cursos disponibles y comienza a aprender hoy mismo.
+                                    @if($esFacilitador ?? false)
+                                        Los programas de formación asignados a tu perfil aparecerán aquí para su gestión académica.
+                                    @else
+                                        Explora nuestros cursos disponibles y comienza a aprender hoy mismo.
+                                    @endif
                                 </p>
+                                @if(!($esFacilitador ?? false))
                                 <a href="{{ route('taller.cursos.index') }}" class="btn btn-primary rounded-pill px-4">
                                     <i class="fas fa-search me-1"></i> Explorar Cursos
                                 </a>
+                                @endif
                             </div>
                         @endforelse
                     </div>

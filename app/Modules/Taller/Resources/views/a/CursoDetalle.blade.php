@@ -557,47 +557,137 @@
     });
 }
 
-    function processStatusAction(idEstado, title, successMsg) {
-        fetch('{{ route("taller.cursos.updateStatus", ["curso" => $curso->crypt_id]) }}', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
-            body: JSON.stringify({ id_estado: idEstado })
-        }).then(r => r.json()).then(data => {
-            if (data.success) {
-                Swal.fire({ icon: 'success', title: title, text: successMsg, timer: 3000, showConfirmButton: false }).then(() => window.location.reload());
-            } else {
-                Swal.fire({ icon: 'error', title: 'Error', text: data.message });
+    function processStatusAction(idEstado, title, successMsg, confirmOptions = {}) {
+        var confirmTitle = confirmOptions.title || ('¿Desea cambiar el estado a ' + title + '?');
+        var confirmText = confirmOptions.text || '';
+        var confirmBtn = confirmOptions.btnText || 'Confirmar';
+        var btnColor = confirmOptions.btnColor || '#1572e8';
+
+        Swal.fire({
+            title: confirmTitle,
+            text: confirmText,
+            icon: confirmOptions.icon || 'warning',
+            showCancelButton: true,
+            confirmButtonColor: btnColor,
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: confirmBtn,
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                peticionConFeedback('{{ route("taller.cursos.updateStatus", ["curso" => $curso->crypt_id]) }}', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                    body: JSON.stringify({ id_estado: idEstado })
+                }, { keepLoader: true }).then(data => {
+                    Swal.fire({ icon: 'success', title: title, text: successMsg, timer: 2000, showConfirmButton: false })
+                        .then(() => window.location.reload());
+                }).catch(() => {});
             }
         });
     }
 
-    function aprobarCurso(id) { processStatusAction(6, 'Aprobado', 'El curso ahora está público.'); }
-    function finalizarEdicion(id) { processStatusAction(5, 'Solicitud Enviada', 'La propuesta ha sido enviada.'); }
-    function finalizarInscripciones(id) { processStatusAction(7, 'Inscripciones Finalizadas', 'Proceso de captación cerrado.'); }
-    function finalizarCurso(id) { processStatusAction(8, 'Curso Finalizado', 'Programa concluido.'); }
-    function cerrarCurso(id) { processStatusAction(9, 'Curso Cerrado', 'Programa archivado.'); }
+    function aprobarCurso(id) {
+        processStatusAction(6, 'Propuesta Aprobada', 'El curso ahora está publicado y con inscripciones abiertas.', {
+            title: '¿Aprobar propuesta de curso?',
+            text: 'El curso será visible públicamente y comenzará el período de inscripciones.',
+            btnText: 'Sí, aprobar propuesta',
+            btnColor: '#28a745',
+            icon: 'question'
+        });
+    }
+
+    function finalizarEdicion(id) {
+        processStatusAction(5, 'Solicitud Enviada', 'La propuesta ha sido enviada para revisión.', {
+            title: '¿Enviar propuesta a revisión?',
+            text: 'La coordinación evaluará el curso antes de autorizar las inscripciones.',
+            btnText: 'Sí, enviar a revisión',
+            btnColor: '#1572e8',
+            icon: 'question'
+        });
+    }
+
+    function finalizarInscripciones(id) {
+        processStatusAction(7, 'Inscripciones Finalizadas', 'Proceso de captación cerrado. El curso pasa a dictado.', {
+            title: '¿Cerrar inscripciones e iniciar curso?',
+            text: 'No se permitirán más postulaciones y el curso quedará en estado de dictado.',
+            btnText: 'Sí, cerrar inscripciones',
+            btnColor: '#f0a500',
+            icon: 'warning'
+        });
+    }
+
+    function finalizarCurso(id) {
+        processStatusAction(8, 'Curso Finalizado', 'Dictado concluido. Se habilita la calificación y certificación.', {
+            title: '¿Finalizar el curso?',
+            text: 'Se dará por concluido el dictado para proceder con las evaluaciones finales y certificación.',
+            btnText: 'Sí, finalizar curso',
+            btnColor: '#dc3545',
+            icon: 'warning'
+        });
+    }
+
+    function cerrarCurso(id) {
+        processStatusAction(9, 'Curso Cerrado', 'Programa archivado definitivamente.', {
+            title: '¿Archivar definitivamente este curso?',
+            text: '¡Atención! Esta acción es irreversible. El curso se marcará como cerrado y no admitirá más cambios de estado.',
+            btnText: 'Sí, archivar definitivamente',
+            btnColor: '#212529',
+            icon: 'warning'
+        });
+    }
 
     function aceptarCursoFacilitador(id, btn) {
         if(btn) btn.disabled = true;
-        processStatusAction(4, 'Aceptado', 'Has aceptado la asignación.');
+        processStatusAction(4, 'Asignación Aceptada', 'Has aceptado la asignación como facilitador de este curso.', {
+            title: '¿Aceptar asignación?',
+            text: 'Podrás gestionar los contenidos y participantes asignados a este curso.',
+            btnText: 'Sí, aceptar asignación',
+            btnColor: '#28a745',
+            icon: 'question'
+        });
     }
 
-    function rechazarContenido(idCurso) {
+    function rechazarContenido(idCurso, idEstado = 2) {
         Swal.fire({
-            title: 'Declinar Propuesta',
+            title: idEstado === 3 ? 'Declinar Asignación' : 'Declinar Propuesta',
+            text: idEstado === 3 ? 'Indica el motivo por el cual no puedes asumir la facilitación de este curso:' : 'Indica las observaciones o motivos para declinar esta propuesta:',
             input: 'textarea',
-            inputPlaceholder: 'Motivos...',
+            inputPlaceholder: 'Escribe las observaciones aquí...',
+            inputValidator: (value) => {
+                if (!value || !value.trim()) return '¡Debe ingresar un motivo u observaciones!';
+            },
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Confirmar',
+            cancelButtonText: 'Cancelar',
+            showLoaderOnConfirm: true,
             preConfirm: (motivo) => {
-                if (!motivo) return Swal.showValidationMessage('Debe ingresar un motivo');
                 return fetch('{{ route("taller.cursos.updateStatus", ["curso" => $curso->crypt_id]) }}', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
-                    body: JSON.stringify({ id_estado: 3, motivo: motivo })
-                }).then(r => r.json()).then(d => { if(!d.success) throw new Error(d.message); return d; });
+                    body: JSON.stringify({ id_estado: idEstado, motivo: motivo })
+                }).then(r => {
+                    if (!r.ok) {
+                        return r.json().catch(() => ({})).then(err => {
+                            throw new Error(err.message || 'Error en el servidor (' + r.status + ')');
+                        });
+                    }
+                    return r.json();
+                }).then(d => {
+                    if(!d.success) throw new Error(d.message || 'No se pudo completar la operación');
+                    return d;
+                }).catch(err => {
+                    Swal.showValidationMessage(err.message || 'Error de red o conexión');
+                });
+            },
+            allowOutsideClick: () => !Swal.isLoading()
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({ icon: 'success', title: 'Completado', text: 'El estado del curso ha sido actualizado.', timer: 2000, showConfirmButton: false })
+                    .then(() => window.location.reload());
             }
-        }).then((result) => { if (result.isConfirmed) window.location.reload(); });
+        });
     }
 
     function inscribirAlCurso(id) {
@@ -666,38 +756,23 @@
             cancelButtonText: 'Mantener'
         }).then((result) => {
             if (result.isConfirmed) {
-                fetch(`{{ url('taller/inscripciones') }}/${id}`, {
+                peticionConFeedback(`{{ url('taller/inscripciones') }}/${id}`, {
                     method: 'DELETE',
                     headers: { 
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
                         'Accept': 'application/json'
                     }
-                })
-                .then(r => r.json())
+                }, { keepLoader: true })
                 .then(data => {
-                    if(data.success) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Inscripción Cancelada',
-                            text: data.message,
-                            timer: 2000,
-                            showConfirmButton: false
-                        }).then(() => window.location.reload());
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: data.message
-                        });
-                    }
-                })
-                .catch(error => {
                     Swal.fire({
-                        icon: 'error',
-                        title: 'Error de red',
-                        text: 'No se pudo procesar la cancelación.'
-                    });
-                });
+                        icon: 'success',
+                        title: 'Inscripción Cancelada',
+                        text: data.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => window.location.reload());
+                })
+                .catch(() => {});
             }
         });
     }

@@ -67,8 +67,8 @@
                                         <option value="{{ $cryptId }}" {{ old('document_type_id') == $cryptId ? 'selected' : '' }}>{{ $code }}</option>
                                     @endforeach
                                 </select>
-                                @error('type_document')
-                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                @error('document_type_id')
+                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                 @enderror
                             </div>
 
@@ -78,7 +78,7 @@
                                 </label>
                                 <input id="document" name="document" type="text" class="form-control shadow-none rounded-3 border-light-2 py-2" maxlength="20" placeholder="{{__('Document')}}" value="{{ old('document') }}" required>
                                 @error('document')
-                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                 @enderror
                             </div>
 
@@ -88,7 +88,7 @@
                                 </label>
                                 <input id="full_name" name="full_name" type="text" class="form-control shadow-none rounded-3 border-light-2 py-2" maxlength="250" placeholder="{{__('Full Name')}}" value="{{ old('full_name') }}" required>
                                 @error('full_name')
-                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                 @enderror
                             </div>
 
@@ -98,7 +98,7 @@
                                 </label>
                                 <input id="phone" name="phone" type="tel" class="form-control phone shadow-none rounded-3 border-light-2 py-2" maxlength="20" value="{{ old('phone') }}" required>
                                 @error('phone')
-                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                 @enderror
                             </div>
                         </div>
@@ -120,7 +120,7 @@
                                 </label>
                                 <input id="username" name="username" type="text" class="form-control shadow-none rounded-3 border-light-2 py-2" maxlength="20" value="{{ old('username') }}" required>
                                 @error('username')
-                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                 @enderror
                             </div>
 
@@ -135,7 +135,7 @@
                                     </div>
                                 </div>
                                 @error('password')
-                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                 @enderror
                             </div>
 
@@ -145,7 +145,7 @@
                                 </label>
                                 <input id="email" name="email" type="email" class="form-control email shadow-none rounded-3 border-light-2 py-2" maxlength="100" value="{{ old('email') }}" required>
                                 @error('email')
-                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                 @enderror
                             </div>
 
@@ -160,7 +160,7 @@
                                     @endforeach
                                 </select>
                                 @error('profile_id')
-                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                 @enderror
                             </div>
                         </div>

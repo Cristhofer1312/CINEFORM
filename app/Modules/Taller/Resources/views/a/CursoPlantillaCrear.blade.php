@@ -5,15 +5,45 @@
 @section('content')
 <div class="container-fluid py-4">
     @if(!empty($esWizard))
-        <div class="row"><div class="col-12">
-            <x-taller.wizard-steps :actual="$pasoActual ?? 4" :completados="$completados ?? []" />
-        </div></div>
+        <div class="row justify-content-center mb-3">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3 px-2">
+                    <div>
+                        <nav aria-label="breadcrumb">
+                            <ol class="breadcrumb mb-1 p-0 bg-transparent" style="font-size: 0.8rem;">
+                                <li class="breadcrumb-item"><a href="{{ route('taller.cursos.index') }}" class="text-decoration-none text-muted">Programas</a></li>
+                                <li class="breadcrumb-item active text-primary fw-bold">Paso 4: Certificado</li>
+                            </ol>
+                        </nav>
+                        <h2 class="fw-bold text-dark mb-0">Diseño y Calibración del Certificado</h2>
+                        <p class="text-muted small mb-0 d-flex align-items-center flex-wrap gap-2">
+                            <span><i class="fas fa-certificate me-1 text-primary"></i> Ajusta las posiciones de textos, firma y código QR.</span>
+                            @if(!empty($borrador->updated_at))
+                                <span class="badge bg-light text-muted border py-1 px-2 rounded-pill small">
+                                    <i class="fas fa-check-circle text-success me-1"></i> Borrador guardado {{ $borrador->updated_at->format('d/m/Y H:i') }}
+                                </span>
+                            @endif
+                        </p>
+                    </div>
+                    <div class="text-end d-flex gap-2">
+                        <a href="{{ route('taller.cursos.wizard.paso3.create') }}" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
+                            <i class="fas fa-arrow-left me-2 text-primary"></i> Atrás
+                        </a>
+                        <button type="submit" form="form-plantilla" name="accion" value="salir" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
+                            <i class="fas fa-save me-2 text-primary"></i> Guardar borrador y salir
+                        </button>
+                    </div>
+                </div>
+
+                <x-taller.wizard-steps :actual="$pasoActual ?? 4" :completados="$completados ?? []" />
+            </div>
+        </div>
     @endif
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm mb-4" style="border-radius: 15px;">
                 <div class="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <h5 class="mb-0"><i class="fas fa-arrows-alt me-2"></i> Paso 2: Calibración de Plantilla</h5>
+                    <h5 class="mb-0"><i class="fas fa-arrows-alt me-2"></i> @if(!empty($esWizard)) Paso 4: Calibración de Certificado @else Calibración de Certificado @endif</h5>
                     <div class="d-flex align-items-center gap-3">
                         <div class="btn-group shadow-sm bg-white rounded">
                             <button type="button" class="btn btn-light btn-sm border-end" id="btn-undo" onclick="undo()" title="Deshacer (Ctrl+Z)" disabled>
@@ -51,179 +81,191 @@
                                 @csrf
                                 <input type="hidden" name="coords" id="coords-input">
 
-                                <div class="accordion accordion-flush border rounded mb-3" id="controlsAccordion">
-                                    {{-- Plantilla --}}
-                                    <div class="accordion-item">
-                                        <h2 class="accordion-header">
-                                            <button class="accordion-button py-2 px-3 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePlantilla">
-                                                <i class="fas fa-image me-2"></i> Imagen de Fondo
-                                            </button>
-                                        </h2>
-                                        <div id="collapsePlantilla" class="accordion-collapse collapse show">
-                                            <div class="accordion-body py-2 px-3">
-                                                <p class="small text-muted mb-2">
-                                                    Debe ser <strong>apaisada</strong> (A4 horizontal, 297 x 210 mm),
-                                                    de hasta 4 MB y 4000 px por lado.
+                                <!-- Panel de Ajustes Simplificado -->
+                                <div class="card border-0 shadow-sm rounded-4 mb-3 bg-white overflow-hidden">
+                                    <div class="card-header bg-white border-bottom py-3 px-3 d-flex align-items-center justify-content-between">
+                                        <span class="fw-bold text-dark small text-uppercase tracking-wider">
+                                            <i class="fas fa-sliders-h text-primary me-2"></i> Calibración Visual
+                                        </span>
+                                        <span class="badge bg-light text-muted border px-2 py-1 small" style="font-size: 0.68rem;">A4 Horizontal</span>
+                                    </div>
+
+                                    <div class="card-body p-3">
+                                        <!-- SECCIÓN 1: SUBIR IMÁGENES -->
+                                        <div class="mb-4">
+                                            <div class="text-uppercase text-muted fw-bold mb-3 d-flex align-items-center" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                                <i class="fas fa-images text-primary me-2"></i> 1. Imágenes del Certificado
+                                            </div>
+
+                                            <!-- Imagen de Fondo / Plantilla -->
+                                            <div class="p-3 bg-light rounded-3 mb-3 border border-light-2">
+                                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                                    <label class="small fw-bold text-dark mb-0 d-flex align-items-center">
+                                                        <i class="far fa-image text-primary me-2"></i> Imagen de Fondo
+                                                    </label>
+                                                    @if(!empty($plantillaUrl))
+                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-0" style="font-size:0.68rem;">
+                                                            <i class="fas fa-check me-1"></i> Cargada
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                <p class="text-muted mb-2" style="font-size: 0.73rem; line-height: 1.3;">
+                                                    A4 apaisada (297 × 210 mm) • JPG o PNG (máx. 4 MB)
                                                 </p>
-                                                <input type="file" class="form-control form-control-sm" name="plantilla" accept="image/png,image/jpeg" onchange="previewImage(this)">
+                                                <input type="file" class="form-control form-control-sm bg-white" name="plantilla" accept="image/png,image/jpeg" onchange="previewImage(this)">
                                             </div>
-                                        </div>
-                                    </div>
 
-                                    {{-- Tipografía --}}
-                                    <div class="accordion-item">
-                                        <h2 class="accordion-header">
-                                            <button class="accordion-button collapsed py-2 px-3 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFont">
-                                                <i class="fas fa-font me-2"></i> Tamaños de Letra
-                                            </button>
-                                        </h2>
-                                        <div id="collapseFont" class="accordion-collapse collapse">
-                                            <div class="accordion-body py-2 px-3">
-                                                <div class="mb-2">
-                                                    <label class="small fw-bold d-flex justify-content-between">
-                                                        <span>Nombre:</span>
-                                                        <span id="val-nombre" class="text-primary">{{ $coords['nombre']['size'] ?? 24 }}pt</span>
+                                            <!-- Firma Digital -->
+                                            <div class="p-3 bg-light rounded-3 border border-light-2">
+                                                <div class="d-flex align-items-center justify-content-between mb-1">
+                                                    <label class="small fw-bold text-dark mb-0 d-flex align-items-center">
+                                                        <i class="fas fa-signature text-primary me-2"></i> Firma Digital
                                                     </label>
-                                                    <input type="range" class="form-range font-slider" min="10" max="60" step="1" data-key="nombre" value="{{ $coords['nombre']['size'] ?? 24 }}" oninput="updateFontSize(this)">
+                                                    @if(!empty($firmaUrl))
+                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-0" style="font-size:0.68rem;">
+                                                            <i class="fas fa-check me-1"></i> Cargada
+                                                        </span>
+                                                    @endif
                                                 </div>
-                                                <div class="mb-2">
-                                                    <label class="small fw-bold d-flex justify-content-between">
-                                                        <span>DNI:</span>
-                                                        <span id="val-dni" class="text-primary">{{ $coords['dni']['size'] ?? 12 }}pt</span>
-                                                    </label>
-                                                    <input type="range" class="form-range font-slider" min="8" max="30" step="1" data-key="dni" value="{{ $coords['dni']['size'] ?? 12 }}" oninput="updateFontSize(this)">
+                                                <p class="text-muted mb-2" style="font-size: 0.73rem; line-height: 1.3;">
+                                                    Firma del facilitador • PNG transparente (máx. 2 MB)
+                                                </p>
+                                                <input type="file" class="form-control form-control-sm bg-white mb-2" name="firma" accept="image/png,image/jpeg" onchange="previewFirma(this)" id="firma-file-input">
+                                                
+                                                <div id="firma-preview-wrap" style="display:none;" class="text-center p-2 bg-white rounded border border-success-subtle">
+                                                    <img id="firma-preview-img" src="" alt="Vista previa" class="img-fluid mb-1" style="max-height:42px;">
+                                                    <div class="small text-success fw-bold" style="font-size:0.72rem;"><i class="fas fa-check-circle me-1"></i> Nueva firma seleccionada</div>
                                                 </div>
-                                                <div class="mb-2">
-                                                    <label class="small fw-bold d-flex justify-content-between">
-                                                        <span>Código:</span>
-                                                        <span id="val-code" class="text-primary">{{ $coords['code']['size'] ?? 8 }}pt</span>
-                                                    </label>
-                                                    <input type="range" class="form-range font-slider" min="6" max="20" step="1" data-key="code" value="{{ $coords['code']['size'] ?? 8 }}" oninput="updateFontSize(this)">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
 
-                                    {{-- Precisión: posición numérica del elemento seleccionado --}}
-                                    <div class="accordion-item">
-                                        <h2 class="accordion-header">
-                                            <button class="accordion-button collapsed py-2 px-3 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePrecision">
-                                                <i class="fas fa-crosshairs me-2"></i> Posición Exacta
-                                            </button>
-                                        </h2>
-                                        <div id="collapsePrecision" class="accordion-collapse collapse">
-                                            <div class="accordion-body py-2 px-3">
-                                                <p class="small text-muted mb-2">Haz clic en un elemento del lienzo (o usa <kbd>←↑↓→</kbd>, <kbd>Shift</kbd> = 5 mm) y ajusta aquí al milímetro.</p>
-                                                <div class="mb-2">
-                                                    <label class="small fw-bold" for="precision-key">Elemento</label>
-                                                    <select id="precision-key" class="form-select form-select-sm" onchange="seleccionarElemento(this.value)">
-                                                        <option value="nombre">Nombre</option>
-                                                        <option value="dni">Cédula</option>
-                                                        <option value="qr">Código QR</option>
-                                                        <option value="code">Código</option>
-                                                        <option value="firma">Firma</option>
-                                                    </select>
-                                                </div>
-                                                <div class="row g-2" id="precision-campos">
-                                                    <div class="col-6">
-                                                        <label class="small fw-bold" for="precision-x">X (mm)</label>
-                                                        <input type="number" id="precision-x" class="form-control form-control-sm" step="any" min="0" max="297" oninput="posicionExacta()">
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <label class="small fw-bold" for="precision-y">Y (mm)</label>
-                                                        <input type="number" id="precision-y" class="form-control form-control-sm" step="any" min="0" max="210" oninput="posicionExacta()">
-                                                    </div>
-                                                    <div class="col-6 precision-dim">
-                                                        <label class="small fw-bold" for="precision-w">Ancho (mm)</label>
-                                                        <input type="number" id="precision-w" class="form-control form-control-sm" step="any" min="5" max="297" oninput="posicionExacta()">
-                                                    </div>
-                                                    <div class="col-6 precision-dim">
-                                                        <label class="small fw-bold" for="precision-h">Alto (mm)</label>
-                                                        <input type="number" id="precision-h" class="form-control form-control-sm" step="any" min="5" max="210" oninput="posicionExacta()">
-                                                    </div>
-                                                </div>
-                                                <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="restablecerElemento()">
-                                                    <i class="fas fa-undo me-1"></i> Restablecer este elemento
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {{-- Firma Digital --}}
-                                    <div class="accordion-item">
-                                        <h2 class="accordion-header">
-                                            <button class="accordion-button collapsed py-2 px-3 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFirma">
-                                                <i class="fas fa-signature me-2"></i> Firma Digital
-                                            </button>
-                                        </h2>
-                                        <div id="collapseFirma" class="accordion-collapse collapse">
-                                            <div class="accordion-body py-2 px-3">
-                                                <p class="small text-muted mb-2">PNG con fondo transparente recomendado. Hasta 2 MB y 3000 px por lado. Arrástrela y redimensione en el lienzo.</p>
-                                                <input type="file" class="form-control form-control-sm mb-2" name="firma" accept="image/png,image/jpeg" onchange="previewFirma(this)" id="firma-file-input">
-                                                <div id="firma-preview-wrap" style="display:none;" class="text-center">
-                                                    <img id="firma-preview-img" src="" alt="Vista previa" class="img-fluid border rounded mb-1" style="max-height:55px;">
-                                                    <div class="small text-success"><i class="fas fa-check-circle"></i> Firma cargada</div>
-                                                </div>
                                                 @if(!empty($firmaUrl))
-                                                <div class="text-center mt-2 p-2 border rounded bg-light">
-                                                    <img src="{{ $firmaUrl }}" alt="Firma guardada" class="img-fluid" style="max-height:50px;">
-                                                    <div class="small text-muted mt-1">Firma guardada actualmente</div>
+                                                <div class="text-center p-2 rounded bg-white border mt-2">
+                                                    <img src="{{ $firmaUrl }}" alt="Firma guardada" class="img-fluid" style="max-height:42px;">
+                                                    <div class="text-muted small mt-1" style="font-size:0.7rem;">Firma guardada actualmente</div>
                                                 </div>
                                                 @endif
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {{-- Coordenadas --}}
-                                    <div class="accordion-item">
-                                        <h2 class="accordion-header">
-                                            <button class="accordion-button collapsed py-2 px-3 fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCoords">
-                                                <i class="fas fa-crosshairs me-2"></i> Posiciones (mm)
-                                            </button>
-                                        </h2>
-                                        <div id="collapseCoords" class="accordion-collapse collapse">
-                                            <div class="accordion-body py-2 px-3 small" id="coord-list">
-                                                {{-- Se llena con JS --}}
+                                        <hr class="my-3 opacity-25">
+
+                                        <!-- SECCIÓN 2: TAMAÑOS DE LETRA -->
+                                        <div class="mb-2">
+                                            <div class="text-uppercase text-muted fw-bold mb-3 d-flex align-items-center" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                                                <i class="fas fa-text-height text-primary me-2"></i> 2. Tamaños de Letra
                                             </div>
+
+                                            <!-- Slider Nombre -->
+                                            <div class="p-3 bg-light rounded-3 mb-2 border border-light-2">
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <label class="small fw-bold text-dark mb-0 d-flex align-items-center">
+                                                        <i class="fas fa-user text-primary me-2 opacity-75"></i> Nombre
+                                                    </label>
+                                                    <span id="val-nombre" class="badge bg-primary text-white fw-bold px-2 py-1 rounded-pill" style="font-size: 0.75rem;">
+                                                        {{ $coords['nombre']['size'] ?? 24 }}pt
+                                                    </span>
+                                                </div>
+                                                <input type="range" class="form-range font-slider mt-1" min="10" max="60" step="1" data-key="nombre" value="{{ $coords['nombre']['size'] ?? 24 }}" oninput="updateFontSize(this)">
+                                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.68rem;">
+                                                    <span>10 pt</span>
+                                                    <span>60 pt</span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Slider Cédula / DNI -->
+                                            <div class="p-3 bg-light rounded-3 mb-2 border border-light-2">
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <label class="small fw-bold text-dark mb-0 d-flex align-items-center">
+                                                        <i class="fas fa-id-card text-primary me-2 opacity-75"></i> Cédula / DNI
+                                                    </label>
+                                                    <span id="val-dni" class="badge bg-primary text-white fw-bold px-2 py-1 rounded-pill" style="font-size: 0.75rem;">
+                                                        {{ $coords['dni']['size'] ?? 12 }}pt
+                                                    </span>
+                                                </div>
+                                                <input type="range" class="form-range font-slider mt-1" min="8" max="30" step="1" data-key="dni" value="{{ $coords['dni']['size'] ?? 12 }}" oninput="updateFontSize(this)">
+                                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.68rem;">
+                                                    <span>8 pt</span>
+                                                    <span>30 pt</span>
+                                                </div>
+                                            </div>
+
+                                            <!-- Slider Código -->
+                                            <div class="p-3 bg-light rounded-3 border border-light-2">
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <label class="small fw-bold text-dark mb-0 d-flex align-items-center">
+                                                        <i class="fas fa-qrcode text-primary me-2 opacity-75"></i> Código
+                                                    </label>
+                                                    <span id="val-code" class="badge bg-primary text-white fw-bold px-2 py-1 rounded-pill" style="font-size: 0.75rem;">
+                                                        {{ $coords['code']['size'] ?? 8 }}pt
+                                                    </span>
+                                                </div>
+                                                <input type="range" class="form-range font-slider mt-1" min="6" max="20" step="1" data-key="code" value="{{ $coords['code']['size'] ?? 8 }}" oninput="updateFontSize(this)">
+                                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.68rem;">
+                                                    <span>6 pt</span>
+                                                    <span>20 pt</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Elementos auxiliares técnicos ocultos (preservan compatibilidad JS) -->
+                                        <div class="d-none" aria-hidden="true">
+                                            <select id="precision-key">
+                                                <option value="nombre">Nombre</option>
+                                                <option value="dni">Cédula</option>
+                                                <option value="qr">Código QR</option>
+                                                <option value="code">Código</option>
+                                                <option value="firma">Firma</option>
+                                            </select>
+                                            <input type="number" id="precision-x">
+                                            <input type="number" id="precision-y">
+                                            <input type="number" id="precision-w">
+                                            <input type="number" id="precision-h">
+                                            <div id="coord-list"></div>
                                         </div>
                                     </div>
                                 </div>
 
+                                <!-- Botones de Acción -->
                                 <div class="d-grid gap-2">
-                                    <button type="submit" class="btn btn-primary shadow-sm">
-                                        <i class="fas fa-save me-1"></i> @if(!empty($esWizard)) Continuar a Requisitos @else Guardar Diseño @endif
+                                    <button type="submit" class="btn btn-primary py-2 fw-bold shadow-sm rounded-3">
+                                        <i class="fas fa-arrow-right me-1"></i> @if(!empty($esWizard)) Continuar a Requisitos @else Guardar Diseño @endif
                                     </button>
 
-                                    <button type="button" class="btn btn-outline-dark shadow-sm" onclick="abrirPruebaPdf()">
-                                        <i class="fas fa-file-pdf me-1"></i> Vista previa PDF
+                                    @if(!empty($esWizard))
+                                    <button type="submit" name="accion" value="salir" class="btn btn-outline-secondary py-2 fw-semibold rounded-3">
+                                        <i class="fas fa-save me-1"></i> Guardar borrador y salir
+                                    </button>
+                                    @endif
+
+                                    <button type="button" class="btn btn-white border py-2 fw-semibold shadow-xs rounded-3 text-dark" onclick="abrirPruebaPdf()">
+                                        <i class="fas fa-file-pdf text-danger me-1"></i> Vista previa PDF
                                     </button>
                                     <div class="small text-muted text-center" id="autosave-aviso" style="display:none;"></div>
                                     
                                     @if(empty($esWizard))
-                                    {{-- Guarda primero: la prueba se genera desde los archivos
-                                         en disco, así que un cambio sin guardar no saldría. --}}
                                     <button type="submit" name="ir_a_prueba" value="1" formtarget="_blank"
-                                            class="btn btn-dark shadow-sm"
+                                            class="btn btn-dark py-2 fw-semibold shadow-sm rounded-3"
                                             title="Guarda el diseño y abre el PDF de prueba en otra pestaña">
                                         <i class="fas fa-file-pdf me-1"></i> Probar Emisión
                                     </button>
                                     @endif
 
-                                    <div class="form-check mt-1">
-                                        <input class="form-check-input" type="checkbox" name="guardar_default" id="guardar-default" value="1">
-                                        <label class="form-check-label small" for="guardar-default" style="cursor: pointer;">
-                                            <i class="fas fa-star me-1 text-warning"></i>
-                                            Guardar predeterminado
+                                    <div class="form-check mt-1 text-center">
+                                        <input class="form-check-input float-none me-1" type="checkbox" name="guardar_default" id="guardar-default" value="1">
+                                        <label class="form-check-label small text-muted cursor-pointer" for="guardar-default" style="cursor: pointer;">
+                                            <i class="fas fa-star me-1 text-warning"></i> Guardar predeterminado
                                         </label>
                                     </div>
-                                    <a href="{{ $esWizard ? route('taller.cursos.wizard.requisitos.create') : route('taller.cursos.requisitos.create', $curso->crypt_id) }}" class="btn btn-outline-secondary btn-sm">
-                                        Omitir calibración
-                                    </a>
-                                    @if(!empty($esWizard))
-                                    <a href="{{ route('taller.cursos.wizard.paso3.create') }}" class="btn btn-link btn-sm text-muted fw-bold text-decoration-none">
-                                        <i class="fas fa-arrow-left me-1"></i> Atrás (temario)
-                                    </a>
-                                    @endif
+                                    
+                                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                        @if(!empty($esWizard))
+                                        <a href="{{ route('taller.cursos.wizard.paso3.create') }}" class="btn btn-link btn-sm text-muted text-decoration-none p-0 fw-semibold">
+                                            <i class="fas fa-arrow-left me-1"></i> Atrás (temario)
+                                        </a>
+                                        @endif
+                                        <a href="{{ $esWizard ? route('taller.cursos.wizard.requisitos.create') : route('taller.cursos.requisitos.create', $curso->crypt_id) }}" class="btn btn-link btn-sm text-secondary text-decoration-none p-0 ms-auto">
+                                            Omitir calibración <i class="fas fa-chevron-right ms-1"></i>
+                                        </a>
+                                    </div>
                                 </div>
                             </form>
                         </div>
@@ -707,7 +749,7 @@
                 const aviso = document.getElementById('autosave-aviso');
                 if (aviso) {
                     const hora = new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    aviso.textContent = 'Borrador guardado ' + hora;
+                    aviso.textContent = 'Posiciones guardadas ' + hora + ' (las imágenes se guardan al pulsar Continuar)';
                     aviso.style.display = '';
                 }
             }

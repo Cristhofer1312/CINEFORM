@@ -1,4 +1,4 @@
-@props(['index', 'contenido' => null, 'tiposEvaluacion' => []])
+@props(['index', 'contenido' => null, 'tiposEvaluacion' => [], 'rangoInicio' => null, 'rangoFin' => null])
 
 @php
     $isOld = is_array($contenido);
@@ -15,6 +15,8 @@
     $descripcionBreve = $isOld ? ($contenido['descripcion_breve'] ?? '') : ($contenido->descripcion_breve ?? '');
     $urlContenido = $isOld ? ($contenido['url_contenido'] ?? '') : ($contenido->url_contenido ?? '');
     $hasMaterial = $isOld ? ($contenido['_has_material'] ?? false) : (!empty($urlContenido));
+    $rInicioVal = $rangoInicio instanceof \Carbon\Carbon ? $rangoInicio->format('Y-m-d') : $rangoInicio;
+    $rFinVal = $rangoFin instanceof \Carbon\Carbon ? $rangoFin->format('Y-m-d') : $rangoFin;
 @endphp
 
 <div class="col contenido-item animate__animated animate__zoomIn" data-index="{{ $index }}">
@@ -76,7 +78,7 @@
                     {{-- Fecha --}}
                     <div class="col-md-4">
                         <label class="small text-muted fw-bold mb-1">FECHA DE CLASE</label>
-                        <input type="date" name="contenidos[{{ $index }}][fecha_contenido]" class="form-control border-light-2 py-2" value="{{ $fechaContenido }}">
+                        <input type="date" name="contenidos[{{ $index }}][fecha_contenido]" class="form-control border-light-2 py-2" value="{{ $fechaContenido }}" @if(!empty($rInicioVal)) min="{{ $rInicioVal }}" @endif @if(!empty($rFinVal)) max="{{ $rFinVal }}" @endif>
                     </div>
                     {{-- Hora inicio (se oculta si es evaluación) --}}
                     <div class="col-md-4 horas-fields" style="{{ $esEvaluacion ? 'display:none;' : '' }}">

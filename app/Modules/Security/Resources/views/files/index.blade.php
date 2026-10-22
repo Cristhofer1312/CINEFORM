@@ -55,8 +55,8 @@
                         }}
                         <label for="name">{{__('Name')}}</label>
                     </div>
-                    @error('document')
-                    <label id="name-error" class="error" for="name">{{__('This field is required')}}</label>
+                    @error('name')
+                    <label id="name-error" class="error" for="name">{{ $message }}</label>
                     @enderror
                     <div class="form-floating form-floating-custom mb-2">
                         {{
@@ -69,8 +69,8 @@
                         }}
                         <label for="description">{{__('Description')}}</label>
                     </div>
-                    @error('document')
-                    <label id="description-error" class="error" for="description">{{__('This field is required')}}</label>
+                    @error('description')
+                    <label id="description-error" class="error" for="description">{{ $message }}</label>
                     @enderror
                     <div class="form-floating form-floating-custom mb-2">
                         {{
@@ -83,8 +83,8 @@
                         }}
                         <label for="attach">{{__('File')}}</label>
                     </div>
-                    @error('document')
-                    <label id="attach-error" class="error" for="attach">{{__('This field is required')}}</label>
+                    @error('attach')
+                    <label id="attach-error" class="error" for="attach">{{ $message }}</label>
                     @enderror
 
                     <div class="col-12 offset-md-4 col-md-4 offset-lg-4  col-lg-4 text-center mt-4">

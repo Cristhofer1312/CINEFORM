@@ -1,4 +1,4 @@
-@props(['index', 'contenido' => null])
+@props(['index', 'contenido' => null, 'rangoInicio' => null, 'rangoFin' => null])
 
 @php
     $isOld = is_array($contenido);
@@ -11,6 +11,8 @@
     $horaFinVal = $horaFin instanceof \Carbon\Carbon ? $horaFin->format('H:i') : $horaFin;
     $descripcionBreve = $isOld ? ($contenido['descripcion_breve'] ?? '') : ($contenido->descripcion_breve ?? '');
     $urlContenido = $isOld ? ($contenido['url_contenido'] ?? '') : ($contenido->url_contenido ?? '');
+    $rInicioVal = $rangoInicio instanceof \Carbon\Carbon ? $rangoInicio->format('Y-m-d') : $rangoInicio;
+    $rFinVal = $rangoFin instanceof \Carbon\Carbon ? $rangoFin->format('Y-m-d') : $rangoFin;
 @endphp
 
 <div class="col contenido-item" data-index="{{ $index }}">
@@ -33,16 +35,16 @@
             <div class="rounded-3 p-3 mb-3" style="background-color: #f1f5f9 !important;">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4">
-                        <label class="small text-muted fw-bold mb-1">FECHA DE CLASE</label>
-                        <input type="date" name="contenidos[{{ $index }}][fecha_contenido]" class="form-control border-light-2 py-2" value="{{ $fechaContenido }}">
+                        <label class="small text-muted fw-bold mb-1">FECHA DE CLASE <span class="text-danger">*</span></label>
+                        <input type="date" name="contenidos[{{ $index }}][fecha_contenido]" class="form-control border-light-2 py-2" value="{{ $fechaContenido }}" @if(!empty($rInicioVal)) min="{{ $rInicioVal }}" @endif @if(!empty($rFinVal)) max="{{ $rFinVal }}" @endif required>
                     </div>
                     <div class="col-md-4">
-                        <label class="small text-muted fw-bold mb-1">HORA DE INICIO</label>
-                        <input type="time" name="contenidos[{{ $index }}][hora_inicio]" class="form-control border-light-2 py-2" value="{{ $horaInicioVal }}" step="60" min="00:00" max="23:59">
+                        <label class="small text-muted fw-bold mb-1">HORA DE INICIO <span class="text-danger">*</span></label>
+                        <input type="time" name="contenidos[{{ $index }}][hora_inicio]" class="form-control border-light-2 py-2" value="{{ $horaInicioVal }}" step="60" min="00:00" max="23:59" required>
                     </div>
                     <div class="col-md-4">
-                        <label class="small text-muted fw-bold mb-1">HORA DE FIN</label>
-                        <input type="time" name="contenidos[{{ $index }}][hora_fin]" class="form-control border-light-2 py-2" value="{{ $horaFinVal }}" step="60" min="00:00" max="23:59">
+                        <label class="small text-muted fw-bold mb-1">HORA DE FIN <span class="text-danger">*</span></label>
+                        <input type="time" name="contenidos[{{ $index }}][hora_fin]" class="form-control border-light-2 py-2" value="{{ $horaFinVal }}" step="60" min="00:00" max="23:59" required>
                     </div>
                 </div>
             </div>

@@ -1,20 +1,19 @@
 <?php
 
+use App\Constants\SecurityAction;
 use Illuminate\Support\Facades\Route;
-use Modules\Taller\Http\Controllers\InscripcionController;
-use Modules\Taller\Http\Controllers\CursoInscritoController;
-use Modules\Taller\Http\Controllers\CursoAsignadoController;
-use Modules\Taller\Http\Controllers\CursoDetalleController;
-use Modules\Taller\Http\Controllers\CursoController;
-use Modules\Taller\Http\Controllers\EditarCursoController;
-use Modules\Taller\Http\Controllers\BaseController;
-use Modules\Taller\Http\Controllers\CatalogoController;
 use Modules\Taller\Http\Controllers\AsistenciaController;
-use Modules\Taller\Http\Controllers\PostulacionFacilitadorController;
+use Modules\Taller\Http\Controllers\CatalogoController;
 use Modules\Taller\Http\Controllers\CertificacionPanelController;
+use Modules\Taller\Http\Controllers\CursoAsignadoController;
+use Modules\Taller\Http\Controllers\CursoController;
+use Modules\Taller\Http\Controllers\CursoDetalleController;
+use Modules\Taller\Http\Controllers\CursoInscritoController;
+use Modules\Taller\Http\Controllers\EditarCursoController;
 use Modules\Taller\Http\Controllers\EstadisticasController;
+use Modules\Taller\Http\Controllers\InscripcionController;
+use Modules\Taller\Http\Controllers\PostulacionFacilitadorController;
 use Modules\Taller\Http\Controllers\SatisfaccionCursoController;
-use Modules\Comun\Http\Controllers\PersonalDataController;
 
 Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
     // Rutas de gestión de cursos
@@ -35,40 +34,49 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
         Route::get('/mis-cursos', [CursoInscritoController::class, 'index'])
             ->name('taller.mis-cursos');
 
-        Route::get('/crear-curso', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'create'])->name('taller.cursos.create');
-        Route::post('/crear-curso', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'store'])->name('taller.cursos.store_new');
+        // Creación de curso: requiere CREAR_CURSO sobre el proceso de cursos.
+        Route::middleware('permiso:taller.cursos.index,'.SecurityAction::CREAR_CURSO)->group(function () {
+            Route::get('/crear-curso', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'create'])->name('taller.cursos.create');
+            Route::post('/crear-curso', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'store'])->name('taller.cursos.store_new');
 
-        // Wizard de Creación de Curso (5 pasos, sin curso en BD hasta finalizar)
-        // Paso 1: Identidad · Paso 2: Logística · Paso 3: Temario ·
-        // Paso 4: Certificado (plantilla) · Paso 5: Requisitos + revisión.
-        Route::get('/crear-curso/paso-1', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'createPaso1'])
-            ->name('taller.cursos.wizard.paso1.create');
-        Route::post('/crear-curso/paso-1', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'storePaso1'])
-            ->name('taller.cursos.wizard.paso1.store');
-        Route::get('/crear-curso/paso-2', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'createPaso2'])
-            ->name('taller.cursos.wizard.paso2.create');
-        Route::post('/crear-curso/paso-2', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'storePaso2'])
-            ->name('taller.cursos.wizard.paso2.store');
-        Route::get('/crear-curso/paso-3', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'createPaso3'])
-            ->name('taller.cursos.wizard.paso3.create');
-        Route::post('/crear-curso/paso-3', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'storePaso3'])
-            ->name('taller.cursos.wizard.paso3.store');
-        Route::get('/crear-curso/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'wizardPlantillaCreate'])
-            ->name('taller.cursos.wizard.plantilla.create');
-        Route::post('/crear-curso/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'wizardPlantillaStore'])
-            ->name('taller.cursos.wizard.plantilla.store');
-        Route::get('/crear-curso/requisitos', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'wizardCreate'])
-            ->name('taller.cursos.wizard.requisitos.create');
-        Route::post('/crear-curso/requisitos', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'wizardStore'])
-            ->name('taller.cursos.wizard.requisitos.store');
-        Route::get('/crear-curso/revision', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'revision'])
-            ->name('taller.cursos.wizard.revision');
-        // Buscador paginado de facilitadores (modal paso 2): evita
-        // renderizar los N usuarios con avatar en el HTML del paso.
-        Route::get('/crear-curso/facilitadores', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'buscarFacilitadores'])
-            ->name('taller.cursos.wizard.facilitadores.buscar');
-        Route::post('/crear-curso/finalizar', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'finalizar'])
-            ->name('taller.cursos.wizard.finalizar');
+            // Wizard de Creación de Curso (5 pasos, sin curso en BD hasta finalizar)
+            // Paso 1: Identidad · Paso 2: Logística · Paso 3: Temario ·
+            // Paso 4: Certificado (plantilla) · Paso 5: Requisitos + revisión.
+            Route::get('/crear-curso/nuevo', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'reiniciar'])
+                ->name('taller.cursos.wizard.nuevo');
+            Route::get('/crear-curso/paso-1', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'createPaso1'])
+                ->name('taller.cursos.wizard.paso1.create');
+            Route::post('/crear-curso/paso-1', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'storePaso1'])
+                ->name('taller.cursos.wizard.paso1.store');
+            Route::get('/crear-curso/paso-2', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'createPaso2'])
+                ->name('taller.cursos.wizard.paso2.create');
+            Route::post('/crear-curso/paso-2', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'storePaso2'])
+                ->name('taller.cursos.wizard.paso2.store');
+            Route::get('/crear-curso/paso-3', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'createPaso3'])
+                ->name('taller.cursos.wizard.paso3.create');
+            Route::post('/crear-curso/paso-3', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'storePaso3'])
+                ->name('taller.cursos.wizard.paso3.store');
+            Route::get('/crear-curso/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'wizardPlantillaCreate'])
+                ->name('taller.cursos.wizard.plantilla.create');
+            Route::post('/crear-curso/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'wizardPlantillaStore'])
+                ->name('taller.cursos.wizard.plantilla.store');
+            Route::get('/crear-curso/requisitos', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'wizardCreate'])
+                ->name('taller.cursos.wizard.requisitos.create');
+            Route::post('/crear-curso/requisitos', [Modules\Taller\Http\Controllers\CursoRequisitoController::class, 'wizardStore'])
+                ->name('taller.cursos.wizard.requisitos.store');
+            Route::get('/crear-curso/revision', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'revision'])
+                ->name('taller.cursos.wizard.revision');
+            // Buscador paginado de facilitadores (modal paso 2): evita
+            // renderizar los N usuarios con avatar en el HTML del paso.
+            Route::get('/crear-curso/facilitadores', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'buscarFacilitadores'])
+                ->name('taller.cursos.wizard.facilitadores.buscar');
+            Route::post('/crear-curso/finalizar', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'finalizar'])
+                ->name('taller.cursos.wizard.finalizar');
+            Route::get('/crear-curso/foto/{token}', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'verFotoWizard'])
+                ->name('taller.cursos.wizard.foto')
+                ->where('token', '[A-Za-z0-9]+')
+                ->withoutMiddleware(['decrypt_id']);
+        });
 
         // Carga de Plantilla de Certificado (Paso Intermedio)
         Route::get('/cursos/{curso}/plantilla', [Modules\Taller\Http\Controllers\CrearCursoController::class, 'plantillaCreate'])
@@ -106,7 +114,7 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
         // Rutas de inscripciones
         Route::get('/cursos/{curso}/inscribirse', [InscripcionController::class, 'create'])
             ->name('taller.inscripciones.create');
-        
+
         Route::post('/cursos/{curso}/inscribirse', [InscripcionController::class, 'procesarInscripcion'])
             ->name('taller.inscripciones.procesar');
 
@@ -145,7 +153,6 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
 
         Route::get('/cursos/{curso}/satisfaccion/resultados', [SatisfaccionCursoController::class, 'resultados'])
             ->name('taller.cursos.satisfaccion.resultados');
-
 
         // Ruta para actualizar el estado del curso
         Route::put('/cursos/{curso}/status', [CursoController::class, 'updateStatus'])
@@ -212,24 +219,26 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
             ->withoutMiddleware(['auth', 'decrypt_id']);
 
         // ── Gestión de Catálogos: Agregar Tipo de Actividad ──────────────────
-        Route::get('/catalogos', [CatalogoController::class, 'index'])
-            ->name('taller.catalogos.index');
+        Route::middleware('permiso:taller.catalogos.index,'.SecurityAction::VER)->group(function () {
+            Route::get('/catalogos', [CatalogoController::class, 'index'])
+                ->name('taller.catalogos.index');
 
-        // Actividades Formativas
-        Route::post('/catalogos/actividades', [CatalogoController::class, 'storeActividad'])
-            ->name('taller.catalogos.actividades.store');
-        Route::put('/catalogos/actividades/{actividad}', [CatalogoController::class, 'updateActividad'])
-            ->name('taller.catalogos.actividades.update');
-        Route::patch('/catalogos/actividades/{actividad}/toggle', [CatalogoController::class, 'toggleActividad'])
-            ->name('taller.catalogos.actividades.toggle');
+            // Actividades Formativas
+            Route::post('/catalogos/actividades', [CatalogoController::class, 'storeActividad'])
+                ->name('taller.catalogos.actividades.store');
+            Route::put('/catalogos/actividades/{actividad}', [CatalogoController::class, 'updateActividad'])
+                ->name('taller.catalogos.actividades.update');
+            Route::patch('/catalogos/actividades/{actividad}/toggle', [CatalogoController::class, 'toggleActividad'])
+                ->name('taller.catalogos.actividades.toggle');
 
-        // Aspectos de Formación
-        Route::post('/catalogos/aspectos', [CatalogoController::class, 'storeAspecto'])
-            ->name('taller.catalogos.aspectos.store');
-        Route::put('/catalogos/aspectos/{aspecto}', [CatalogoController::class, 'updateAspecto'])
-            ->name('taller.catalogos.aspectos.update');
-        Route::patch('/catalogos/aspectos/{aspecto}/toggle', [CatalogoController::class, 'toggleAspecto'])
-            ->name('taller.catalogos.aspectos.toggle');
+            // Aspectos de Formación
+            Route::post('/catalogos/aspectos', [CatalogoController::class, 'storeAspecto'])
+                ->name('taller.catalogos.aspectos.store');
+            Route::put('/catalogos/aspectos/{aspecto}', [CatalogoController::class, 'updateAspecto'])
+                ->name('taller.catalogos.aspectos.update');
+            Route::patch('/catalogos/aspectos/{aspecto}/toggle', [CatalogoController::class, 'toggleAspecto'])
+                ->name('taller.catalogos.aspectos.toggle');
+        });
 
         // ── Rutas de Asistencia ──────────────────────────────────────────────
         Route::get('/cursos/{curso}/asistencia', [AsistenciaController::class, 'consolidado'])
@@ -260,21 +269,25 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
         Route::post('/postulacion-facilitador/postularse', [PostulacionFacilitadorController::class, 'postular'])
             ->name('taller.postulacion-facilitador.postular');
 
-        // Admin (coordinadores)
-        Route::get('/postulacion-facilitador/admin', [PostulacionFacilitadorController::class, 'adminIndex'])
-            ->name('taller.postulacion-facilitador.admin');
-        Route::get('/postulacion-facilitador/admin/preview', [PostulacionFacilitadorController::class, 'previewLanding'])
-            ->name('taller.postulacion-facilitador.admin.preview');
-        Route::post('/postulacion-facilitador/requisitos', [PostulacionFacilitadorController::class, 'storeRequisito'])
-            ->name('taller.postulacion-facilitador.requisitos.store');
-        Route::put('/postulacion-facilitador/requisitos/{requisito}', [PostulacionFacilitadorController::class, 'updateRequisito'])
-            ->name('taller.postulacion-facilitador.requisitos.update');
-        Route::patch('/postulacion-facilitador/requisitos/{requisito}/toggle', [PostulacionFacilitadorController::class, 'toggleRequisito'])
-            ->name('taller.postulacion-facilitador.requisitos.toggle');
-        Route::post('/postulacion-facilitador/{postulacion}/aprobar', [PostulacionFacilitadorController::class, 'aprobar'])
-            ->name('taller.postulacion-facilitador.aprobar');
-        Route::post('/postulacion-facilitador/{postulacion}/rechazar', [PostulacionFacilitadorController::class, 'rechazar'])
-            ->name('taller.postulacion-facilitador.rechazar');
+        // Admin (coordinadores): requiere GESTIONAR_POSTULACIONES_FACILITADOR.
+        // Documentos/descarga quedan fuera: el propio postulante también puede verlos
+        // (la comprobación de dueño/gestor vive en el controlador).
+        Route::middleware('permiso:taller.postulacion-facilitador.admin,'.SecurityAction::GESTIONAR_POSTULACIONES_FACILITADOR)->group(function () {
+            Route::get('/postulacion-facilitador/admin', [PostulacionFacilitadorController::class, 'adminIndex'])
+                ->name('taller.postulacion-facilitador.admin');
+            Route::get('/postulacion-facilitador/admin/preview', [PostulacionFacilitadorController::class, 'previewLanding'])
+                ->name('taller.postulacion-facilitador.admin.preview');
+            Route::post('/postulacion-facilitador/requisitos', [PostulacionFacilitadorController::class, 'storeRequisito'])
+                ->name('taller.postulacion-facilitador.requisitos.store');
+            Route::put('/postulacion-facilitador/requisitos/{requisito}', [PostulacionFacilitadorController::class, 'updateRequisito'])
+                ->name('taller.postulacion-facilitador.requisitos.update');
+            Route::patch('/postulacion-facilitador/requisitos/{requisito}/toggle', [PostulacionFacilitadorController::class, 'toggleRequisito'])
+                ->name('taller.postulacion-facilitador.requisitos.toggle');
+            Route::post('/postulacion-facilitador/{postulacion}/aprobar', [PostulacionFacilitadorController::class, 'aprobar'])
+                ->name('taller.postulacion-facilitador.aprobar');
+            Route::post('/postulacion-facilitador/{postulacion}/rechazar', [PostulacionFacilitadorController::class, 'rechazar'])
+                ->name('taller.postulacion-facilitador.rechazar');
+        });
         Route::get('/postulacion-facilitador/{postulacion}/documentos', [PostulacionFacilitadorController::class, 'verDocumentos'])
             ->name('taller.postulacion-facilitador.documentos');
         Route::get('/postulacion-facilitador/documento/{respuesta}/descargar', [PostulacionFacilitadorController::class, 'descargarDocumento'])
@@ -289,10 +302,12 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
             ->name('taller.certificacion.denegar');
 
         // ── Estadísticas de Cursos ──
-        Route::get('/estadisticas', [EstadisticasController::class, 'index'])
-            ->name('taller.estadisticas.index');
-        Route::get('/estadisticas/datos', [EstadisticasController::class, 'datos'])
-            ->name('taller.estadisticas.datos');
+        Route::middleware('permiso:taller.estadisticas.index,'.SecurityAction::VER_ESTADISTICAS)->group(function () {
+            Route::get('/estadisticas', [EstadisticasController::class, 'index'])
+                ->name('taller.estadisticas.index');
+            Route::get('/estadisticas/datos', [EstadisticasController::class, 'datos'])
+                ->name('taller.estadisticas.datos');
+        });
     });
 
     // Ruta pública: QR de asistencia (fuera del grupo 'auth', sin decrypt_id).

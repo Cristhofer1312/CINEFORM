@@ -33,22 +33,12 @@ class CursoController extends BaseController
             'estados'
         ])->findOrFail($id);
 
-        // 1. Verificar si es gestor (permiso administrativo total)
-        $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
-        
-        // 2. Verificar si es facilitador (dueño del curso)
+        // Autorización centralizada via Policy
+        $this->authorize('verContenido', $curso);
+
         $personalData = $this->getUsuarioAutenticado()->personalData;
-        $esFacilitador = $curso->id_persona == $personalData->id_persona;
-
-        // 3. Verificar si es estudiante inscrito
-        $estaInscrito = $curso->inscripciones
-            ->where('estado', \Modules\Taller\Entities\Inscripcion::ESTADO_APROBADO)
-            ->contains('id_persona', $personalData->id_persona);
-
-        // Bloque de Seguridad: Si no es gestor, ni facilitador, ni está inscrito -> Acceso denegado
-        if (!$esGestor && !$esFacilitador && !$estaInscrito) {
-            abort(403, 'No tienes permiso para acceder al contenido de este curso. Debes inscribirte primero.');
-        }
+        $esFacilitador = $personalData && $curso->id_persona == $personalData->id_persona;
+        $esGestor = auth()->user()->can('reasignarFacilitador', $curso);
 
         $contenidoActual = null;
         if ($contenido_id) {
@@ -75,85 +65,31 @@ class CursoController extends BaseController
 
     public function updateStatus(Request $request, $id)
     {
+        $curso = Curso::findOrFail($id);
+        $nuevoEstado = (int) $request->id_estado;
+
+        // 1. Autorización estricta por par (origen, destino) via Policy
+        $this->authorize('cambiarEstado', [$curso, $nuevoEstado]);
+
+        // 2. Validación de negocio de la transición de estado
+        $origen = EstadoCurso::tryFrom((int) ($curso->estado_actual->id_estado ?? 0));
+        $destino = EstadoCurso::tryFrom($nuevoEstado);
+
+        if ($destino === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Estado de destino inválido.'
+            ], 422);
+        }
+
+        if ($origen !== null && !$origen->puedeTransicionarA($destino)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El curso no puede pasar de "' . $origen->label() . '" a "' . $destino->label() . '".'
+            ], 422);
+        }
+
         try {
-            $curso = Curso::findOrFail($id);
-            $nuevoEstado = (int) $request->id_estado;
-
-            // Validación RBAC: el cambio a estado 4 (EDICión) requiere
-            // permiso RESPONDER_CURSO y que el curso pertenezca al facilitador
-            if ($nuevoEstado === EstadoCurso::EDICION->value) {
-                if (!hasPermissionRoute('taller.cursos.index', SecurityAction::RESPONDER_CURSO)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'No tienes permiso para aceptar asignaciones de cursos.'
-                    ], 403);
-                }
-
-                $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
-                if (!$esGestor && $curso->id_persona !== Auth::user()->personalData->id_persona) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'No puedes aceptar cursos que no te pertenecen.'
-                    ], 403);
-                }
-
-                $estadoActualId = $curso->estado_actual?->id_estado;
-                if ($estadoActualId !== EstadoCurso::POR_ACEPTAR->value) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Solo puedes aceptar cursos en estado "Por Aceptar".'
-                    ], 422);
-                }
-            }
-
-            // Validación RBAC: el cambio de estado 5 → 6 (Aprobar → Inscripciones)
-            // requiere el permiso específico de APROBAR_CURSO
-            if ($nuevoEstado === EstadoCurso::INSCRIPCION->value) {
-                if (!hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::APROBAR_CURSO)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'No tienes permiso para aprobar cursos y abrir inscripciones.'
-                    ], 403);
-                }
-
-                // Verificar que el curso esté en estado 5 (En Aprobación) para poder aprobar
-                $estadoActualId = $curso->estado_actual?->id_estado;
-                if ($estadoActualId !== EstadoCurso::APROBACION->value) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Solo se pueden aprobar cursos que están en estado "En Aprobación".'
-                    ], 422);
-                }
-            }
-
-            // Para otros cambios de estado sensibles, verificar gestión general
-            if (in_array($nuevoEstado, [EstadoCurso::EN_CURSO->value, EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value])) {
-                if (!hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'No tienes permiso para realizar esta acción.'
-                    ], 403);
-                }
-            }
-
-            // Validación general de la transición (además del RBAC de cada caso).
-            $origen = EstadoCurso::tryFrom((int) ($curso->estado_actual->id_estado ?? 0));
-            $destino = EstadoCurso::tryFrom($nuevoEstado);
-
-            if ($destino === null) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Estado de destino inválido.'
-                ], 422);
-            }
-
-            if ($origen !== null && !$origen->puedeTransicionarA($destino)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El curso no puede pasar de "' . $origen->label() . '" a "' . $destino->label() . '".'
-                ], 422);
-            }
-
             $curso->agregarEstado($nuevoEstado);
 
             // Si es un rechazo o declinación, guardar el motivo en su propia tabla

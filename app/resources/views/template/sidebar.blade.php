@@ -18,6 +18,23 @@
             background-color: rgba(255,255,255,0.08) !important;
             border-radius: 8px;
         }
+        .custom-sidebar .nav.nav-secondary > .nav-item.active > a {
+            background-color: #1572e8 !important;
+            border-radius: 8px;
+        }
+        .custom-sidebar .nav.nav-secondary > .nav-item.active > a p,
+        .custom-sidebar .nav.nav-secondary > .nav-item.active > a i {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+        .custom-sidebar .nav-collapse li.active > a {
+            background-color: rgba(21, 114, 232, 0.25) !important;
+            border-radius: 6px;
+        }
+        .custom-sidebar .nav-collapse li.active > a span.sub-item {
+            color: #60a5fa !important;
+            font-weight: 700 !important;
+        }
     </style>
     <div class="sidebar-logo">
         <!-- Logo Header -->
@@ -51,17 +68,33 @@
                     <h4 class="text-section text-center">MENU</h4>
                 </li>
                 @foreach(Auth::user()->captureMenu() as $key => $value)
-                    <li class="nav-item">
-                        <a data-bs-toggle="collapse" href="#menu{{$key}}">
+                    @php
+                        $isParentActive = false;
+                        foreach($value['processes'] as $proc) {
+                            $procBase = preg_replace('/\.index$/', '', $proc['route']);
+                            if (request()->routeIs($proc['route']) || request()->routeIs($procBase . '.*') || (Route::has($proc['route']) && request()->url() === route($proc['route']))) {
+                                $isParentActive = true;
+                                break;
+                            }
+                        }
+                    @endphp
+                    <li class="nav-item {{ $isParentActive ? 'active submenu' : '' }}">
+                        <a data-bs-toggle="collapse" href="#menu{{$key}}" class="{{ $isParentActive ? '' : 'collapsed' }}" aria-expanded="{{ $isParentActive ? 'true' : 'false' }}">
                             <i class="{{$value['icon']}}"></i>
                             <p class="text-truncate m-0">{{__($value['name'])}}</p>
                             <span class="caret"></span>
                         </a>
-                        <div class="collapse" id="menu{{$key}}">
+                        <div class="collapse {{ $isParentActive ? 'show' : '' }}" id="menu{{$key}}">
                             <ul class="nav nav-collapse">
                                 @foreach($value['processes'] as $value2)
-                                    <li>
-                                        <a href="{{route($value2['route'])}}">
+                                    @php
+                                        $procBase = preg_replace('/\.index$/', '', $value2['route']);
+                                        $isActive = request()->routeIs($value2['route'])
+                                                 || request()->routeIs($procBase . '.*')
+                                                 || (Route::has($value2['route']) && request()->url() === route($value2['route']));
+                                    @endphp
+                                    <li class="{{ $isActive ? 'active' : '' }}">
+                                        <a href="{{ route($value2['route']) }}" {!! $isActive ? 'aria-current="page"' : '' !!}>
                                             <span class="sub-item text-truncate d-block">{{__($value2['name'])}}</span>
                                         </a>
                                     </li>

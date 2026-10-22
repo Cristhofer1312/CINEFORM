@@ -30,11 +30,19 @@ Route::prefix('registro')->group(function() {
         Route::get('/usuario/perfil/seleccionar/{id_rol}', [Modules\Security\Http\Controllers\SecurityController::class, 'seleccionarPerfil'])->name('usuario.seleccionarPerfil'); */
         Route::get('home', [Modules\Security\Http\Controllers\SecurityController::class, 'registroHome'])->name('home.registro');
 
-        // Rutas Administrativas para perfiles
+        // Rutas Administrativas para perfiles (proceso users.asignar_perfil)
         Route::prefix('usuarios')->group(function() {
-            Route::get('/asignar-perfil', [\Modules\Registro\Http\Controllers\PersonaPerfilController::class, 'index'])->name('users.asignar_perfil');
-            Route::get('/search-persona/{dni}', [\Modules\Registro\Http\Controllers\PersonaPerfilController::class, 'searchByDni'])->name('users.search_persona');
-            Route::post('/assign-profiles', [\Modules\Registro\Http\Controllers\PersonaPerfilController::class, 'assignProfiles'])->name('users.assign_profiles');
+            Route::get('/asignar-perfil', [\Modules\Registro\Http\Controllers\PersonaPerfilController::class, 'index'])
+                ->name('users.asignar_perfil')
+                ->middleware('permiso:users.asignar_perfil,' . \App\Constants\SecurityAction::VER);
+
+            Route::get('/search-persona/{dni}', [\Modules\Registro\Http\Controllers\PersonaPerfilController::class, 'searchByDni'])
+                ->name('users.search_persona')
+                ->middleware('permiso:users.asignar_perfil,' . \App\Constants\SecurityAction::VER);
+
+            Route::post('/assign-profiles', [\Modules\Registro\Http\Controllers\PersonaPerfilController::class, 'assignProfiles'])
+                ->name('users.assign_profiles')
+                ->middleware('permiso:users.asignar_perfil,' . \App\Constants\SecurityAction::ASIGNAR_PERFIL);
         });
 
         /* Route::get('logout', [Modules\Security\Http\Controllers\SecurityController::class, 'logout'])->name('logout');

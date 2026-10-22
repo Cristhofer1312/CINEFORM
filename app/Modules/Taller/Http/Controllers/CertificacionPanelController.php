@@ -167,13 +167,6 @@ class CertificacionPanelController extends BaseController
 
     private function verificarPermisoGestion(Curso $curso): void
     {
-        $personalData = $this->getUsuarioAutenticado()->personalData;
-        $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_ASISTENCIA)
-            || hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
-        $esFacilitador = $curso->id_persona == $personalData->id_persona;
-
-        if (!$esGestor && !$esFacilitador) {
-            abort(403, 'No tienes permiso para gestionar la certificación de este curso.');
-        }
+        $this->authorize('certificar', $curso);
     }
 }

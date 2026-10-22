@@ -20,11 +20,11 @@
         @endif
 
         <div class="text-center mb-4">
-            <h2 class="fw-bold text-dark mb-2">{{ $inscripcionExistente && $inscripcionExistente->esRechazado() ? 'Corregir Postulación' : 'Completar Postulación' }}</h2>
+            <h2 class="fw-bold text-dark mb-2">{{ (isset($inscripcionExistente) && $inscripcionExistente && $inscripcionExistente->esRechazado()) ? 'Corregir Postulación' : 'Completar Postulación' }}</h2>
             <p class="text-muted"><i class="fas fa-graduation-cap me-1 text-primary"></i> Estás solicitando ingreso a: <strong>{{ $curso->nombre }}</strong></p>
         </div>
 
-        @if($inscripcionExistente && $inscripcionExistente->esRechazado())
+        @if(isset($inscripcionExistente) && $inscripcionExistente && $inscripcionExistente->esRechazado())
             <div class="alert alert-warning border-0 shadow-sm rounded-4 p-4 mb-4">
                 <h5 class="fw-bold"><i class="fas fa-exclamation-triangle me-2"></i> Observaciones en tu postulación anterior:</h5>
                 <p class="mb-0 fs-6">{{ $inscripcionExistente->motivo_estado }}</p>
@@ -97,6 +97,9 @@
                         fn ($req) => \Modules\Taller\Entities\CursoRequisito::esCartaPermisoDocumento($req)
                     );
                 }
+                $respuestasPrevias = (isset($inscripcionExistente) && $inscripcionExistente && $inscripcionExistente->relationLoaded('respuestas'))
+                    ? $inscripcionExistente->respuestas->keyBy('id_requisito')
+                    : collect();
             @endphp
             
             @if($preguntasDocs->count() > 0)
@@ -106,6 +109,9 @@
                 </div>
                 <div class="card-body p-4 bg-white">
                     @foreach($preguntasDocs as $req)
+                        @php
+                            $respPrevia = $respuestasPrevias->get($req->id_requisito);
+                        @endphp
                         <div class="mb-4">
                             <label class="form-label fw-bold text-dark">
                                 {{ $req->titulo }} 
@@ -117,10 +123,22 @@
                             @endif
 
                             @if($req->tipo === 'pregunta')
-                                <textarea name="req_{{ $req->id_requisito }}" class="form-control req-input" rows="3" placeholder="Escribe tu respuesta aquí..." {{ $req->obligatorio ? 'required' : '' }}></textarea>
+                                <textarea name="req_{{ $req->id_requisito }}" class="form-control req-input" rows="3" placeholder="Escribe tu respuesta aquí..." {{ ($req->obligatorio && (!$respPrevia || empty($respPrevia->respuesta_texto))) ? 'required' : '' }}>{{ old('req_' . $req->id_requisito, $respPrevia?->respuesta_texto) }}</textarea>
                             @elseif($req->tipo === 'documento')
-                                <input type="file" name="req_{{ $req->id_requisito }}" class="form-control req-input" accept=".pdf,.png,.jpg,.jpeg" {{ $req->obligatorio ? 'required' : '' }}>
-                                <small class="text-muted mt-1"><i class="fas fa-file-pdf me-1"></i> Formatos aceptados: PDF, JPG, PNG.</small>
+                                @if($respPrevia && !empty($respPrevia->ruta_archivo))
+                                    <div class="alert alert-light border d-flex align-items-center justify-content-between p-2 mb-2 rounded">
+                                        <div class="d-flex align-items-center text-truncate me-2">
+                                            <i class="fas fa-file-alt text-success me-2 fs-5"></i>
+                                            <span class="small text-dark font-monospace text-truncate">Archivo previamente cargado</span>
+                                        </div>
+                                        <span class="badge bg-success-soft text-success small">Conservado</span>
+                                    </div>
+                                    <input type="file" name="req_{{ $req->id_requisito }}" class="form-control req-input" accept=".pdf,.png,.jpg,.jpeg">
+                                    <small class="text-muted mt-1 d-block"><i class="fas fa-info-circle me-1"></i> Selecciona un nuevo archivo solo si deseas reemplazar el actual.</small>
+                                @else
+                                    <input type="file" name="req_{{ $req->id_requisito }}" class="form-control req-input" accept=".pdf,.png,.jpg,.jpeg" {{ $req->obligatorio ? 'required' : '' }}>
+                                    <small class="text-muted mt-1 d-block"><i class="fas fa-file-pdf me-1"></i> Formatos aceptados: PDF, JPG, PNG.</small>
+                                @endif
                             @endif
                         </div>
                     @endforeach
@@ -139,7 +157,7 @@
                     <i class="fas fa-arrow-left me-2"></i> Volver al curso
                 </a>
                 <button type="submit" class="btn btn-primary fw-bold px-5 py-3 rounded-pill shadow-lg" id="btn-submit">
-                    <i class="fas fa-paper-plane me-2"></i> {{ $inscripcionExistente && $inscripcionExistente->esRechazado() ? 'Actualizar Postulación' : 'Enviar Postulación' }}
+                    <i class="fas fa-paper-plane me-2"></i> {{ (isset($inscripcionExistente) && $inscripcionExistente && $inscripcionExistente->esRechazado()) ? 'Actualizar Postulación' : 'Enviar Postulación' }}
                 </button>
             </div>
         </form>

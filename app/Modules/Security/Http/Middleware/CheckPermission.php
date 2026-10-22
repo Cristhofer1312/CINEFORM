@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Modules\Security\Entities\Process;
 use App\Constants\SecurityAction;
+use App\Services\Security\Autorizacion;
 
 class CheckPermission
 {
@@ -21,21 +22,16 @@ class CheckPermission
      */
     public function handle(Request $request, Closure $next, string $processRoute, int $requiredActionId)
     {
+        $autorizacion = app(Autorizacion::class);
+
         // El usuario administrador del sistema (ID 1) siempre tiene acceso total.
         // Se registra en log de auditoría para detectar uso indebido de la cuenta raíz.
-        if (Auth::check() && Auth::id() === 1) {
-            \Illuminate\Support\Facades\Log::channel('single')->info('[ADMIN-BYPASS] Acceso sin verificación RBAC', [
-                'user_id'    => Auth::id(),
-                'process'    => $processRoute,
-                'action_id'  => $requiredActionId,
-                'ip'         => $request->ip(),
-                'url'        => $request->fullUrl(),
-                'method'     => $request->method(),
-            ]);
+        if ($autorizacion->esRaiz()) {
+            $autorizacion->registrarBypass($processRoute, $requiredActionId, $request);
             return $next($request);
         }
 
-        if (!hasPermissionRoute($processRoute, $requiredActionId)) {
+        if (!$autorizacion->puede($processRoute, $requiredActionId)) {
             abort(403, 'Acceso denegado: No posee el permiso necesario para ejecutar esta acción en el módulo ' . $processRoute);
         }
 

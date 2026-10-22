@@ -16,13 +16,16 @@ class StorePaso1Request extends FormRequest
 
     public function rules()
     {
+        $esSalir = $this->input('accion') === 'salir' || $this->filled('guardar_y_salir');
+
         return [
-            'nombre' => 'required|string|max:255',
+            'nombre' => $esSalir ? 'nullable|string|max:255' : 'required|string|max:255',
             'descripcion' => 'nullable|string',
             'foto' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'eliminar_foto' => 'nullable|boolean',
             'nivel' => 'nullable|string|max:50',
-            'id_modalidad' => 'required|exists:'.\Modules\Taller\Entities\Modalidad::class.',id_modalidad',
-            'id_actividad_formativa' => 'required|exists:'.\Modules\Taller\Entities\ActividadFormativa::class.',id_actividad_formativa',
+            'id_modalidad' => ($esSalir ? 'nullable' : 'required').'|exists:'.\Modules\Taller\Entities\Modalidad::class.',id_modalidad',
+            'id_actividad_formativa' => ($esSalir ? 'nullable' : 'required').'|exists:'.\Modules\Taller\Entities\ActividadFormativa::class.',id_actividad_formativa',
             'id_aspecto' => 'nullable|exists:'.\Modules\Taller\Entities\Aspecto::class.',id_aspecto',
             'id_modalidad_especial' => 'nullable|exists:'.\Modules\Taller\Entities\ModalidadEspecial::class.',id_modalidad_especial',
         ];

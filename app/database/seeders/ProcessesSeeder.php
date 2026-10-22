@@ -45,7 +45,7 @@ class ProcessesSeeder extends Seeder
                 'description' => 'Gestión Académica de Cursos y Formaciones',
                 'icon' => 'fas fa-graduation-cap',
                 'route' => 'taller.cursos.index',
-                'actions' => 'view|create_course|manage_course|edit_course|edit_course_e|grade_course|approve_course|enroll',
+                'actions' => 'view|create_course|manage_course|edit_course|edit_course_e|grade_course|accept_course|approve_course|enroll|view_participants|cancel_enrollment|mark_attendance|manage_attendance',
                 'order' => 2,
                 'active' => true,
                 'menu_id' => 2,

@@ -127,6 +127,11 @@ class ProfilesController extends Controller {
             return to_route('profiles')->withErrors(['error-message' => __('Main System Profile permissions cannot be modified')]);
         }
 
+        // Bloquear autopromoción: no permitir modificar el perfil activo propio
+        if (session('profile_id') == $profileId && auth()->id() !== 1) {
+            return to_route('profiles')->withErrors(['error-message' => __('You cannot modify the permissions of your currently active profile')]);
+        }
+
         if (!\Request::ajax()) {
             if (\Request::isMethod('get')) {
                 $profile = Profile::with('permissions')->find($profileId);
@@ -138,6 +143,27 @@ class ProfilesController extends Controller {
                 return view('security::profiles.permissions', ['id' => Encryptor::encrypt($profileId), 'profile' => $profile, 'MODULES' => $MODULES]);
             } else {
                 $Profile = Profile::find($profileId);
+                if (!$Profile) {
+                    abort(404, 'Perfil no encontrado');
+                }
+
+                // Misma regla que disabled(): un no-raíz no puede activar/desactivar
+                // perfiles base desde el formulario de permisos.
+                $perfilesBase = [
+                    \App\Constants\Perfil::ADMINISTRADOR,
+                    \App\Constants\Perfil::FACILITADOR,
+                    \App\Constants\Perfil::PARTICIPANTE,
+                    \App\Constants\Perfil::COORDINADOR,
+                ];
+                if ($request->has('active')
+                    && in_array($profileId, $perfilesBase, true)
+                    && auth()->id() !== 1
+                    && (bool) $request->input('active') !== (bool) $Profile->active) {
+                    return to_route('profiles')->withErrors([
+                        'error-message' => __('Only the system administrator can activate or deactivate base profiles'),
+                    ]);
+                }
+
                 if ($request->has('name')) $Profile->name = Upper($request->name);
                 if ($request->has('description')) $Profile->description = $request->description;
                 if ($request->has('active')) $Profile->active = $request->active;
@@ -190,6 +216,7 @@ class ProfilesController extends Controller {
                 }
 
                 // Limpiar Caché Local de Permisos
+                app(\App\Services\Security\Autorizacion::class)->invalidar();
                 if (session()->get('profile_id') == $profileId) {
                     session()->forget("permisos_perfil_" . $profileId);
                 }
@@ -242,9 +269,27 @@ class ProfilesController extends Controller {
         // Se normaliza por seguridad ante valores no numéricos.
         $profileId = is_numeric($id) ? (int) $id : (int) Encryptor::decrypt($id);
 
-        // Bloquear desactivación del perfil Administrador (ID 1)
-        if ($profileId == 1) {
+        // Bloquear desactivación del perfil Administrador (ID 1) — siempre
+        if ($profileId === \App\Constants\Perfil::ADMINISTRADOR) {
             return to_route('profiles')->withErrors(['error-message' => __('Main System Profile cannot be deactivated')]);
+        }
+
+        // Bloquear desactivación de perfiles base (1–4) para no-admin.
+        // Un Coordinador con EDITAR (10) podría ejecutar un DoS global desactivando
+        // Facilitador/Participante/Coordinador. Solo el usuario raíz puede hacerlo.
+        $perfilesBase = [
+            \App\Constants\Perfil::ADMINISTRADOR,
+            \App\Constants\Perfil::FACILITADOR,
+            \App\Constants\Perfil::PARTICIPANTE,
+            \App\Constants\Perfil::COORDINADOR,
+        ];
+        if (in_array($profileId, $perfilesBase, true) && auth()->id() !== 1) {
+            return to_route('profiles')->withErrors(['error-message' => __('Only the system administrator can activate or deactivate base profiles')]);
+        }
+
+        // Bloquear desactivación del perfil activo propio (no-admin)
+        if (session('profile_id') == $profileId && auth()->id() !== 1) {
+            return to_route('profiles')->withErrors(['error-message' => __('You cannot deactivate your currently active profile')]);
         }
 
         if (!\Request::ajax()) {
@@ -255,12 +300,14 @@ class ProfilesController extends Controller {
             // Terminar la sesión de todos los usuarios con este perfil.
             // Se regenera el session_token de cada usuario (driver de sesión File);
             // el middleware Authenticate detecta la diferencia y cierra la sesión.
+            // Usamos DB::table porque session_token no está en User::$fillable.
             $userIds = DB::table('security.profiles_users')
                 ->where('id_rol', $profileId)
                 ->pluck('id_users');
 
             if ($userIds->isNotEmpty()) {
-                \Modules\Security\Entities\User::whereIn('id', $userIds)
+                DB::table('security.users')
+                    ->whereIn('id', $userIds)
                     ->update(['session_token' => Str::random(40)]);
             }
 

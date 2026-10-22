@@ -53,10 +53,10 @@ class AdminPermissionsSeeder extends Seeder
         // 4. Asignar permisos al COORDINADOR (Perfil 4)
         $coordinadorProfileId = 4;
         // El coordinador gestiona casi todo el módulo Taller y Seguridad básica
-        // EXCEPTO: Gestionar permisos (slug 'permissions') y seguridad de otros (slug 'security')
+        // EXCEPTO: Gestionar permisos (slug 'permissions'), seguridad de otros (slug 'security') y calificar (slug 'grade_course')
         $coordinadorPerms = DB::table('security.permissions')
             ->whereIn('process_id', [1, 3, 4, 6, 7])
-            ->whereNotIn('slug', ['permissions', 'security'])
+            ->whereNotIn('slug', ['permissions', 'security', 'grade_course'])
             ->pluck('id');
 
         foreach ($coordinadorPerms as $pId) {
@@ -65,6 +65,13 @@ class AdminPermissionsSeeder extends Seeder
                 ['created_at' => now(), 'updated_at' => now()]
             );
         }
+
+        // Limpieza dirigida para el perfil 4 (Coordinador)
+        DB::table('security.profile_permissions')
+            ->where('profile_id', $coordinadorProfileId)
+            ->whereIn('permission_id', DB::table('security.permissions')->whereIn('slug', ['permissions', 'security', 'grade_course'])->pluck('id'))
+            ->delete();
+
         $this->command->info("✅ Permisos de gestión asignados al perfil Coordinador.");
 
         // 5. Asignar permisos al PARTICIPANTE (Perfil 3)
@@ -94,5 +101,7 @@ class AdminPermissionsSeeder extends Seeder
             ]);
         }
         $this->command->info("✅ Permisos RESTRINGIDOS asignados al perfil Participante (Solo Cursos y Mis Cursos).");
+
+        app(\App\Services\Security\Autorizacion::class)->invalidar();
     }
 }

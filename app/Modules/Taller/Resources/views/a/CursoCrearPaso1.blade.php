@@ -12,18 +12,39 @@
                         </ol>
                     </nav>
                     <h2 class="fw-bold text-dark mb-0">¿De qué trata el curso?</h2>
-                    <p class="text-muted small mb-0"><i class="fas fa-tag me-1 text-primary"></i> Nombre, portada, nivel y clasificación PROCINEC.</p>
+                    <p class="text-muted small mb-0 d-flex align-items-center flex-wrap gap-2">
+                        <span><i class="fas fa-tag me-1 text-primary"></i> Nombre, portada, nivel y clasificación PROCINEC.</span>
+                        @if(!empty($borrador->updated_at))
+                            <span class="badge bg-light text-muted border py-1 px-2 rounded-pill small">
+                                <i class="fas fa-check-circle text-success me-1"></i> Borrador guardado {{ $borrador->updated_at->format('d/m/Y H:i') }}
+                            </span>
+                        @endif
+                    </p>
                 </div>
                 <div class="text-end">
-                    <a href="{{ route('taller.cursos.index') }}" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
+                    <button type="submit" form="form-paso1" name="accion" value="salir" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
                         <i class="fas fa-save me-2 text-primary"></i> Guardar borrador y salir
-                    </a>
+                    </button>
                 </div>
             </div>
 
+            @if(!empty($tieneBorradorPrevio))
+                <div class="alert alert-info border-0 shadow-sm rounded-4 d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 py-2 px-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fas fa-info-circle text-primary fs-5"></i>
+                        <span class="small">Estás editando un borrador en progreso @if(!empty($borrador->updated_at)) (último guardado: {{ $borrador->updated_at->format('d/m/Y H:i') }}) @endif.</span>
+                    </div>
+                    <div>
+                        <a href="{{ route('taller.cursos.wizard.nuevo') }}" class="btn btn-sm btn-outline-secondary rounded-pill fw-bold" onclick="return confirm('¿Descartar este borrador y comenzar uno nuevo desde cero?')">
+                            <i class="fas fa-redo me-1"></i> Empezar nuevo borrador
+                        </a>
+                    </div>
+                </div>
+            @endif
+
             <x-taller.wizard-steps :actual="$pasoActual ?? 1" :completados="$completados ?? []" />
 
-            <form action="{{ route('taller.cursos.wizard.paso1.store') }}" method="POST" enctype="multipart/form-data">
+            <form id="form-paso1" action="{{ route('taller.cursos.wizard.paso1.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
 
                 @if ($errors->any())
@@ -59,17 +80,37 @@
                                 </label>
                                 <div class="bg-white border-2 rounded-3 p-3 border-light-2 shadow-xs">
                                     <div class="d-flex align-items-center gap-3 flex-wrap">
-                                        <div class="position-relative flex-shrink-0">
-                                            <img id="foto-preview" src="" alt="Vista previa"
-                                                 class="rounded-3 border" style="width: 180px; height: 110px; object-fit: cover; display: none;">
-                                            <div id="foto-placeholder" class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="width: 180px; height: 110px;">
-                                                <i class="fas fa-image fa-2x text-muted"></i>
+                                        <div class="position-relative flex-shrink-0 rounded-3 border overflow-hidden bg-light d-flex align-items-center justify-content-center"
+                                             style="width: 180px; height: 110px;">
+                                            <div id="foto-placeholder" class="text-center text-muted p-2 {{ !empty($fotoUrl) ? 'd-none' : '' }}">
+                                                <i class="fas fa-image fa-2x text-muted opacity-50 mb-1 d-block"></i>
+                                                <small class="text-muted d-block fw-semibold" style="font-size: 0.72rem;">Sin foto seleccionada</small>
                                             </div>
+                                            <img id="foto-preview" src="{{ $fotoUrl ?? '' }}" alt="Vista previa"
+                                                 onerror="ocultarPreviewFotoError();"
+                                                 class="w-100 h-100 position-absolute top-0 start-0 {{ !empty($fotoUrl) ? '' : 'd-none' }}"
+                                                 style="object-fit: cover;">
                                         </div>
                                         <div class="flex-grow-1">
-                                            <input type="file" class="form-control form-control-sm" name="foto" id="foto-input"
-                                                   accept="image/png,image/jpeg" onchange="previewFoto(this)">
-                                            <small class="text-muted d-block mt-1"><i class="fas fa-info-circle me-1"></i> JPG o PNG, máx. 2 MB. Se muestra en el catálogo.</small>
+                                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                                <input type="file" class="form-control form-control-sm flex-grow-1" name="foto" id="foto-input"
+                                                       accept="image/png,image/jpeg" onchange="previewFoto(this)">
+                                                <button type="button" id="btn-quitar-foto"
+                                                        class="btn btn-outline-danger btn-sm rounded-3 px-3 fw-bold flex-shrink-0 {{ !empty($fotoUrl) ? '' : 'd-none' }}"
+                                                        onclick="quitarFoto()" title="Descartar foto del curso">
+                                                    <i class="fas fa-trash-alt me-1"></i> Quitar foto
+                                                </button>
+                                            </div>
+                                            <input type="hidden" name="eliminar_foto" id="eliminar-foto-input" value="0">
+
+                                            <div id="foto-ayuda" class="small">
+                                                @if(!empty($fotoUrl))
+                                                    <span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i> Foto actual guardada en el borrador.</span>
+                                                    <span class="text-muted ms-1">Deja el campo vacío para conservarla o selecciona una nueva para reemplazarla.</span>
+                                                @else
+                                                    <span class="text-muted"><i class="fas fa-info-circle me-1 text-primary"></i> JPG o PNG, máx. 2 MB. Se muestra como portada en el catálogo.</span>
+                                                @endif
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -133,7 +174,10 @@
                 <div class="row justify-content-center mt-5 pb-5">
                     <div class="col-lg-6">
                         <div class="card border shadow rounded-pill overflow-hidden bg-white">
-                            <div class="card-body p-2 d-flex align-items-center justify-content-end flex-wrap gap-2">
+                            <div class="card-body p-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <button type="submit" name="accion" value="salir" class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2">
+                                    <i class="fas fa-save me-2"></i> Guardar borrador y salir
+                                </button>
                                 <button type="submit" class="btn btn-primary px-5 py-3 rounded-pill fw-bold shadow-lg">
                                     Guardar y continuar <i class="fas fa-arrow-right ms-2"></i>
                                 </button>
@@ -147,23 +191,103 @@
 
     @push('scripts')
     <script>
+        const initialFotoUrl = @json($fotoUrl ?? '');
+
         function previewFoto(input) {
             const file = input.files && input.files[0];
             const preview = document.getElementById('foto-preview');
             const placeholder = document.getElementById('foto-placeholder');
+            const btnQuitar = document.getElementById('btn-quitar-foto');
+            const eliminarInput = document.getElementById('eliminar-foto-input');
+            const ayuda = document.getElementById('foto-ayuda');
+
+            if (eliminarInput) {
+                eliminarInput.value = '0';
+            }
+
             if (file) {
+                if (file.size > 2 * 1024 * 1024) {
+                    alert('El archivo seleccionado supera el límite de 2 MB. Por favor elige una imagen más pequeña.');
+                    input.value = '';
+                    restaurarEstadoInicial();
+                    return;
+                }
+
                 const reader = new FileReader();
                 reader.onload = function (e) {
                     preview.src = e.target.result;
-                    preview.style.display = 'block';
-                    placeholder.style.display = 'none';
+                    preview.classList.remove('d-none');
+                    placeholder.classList.add('d-none');
+                    if (btnQuitar) btnQuitar.classList.remove('d-none');
+                    if (ayuda) {
+                        ayuda.innerHTML = '<span class="text-primary fw-bold"><i class="fas fa-file-image me-1"></i> Nueva foto seleccionada:</span> <span class="text-dark">' + escapeHtml(file.name) + '</span> <span class="text-muted">(Se guardará al continuar)</span>';
+                    }
                 };
                 reader.readAsDataURL(file);
             } else {
-                preview.removeAttribute('src');
-                preview.style.display = 'none';
-                placeholder.style.display = 'flex';
+                restaurarEstadoInicial();
             }
+        }
+
+        function restaurarEstadoInicial() {
+            const preview = document.getElementById('foto-preview');
+            const placeholder = document.getElementById('foto-placeholder');
+            const btnQuitar = document.getElementById('btn-quitar-foto');
+            const ayuda = document.getElementById('foto-ayuda');
+
+            if (initialFotoUrl) {
+                preview.src = initialFotoUrl;
+                preview.classList.remove('d-none');
+                placeholder.classList.add('d-none');
+                if (btnQuitar) btnQuitar.classList.remove('d-none');
+                if (ayuda) {
+                    ayuda.innerHTML = '<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i> Foto actual guardada en el borrador.</span> <span class="text-muted ms-1">Deja el campo vacío para conservarla o selecciona una nueva para reemplazarla.</span>';
+                }
+            } else {
+                preview.removeAttribute('src');
+                preview.classList.add('d-none');
+                placeholder.classList.remove('d-none');
+                if (btnQuitar) btnQuitar.classList.add('d-none');
+                if (ayuda) {
+                    ayuda.innerHTML = '<span class="text-muted"><i class="fas fa-info-circle me-1 text-primary"></i> JPG o PNG, máx. 2 MB. Se muestra como portada en el catálogo.</span>';
+                }
+            }
+        }
+
+        function quitarFoto() {
+            const input = document.getElementById('foto-input');
+            const preview = document.getElementById('foto-preview');
+            const placeholder = document.getElementById('foto-placeholder');
+            const btnQuitar = document.getElementById('btn-quitar-foto');
+            const eliminarInput = document.getElementById('eliminar-foto-input');
+            const ayuda = document.getElementById('foto-ayuda');
+
+            if (input) input.value = '';
+            if (eliminarInput) eliminarInput.value = '1';
+            if (preview) {
+                preview.removeAttribute('src');
+                preview.classList.add('d-none');
+            }
+            if (placeholder) placeholder.classList.remove('d-none');
+            if (btnQuitar) btnQuitar.classList.add('d-none');
+            if (ayuda) {
+                ayuda.innerHTML = '<span class="text-danger fw-bold"><i class="fas fa-exclamation-triangle me-1"></i> La foto se eliminará al guardar este paso.</span>';
+            }
+        }
+
+        function ocultarPreviewFotoError() {
+            const preview = document.getElementById('foto-preview');
+            const placeholder = document.getElementById('foto-placeholder');
+            const btnQuitar = document.getElementById('btn-quitar-foto');
+            if (preview) preview.classList.add('d-none');
+            if (placeholder) placeholder.classList.remove('d-none');
+            if (btnQuitar) btnQuitar.classList.add('d-none');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     </script>
     @endpush

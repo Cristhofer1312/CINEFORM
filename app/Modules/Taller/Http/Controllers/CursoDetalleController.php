@@ -33,9 +33,10 @@ class CursoDetalleController extends BaseController
         $datosUsuario = $this->obtenerDatosUsuario();
         $datosCurso = $this->calcularDatosCurso($curso, $datosUsuario);
 
-        $puedeInscribirse = hasPermissionRoute('taller.cursos.index', SecurityAction::INSCRIBIRSE_CURSO);
+        $user = auth()->user();
+        $puedeInscribirse = $user ? $user->can('inscribirse', [Inscripcion::class, $curso]) : false;
         $puedeCancelarInscripciones = hasPermissionRoute('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION);
-        $puedeVerParticipantes = hasPermissionRoute('taller.cursos.index', SecurityAction::VER_PARTICIPANTES);
+        $puedeVerParticipantes = $user ? $user->can('verParticipantes', $curso) : false;
 
         // El administrador (gestor) NO actúa como facilitador ni como participante.
         // Solo ve herramientas de gestión y acceso a contenidos como revisor.
@@ -82,11 +83,7 @@ class CursoDetalleController extends BaseController
             'requisitos'
         ])->findOrFail($id);
 
-        $puedeVerParticipantes = hasPermissionRoute('taller.cursos.index', SecurityAction::VER_PARTICIPANTES);
-
-        if (!$puedeVerParticipantes) {
-            abort(403, 'No tienes permiso para ver los participantes de este curso.');
-        }
+        $this->authorize('verParticipantes', $curso);
 
         $puedeCancelarInscripciones = hasPermissionRoute('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION);
 

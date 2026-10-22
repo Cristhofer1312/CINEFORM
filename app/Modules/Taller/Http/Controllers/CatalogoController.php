@@ -11,11 +11,6 @@ use App\Constants\SecurityAction;
 
 class CatalogoController extends BaseController
 {
-    public function __construct()
-    {
-        $this->middleware('permiso:taller.catalogos.index,' . SecurityAction::VER)
-            ->only(['index']);
-    }
 
     // =========================================================================
     // VISTA PRINCIPAL

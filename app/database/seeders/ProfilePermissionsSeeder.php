@@ -20,14 +20,14 @@ class ProfilePermissionsSeeder extends Seeder
                 7 => ['view'],
             ],
             4 => [
-                1 => ['view', 'create', 'edit', 'permissions'],
+                1 => ['view', 'create', 'edit'],
                 3 => ['view'],
-                4 => ['view', 'create_course', 'manage_course', 'approve_course', 'edit_course_e', 'grade_course', 'view_participants', 'cancel_enrollment', 'manage_attendance'],
+                4 => ['view', 'create_course', 'manage_course', 'approve_course', 'edit_course_e', 'view_participants', 'cancel_enrollment', 'manage_attendance'],
                 6 => ['view', 'assign'],
                 7 => ['view'],
             ],
             2 => [
-                4 => ['view', 'edit_course', 'grade_course', 'accept_course', 'manage_attendance'],
+                4 => ['view', 'edit_course', 'grade_course', 'accept_course', 'manage_attendance', 'view_participants'],
                 5 => ['view'],
             ],
             3 => [
@@ -53,5 +53,13 @@ class ProfilePermissionsSeeder extends Seeder
                 );
             }
         }
+
+        // Limpieza dirigida para el perfil 4 (Coordinador)
+        DB::table('security.profile_permissions')
+            ->where('profile_id', 4)
+            ->whereIn('permission_id', DB::table('security.permissions')->whereIn('slug', ['permissions', 'grade_course'])->pluck('id'))
+            ->delete();
+
+        app(\App\Services\Security\Autorizacion::class)->invalidar();
     }
 }

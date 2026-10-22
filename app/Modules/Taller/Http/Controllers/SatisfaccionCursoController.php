@@ -56,16 +56,7 @@ class SatisfaccionCursoController extends BaseController
     public function resultados($id_curso)
     {
         $curso = Curso::findOrFail($id_curso);
-        $persona = $this->getUsuarioAutenticado()->personalData;
-
-        $esParticipante = Inscripcion::where('id_curso', $curso->id_curso)
-            ->where('id_persona', $persona->id_persona)
-            ->where('estado', Inscripcion::ESTADO_APROBADO)
-            ->exists();
-
-        if ($esParticipante) {
-            abort(403, 'Los participantes no pueden consultar los resultados de esta encuesta.');
-        }
+        $this->authorize('verSatisfaccion', $curso);
 
         $estadisticas = $this->satisfaccion->estadisticas($curso);
 

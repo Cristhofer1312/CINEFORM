@@ -12,12 +12,29 @@ const WizardPaso2 = (() => {
         return Math.ceil(mes / 3);
     };
 
-    const pintarTrimestre = () => {
+    const pintarTrimestreYCodigo = () => {
         const inicio = document.querySelector('input[name="fecha_inicio"]')?.value;
-        const destino = document.getElementById('trimestre-auto');
-        if (!destino) return;
+        const destinoTri = document.getElementById('trimestre-auto');
         const tri = trimestreDe(inicio);
-        destino.textContent = tri ? tri + '°' : '—';
+        if (destinoTri) {
+            destinoTri.textContent = tri ? tri + '°' : '—';
+        }
+
+        const previewEl = document.getElementById('codigo-preview');
+        if (!previewEl) return;
+
+        const actividad = previewEl.dataset.actividad || '';
+        const aspecto = previewEl.dataset.aspecto || '';
+        const modalidad = previewEl.dataset.modalidad || '';
+        const modEsp = previewEl.dataset.modesp || '';
+
+        const correlativoVal = document.querySelector('input[name="correlativo"]')?.value || '';
+        const anioVal = document.querySelector('input[name="anio"]')?.value || new Date().getFullYear();
+
+        if (actividad && modalidad && tri && correlativoVal) {
+            const middle = `${actividad}${tri}${correlativoVal}${aspecto}${modalidad}${modEsp}`;
+            previewEl.textContent = `LAB-${middle}-${anioVal}`.toUpperCase();
+        }
     };
 
     const toggleLocalidades = (el, animate = false) => {
@@ -34,22 +51,81 @@ const WizardPaso2 = (() => {
         } else {
             cont.style.display = isNac ? 'none' : '';
         }
-        if (isNac) {
-            document.querySelectorAll('#container-localidades .localidad-checkbox').forEach((cb) => {
-                cb.checked = false;
-            });
+        // No desmarcamos las localidades para que no se pierda la selección del usuario si alterna el switch
+    const siguienteDia = (iso) => {
+        if (!iso) return '';
+        const partes = String(iso).split('-').map(Number);
+        if (partes.length !== 3 || isNaN(partes[0]) || isNaN(partes[1]) || isNaN(partes[2])) return '';
+        const dt = new Date(partes[0], partes[1] - 1, partes[2]);
+        dt.setDate(dt.getDate() + 1);
+        const ny = dt.getFullYear();
+        const nm = String(dt.getMonth() + 1).padStart(2, '0');
+        const nd = String(dt.getDate()).padStart(2, '0');
+        return `${ny}-${nm}-${nd}`;
+    };
+
+    const actualizarRangoFechas = () => {
+        const inputInicio = document.querySelector('input[name="fecha_inicio"]');
+        const inputFin = document.querySelector('input[name="fecha_fin"]');
+        if (!inputInicio || !inputFin) return;
+
+        const inicioVal = inputInicio.value;
+        if (inicioVal) {
+            const minFin = siguienteDia(inicioVal);
+            inputFin.min = minFin;
+
+            if (inputFin.value && inputFin.value <= inicioVal) {
+                inputFin.setCustomValidity('La fecha de finalización debe ser posterior a la fecha de inicio.');
+            } else {
+                inputFin.setCustomValidity('');
+            }
+        } else {
+            inputFin.removeAttribute('min');
+            inputFin.setCustomValidity('');
         }
     };
 
     const initLogistica = () => {
         const inputFecha = document.querySelector('input[name="fecha_inicio"]');
-        inputFecha?.addEventListener('change', pintarTrimestre);
-        pintarTrimestre();
+        const inputFin = document.querySelector('input[name="fecha_fin"]');
+        const inputCorrelativo = document.querySelector('input[name="correlativo"]');
+        const inputAnio = document.querySelector('input[name="anio"]');
+
+        const onInicioChange = () => {
+            actualizarRangoFechas();
+            pintarTrimestreYCodigo();
+        };
+
+        inputFecha?.addEventListener('change', onInicioChange);
+        inputFecha?.addEventListener('input', onInicioChange);
+        inputFin?.addEventListener('change', actualizarRangoFechas);
+        inputFin?.addEventListener('input', actualizarRangoFechas);
+        inputCorrelativo?.addEventListener('input', pintarTrimestreYCodigo);
+        inputAnio?.addEventListener('input', pintarTrimestreYCodigo);
+
+        actualizarRangoFechas();
+        pintarTrimestreYCodigo();
 
         const inputNacional = document.getElementById('es_nacional');
         inputNacional?.addEventListener('change', (e) => toggleLocalidades(e.target, true));
         inputNacional?.addEventListener('click', (e) => toggleLocalidades(e.target, true));
         toggleLocalidades(inputNacional, false);
+
+        // Validación en submit
+        const formPaso2 = inputFecha?.closest('form');
+        formPaso2?.addEventListener('submit', (e) => {
+            const submitter = e.submitter;
+            const esSalir = submitter && (submitter.value === 'salir' || submitter.name === 'guardar_y_salir');
+            if (esSalir) return;
+
+            actualizarRangoFechas();
+            if (inputInicio?.value && inputFin?.value && inputFin.value <= inputInicio.value) {
+                e.preventDefault();
+                inputFin.setCustomValidity('La fecha de finalización debe ser posterior a la fecha de inicio.');
+                inputFin.reportValidity();
+                return false;
+            }
+        });
     };
 
     if (document.readyState === 'loading') {
@@ -177,7 +253,7 @@ const WizardPaso2 = (() => {
 
     return { 
         toggleLocalidades, 
-        pintarTrimestre, 
+        pintarTrimestre: pintarTrimestreYCodigo, 
         initFacilitadores, 
         setSeleccion: (id) => { faciState.seleccion = id; } 
     };

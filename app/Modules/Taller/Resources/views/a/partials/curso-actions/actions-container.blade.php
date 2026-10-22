@@ -3,7 +3,7 @@
 @php
     // Categorización de capacidades para organizar la interfaz
     $principales = ['inscribirse', 'cancelar_inscripcion', 'acceder_contenido', 'emitir_certificado', 'ver_archivo'];
-    $gestion = ['ver_participantes', 'ajustar_certificado', 'aceptar_asignacion', 'rechazar_asignacion', 'editar', 'enviar_aprobacion', 'aprobar', 'rechazar', 'finalizar_inscripciones', 'finalizar_curso', 'cerrar_curso', 'ver_motivo', 'en_revision', 'gestionar_certificacion'];
+    $gestion = ['ver_participantes', 'ajustar_certificado', 'aceptar_asignacion', 'rechazar_asignacion', 'editar', 'enviar_aprobacion', 'aprobar', 'rechazar', 'finalizar_inscripciones', 'finalizar_curso', 'cerrar_curso', 'ver_motivo', 'en_revision', 'gestionar_certificacion', 'ver_satisfaccion'];
     
     // Filtrar qué capacidades tiene el usuario en cada categoría
     $capsPrincipales = array_intersect($capacidades, $principales);
@@ -159,7 +159,7 @@
                             </button>
                             @break
                         @case('rechazar_asignacion')
-                             <button class="btn btn-outline-danger btn-sm py-2 fw-bold rounded-pill" onclick="rechazarContenido('{{ $curso->crypt_id }}')">
+                             <button class="btn btn-outline-danger btn-sm py-2 fw-bold rounded-pill" onclick="rechazarContenido('{{ $curso->crypt_id }}', 3)">
                                  <i class="fas fa-times-circle me-1"></i> Rechazar
                              </button>
                              @break
@@ -182,7 +182,7 @@
                             </button>
                             @break
                         @case('rechazar')
-                            <button class="btn btn-danger btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="rechazarContenido('{{ $curso->crypt_id }}')">
+                            <button class="btn btn-danger btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="rechazarContenido('{{ $curso->crypt_id }}', 2)">
                                 <i class="fas fa-ban me-1"></i> Declinar Propuesta
                             </button>
                             @break
@@ -222,6 +222,13 @@
                             <a href="{{ route('taller.certificacion.panel', $curso->crypt_id) }}" class="btn btn-outline-success btn-sm py-2 fw-bold border shadow-xs rounded-pill">
                                 <i class="fas fa-clipboard-check me-1"></i> Panel de Certificación
                             </a>
+                            @break
+                        @case('ver_satisfaccion')
+                            @can('verSatisfaccion', $curso)
+                                <a href="{{ route('taller.cursos.satisfaccion.resultados', $curso->crypt_id) }}" class="btn btn-outline-info btn-sm py-2 fw-bold border shadow-xs rounded-pill">
+                                    <i class="fas fa-poll me-1"></i> Resultados de Encuesta
+                                </a>
+                            @endcan
                             @break
                     @endswitch
                 @endforeach

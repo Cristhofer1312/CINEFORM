@@ -1,5 +1,5 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<title>{{ config('app.name') }} </title>
+<title>@hasSection('title')@yield('title') — {{ config('app.name') }}@else{{ config('app.name') }}@endif</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
 <link rel="icon" href="{{ asset('template/kaiadmin/assets/img/kaiadmin/favicon.ico') }}" type="image/x-icon" />
 

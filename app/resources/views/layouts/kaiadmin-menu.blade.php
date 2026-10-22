@@ -23,7 +23,46 @@
 
                 <div class="container container-menu">
                     <div class="page-inner">
-                        
+                        @if(View::hasSection('breadcrumbs'))
+                            <div class="page-header d-flex align-items-center justify-content-between mb-3 pt-2">
+                                <nav aria-label="breadcrumb">
+                                    <ol class="breadcrumb mb-0 bg-transparent p-0 small">
+                                        <li class="breadcrumb-item">
+                                            <a href="{{ route('home') }}" class="text-decoration-none text-muted">
+                                                <i class="fas fa-home me-1"></i> {{ __('Inicio') }}
+                                            </a>
+                                        </li>
+                                        @yield('breadcrumbs')
+                                    </ol>
+                                </nav>
+                                @hasSection('page-actions')
+                                    <div class="page-actions">
+                                        @yield('page-actions')
+                                    </div>
+                                @endif
+                            </div>
+                        @elseif(!request()->routeIs('home') && !request()->routeIs('security.home') && View::hasSection('title'))
+                            <div class="page-header d-flex align-items-center justify-content-between mb-3 pt-2">
+                                <nav aria-label="breadcrumb">
+                                    <ol class="breadcrumb mb-0 bg-transparent p-0 small">
+                                        <li class="breadcrumb-item">
+                                            <a href="{{ route('home') }}" class="text-decoration-none text-muted">
+                                                <i class="fas fa-home me-1"></i> {{ __('Inicio') }}
+                                            </a>
+                                        </li>
+                                        <li class="breadcrumb-item active text-dark fw-bold" aria-current="page">
+                                            @yield('title')
+                                        </li>
+                                    </ol>
+                                </nav>
+                                @hasSection('page-actions')
+                                    <div class="page-actions">
+                                        @yield('page-actions')
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+
                         {{-- Start from here. --}}
                         @yield('content')
                     </div>

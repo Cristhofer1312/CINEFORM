@@ -13,6 +13,6 @@
     <i class="fas fa-user-tie me-2"></i> Editar
 </a>
 
-<button class="btn btn-success w-100 mb-2" onclick="finalizarEdicion('{{ $curso->crypt_id }}')">
-    <i class="fas fa-user-tie me-2"></i> Finalizar edicion
+<button class="btn btn-success w-100 mb-2" onclick="processStatusAction(4, 'En Edición', 'El curso pasa a edición.')">
+    <i class="fas fa-edit me-2"></i> Retomar Edición
 </button>

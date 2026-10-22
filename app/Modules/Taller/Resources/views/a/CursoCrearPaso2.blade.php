@@ -12,21 +12,28 @@
                         </ol>
                     </nav>
                     <h2 class="fw-bold text-dark mb-0">¿Cuándo, dónde y con quién?</h2>
-                    <p class="text-muted small mb-0"><i class="fas fa-calendar-alt me-1 text-primary"></i> Facilitador, calendario, cupos y sede.</p>
+                    <p class="text-muted small mb-0 d-flex align-items-center flex-wrap gap-2">
+                        <span><i class="fas fa-calendar-alt me-1 text-primary"></i> Facilitador, calendario, cupos y sede.</span>
+                        @if(!empty($borrador->updated_at))
+                            <span class="badge bg-light text-muted border py-1 px-2 rounded-pill small">
+                                <i class="fas fa-check-circle text-success me-1"></i> Borrador guardado {{ $borrador->updated_at->format('d/m/Y H:i') }}
+                            </span>
+                        @endif
+                    </p>
                 </div>
                 <div class="text-end d-flex gap-2">
                     <a href="{{ route('taller.cursos.wizard.paso1.create') }}" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
                         <i class="fas fa-arrow-left me-2 text-primary"></i> Atrás
                     </a>
-                    <a href="{{ route('taller.cursos.index') }}" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
-                        Guardar borrador y salir
-                    </a>
+                    <button type="submit" form="form-paso2" name="accion" value="salir" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
+                        <i class="fas fa-save me-2 text-primary"></i> Guardar borrador y salir
+                    </button>
                 </div>
             </div>
 
             <x-taller.wizard-steps :actual="$pasoActual ?? 2" :completados="$completados ?? []" />
 
-            <form action="{{ route('taller.cursos.wizard.paso2.store') }}" method="POST">
+            <form id="form-paso2" action="{{ route('taller.cursos.wizard.paso2.store') }}" method="POST">
                 @csrf
 
                 @if ($errors->any())
@@ -112,7 +119,13 @@
                                 <label class="text-muted small fw-bold mb-2 d-flex align-items-center">
                                     <i class="fas fa-barcode me-2 opacity-50 text-primary"></i> CÓDIGO (VISTA PREVIA)
                                 </label>
-                                <div class="form-control border-2 text-center fw-bold border-light-2 rounded-3 bg-light font-monospace" style="height: 58px; line-height: 42px;" id="codigo-preview">{{ $codigoPreview }}</div>
+                                <div class="form-control border-2 text-center fw-bold border-light-2 rounded-3 bg-light font-monospace"
+                                     style="height: 58px; line-height: 42px;"
+                                     id="codigo-preview"
+                                     data-actividad="{{ $codigoPartes['actividad'] ?? '' }}"
+                                     data-aspecto="{{ $codigoPartes['aspecto'] ?? '' }}"
+                                     data-modalidad="{{ $codigoPartes['modalidad'] ?? '' }}"
+                                     data-modesp="{{ $codigoPartes['modEsp'] ?? '' }}">{{ $codigoPreview }}</div>
                             </div>
 
                             <div class="col-md-4">
@@ -168,9 +181,12 @@
                 </div>
 
                 <div class="row justify-content-center mt-5 pb-5">
-                    <div class="col-lg-6">
+                    <div class="col-lg-7">
                         <div class="card border shadow rounded-pill overflow-hidden bg-white">
-                            <div class="card-body p-2 d-flex align-items-center justify-content-end flex-wrap gap-2">
+                            <div class="card-body p-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <button type="submit" name="accion" value="salir" class="btn btn-outline-secondary px-4 py-3 rounded-pill fw-bold">
+                                    <i class="fas fa-save me-2"></i> Guardar borrador y salir
+                                </button>
                                 <button type="submit" class="btn btn-primary px-5 py-3 rounded-pill fw-bold shadow-lg">
                                     Guardar y continuar <i class="fas fa-arrow-right ms-2"></i>
                                 </button>
@@ -286,11 +302,6 @@
                 } else {
                     cont.style.display = isNac ? 'none' : '';
                 }
-            }
-            if (isNac) {
-                document.querySelectorAll('#container-localidades .localidad-checkbox').forEach(function(cb) {
-                    cb.checked = false;
-                });
             }
             if (window.WizardPaso2 && typeof WizardPaso2.toggleLocalidades === 'function') {
                 WizardPaso2.toggleLocalidades(input, false);

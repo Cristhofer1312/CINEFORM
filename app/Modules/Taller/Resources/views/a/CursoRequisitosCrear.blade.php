@@ -10,20 +10,27 @@
                     <ol class="breadcrumb mb-1 p-0 bg-transparent" style="font-size: 0.8rem;">
                         <li class="breadcrumb-item"><a href="#" class="text-decoration-none text-muted">Administración</a></li>
                         <li class="breadcrumb-item"><a href="{{ route('taller.cursos.index') }}" class="text-decoration-none text-muted">Programas</a></li>
-                        <li class="breadcrumb-item active text-primary fw-bold">Paso 2: Requisitos</li>
+                        <li class="breadcrumb-item active text-primary fw-bold">Paso 5: Requisitos</li>
                     </ol>
                 </nav>
                 <h2 class="fw-bold text-dark mb-0">Requisitos de la Actividad</h2>
-                <p class="text-muted small mb-0"><i class="fas fa-list-check me-1 text-primary"></i> Configurando requisitos para: <strong>{{ $curso->nombre }}</strong></p>
+                <p class="text-muted small mb-0 d-flex align-items-center flex-wrap gap-2">
+                    <span><i class="fas fa-list-check me-1 text-primary"></i> Configurando requisitos para: <strong>{{ $curso->nombre }}</strong></span>
+                    @if(!empty($borrador->updated_at))
+                        <span class="badge bg-light text-muted border py-1 px-2 rounded-pill small">
+                            <i class="fas fa-check-circle text-success me-1"></i> Borrador guardado {{ $borrador->updated_at->format('d/m/Y H:i') }}
+                        </span>
+                    @endif
+                </p>
             </div>
             @if(!empty($esWizard))
             <div class="d-flex gap-2">
                 <a href="{{ route('taller.cursos.wizard.plantilla.create') }}" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
                     <i class="fas fa-arrow-left me-2 text-primary"></i> Atrás
                 </a>
-                <a href="{{ route('taller.cursos.index') }}" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
-                    Guardar borrador y salir
-                </a>
+                <button type="submit" form="form-requisitos" name="accion" value="salir" class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
+                    <i class="fas fa-save me-2 text-primary"></i> Guardar borrador y salir
+                </button>
             </div>
             @endif
         </div>
@@ -50,7 +57,7 @@
         </div>
         @endif
 
-        <form action="{{ $esWizard ? route('taller.cursos.wizard.requisitos.store') : route('taller.cursos.requisitos.store', $curso->id_curso) }}" method="POST">
+        <form id="form-requisitos" action="{{ $esWizard ? route('taller.cursos.wizard.requisitos.store') : route('taller.cursos.requisitos.store', $curso->id_curso) }}" method="POST">
             @csrf
 
             <div class="card border-0 shadow-card rounded-4 mb-5 overflow-hidden">
@@ -81,12 +88,15 @@
 
             <!-- Footer de Acciones -->
             <div class="row justify-content-center mt-4 pb-5">
-                <div class="col-lg-6">
+                <div class="col-lg-7">
                     <div class="card border shadow rounded-pill overflow-hidden bg-white">
                         <div class="card-body p-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
                             @if(!empty($esWizard))
+                                <button type="submit" name="accion" value="salir" class="btn btn-outline-secondary px-4 py-3 rounded-pill fw-bold">
+                                    <i class="fas fa-save me-2"></i> Guardar borrador y salir
+                                </button>
                                 <a href="{{ route('taller.cursos.wizard.revision') }}"
-                                    class="btn btn-link text-muted fw-bold text-decoration-none px-4 ms-2"
+                                    class="btn btn-link text-muted fw-bold text-decoration-none px-4"
                                     onclick="return confirm('¿Saltar este paso? Podrás agregarlos luego editando el curso.')">
                                     Saltar paso
                                 </a>
@@ -104,7 +114,7 @@
                                 @endif
                             @endif
                             <button type="submit" class="btn btn-primary px-5 py-3 rounded-pill fw-bold shadow-lg">
-                                <i class="fas fa-save me-2"></i> {{ ! empty($esWizard) ? 'Guardar y revisar' : 'Guardar y Finalizar' }}
+                                <i class="fas fa-arrow-right me-2"></i> {{ ! empty($esWizard) ? 'Guardar y revisar' : 'Guardar y Finalizar' }}
                             </button>
                         </div>
                     </div>
@@ -117,7 +127,7 @@
 <!-- Template para Requisito -->
 <template id="requisito-template">
     <div class="requisito-item bg-white p-4 rounded-4 shadow-sm border border-light-2 mb-4 position-relative">
-        <button type="button" class="btn btn-sm btn-danger rounded-circle position-absolute" style="top: -10px; right: -10px; width: 30px; height: 30px;" onclick="this.closest('.requisito-item').remove()">
+        <button type="button" class="btn btn-sm btn-danger rounded-circle position-absolute" style="top: -10px; right: -10px; width: 30px; height: 30px;" onclick="eliminarRequisito(this)">
             <i class="fas fa-times"></i>
         </button>
         
@@ -204,6 +214,32 @@
         const chk = element.querySelector('input[name$="[obligatorio]"]');
         if (chk && datos.obligatorio !== undefined) {
             chk.checked = !! datos.obligatorio;
+        }
+    }
+
+    function eliminarRequisito(btn) {
+        const item = btn.closest('.requisito-item');
+        if (!item) return;
+        const titulo = item.querySelector('input[name$="[titulo]"]')?.value?.trim() || 'este requisito';
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: '¿Eliminar requisito?',
+                text: `Se quitará "${titulo}".`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    item.remove();
+                }
+            });
+        } else {
+            if (confirm(`¿Eliminar ${titulo}?`)) {
+                item.remove();
+            }
         }
     }
 

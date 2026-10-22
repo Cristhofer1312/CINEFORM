@@ -2,23 +2,23 @@
 
 namespace Modules\Taller\Services;
 
-use App\Constants\SecurityAction;
 use App\Enums\EstadoCurso;
 
 /**
  * Servicio: Condicional de Estados del Curso (Basado en Capacidades)
- * 
+ *
  * Resuelve qué ACCIONES puede realizar un usuario en función del estado del curso
  * y sus múltiples contextos (Participante, Dueño del Servicio, Gestor).
- * 
+ *
  * @author Sistema de Gestión de Cursos
+ *
  * @version 2.0
  */
 class CondicionalEstadoCurso
 {
     /**
      * Mapa de Capacidades por Estado
-     * 
+     *
      * Define qué capacidades están disponibles teóricamente en cada estado.
      */
     private const MAPA_CAPACIDADES = [
@@ -33,11 +33,11 @@ class CondicionalEstadoCurso
             'gestionar' => 'gestion',
         ],
         3 => [ // Declinado
-            'ver_motivo'       => 'operativo',
-            'editar'           => 'operativo',
+            'ver_motivo' => 'operativo',
+            'editar' => 'operativo',
             'enviar_aprobacion' => 'operativo',
             'reasignar_facilitador' => 'gestion',
-            'gestionar'        => 'gestion',
+            'gestionar' => 'gestion',
         ],
         4 => [ // En Edición
             'editar' => 'operativo',
@@ -46,8 +46,8 @@ class CondicionalEstadoCurso
             'gestionar' => 'gestion',
         ],
         5 => [ // En Aprobación
-            'aprobar'     => 'gestion',
-            'rechazar'    => 'gestion',
+            'aprobar' => 'gestion',
+            'rechazar' => 'gestion',
             'reasignar_facilitador' => 'gestion',
             'en_revision' => 'operativo',
         ],
@@ -73,9 +73,9 @@ class CondicionalEstadoCurso
             'consultar_asistencia' => 'operativo',
         ],
         9 => [ // Cerrado
-            'ver_archivo'        => 'publico',
+            'ver_archivo' => 'publico',
             'emitir_certificado' => 'participante',
-            'gestionar'          => 'gestion',
+            'gestionar' => 'gestion',
         ],
     ];
 
@@ -106,8 +106,8 @@ class CondicionalEstadoCurso
      * Es la única fuente de verdad: la consumen tanto la capacidad que dibuja el
      * botón como la autorización del controlador, para que no puedan divergir.
      *
-     * @param int|string $estadoId
-     * @param bool $esGestor
+     * @param  int|string  $estadoId
+     * @param  bool  $esGestor
      * @return bool
      */
     public function puedeAjustarCertificado($estadoId, $esGestor)
@@ -118,13 +118,13 @@ class CondicionalEstadoCurso
 
     /**
      * Resuelve el conjunto de capacidades para el usuario actual
-     * 
-     * @param int $estadoId ID del estado actual
-     * @param bool $esParticipante Si el usuario está inscrito
-     * @param bool $esOperativo Si el usuario es el facilitador/dueño
-     * @param bool $esGestor Si el usuario tiene permisos administrativos
-     * @param int|null $cuposDisponibles Cantidad de cupos
-     * @param bool $puedeInscribirse Si el usuario tiene el permiso formal de inscripción (RBAC)
+     *
+     * @param  int  $estadoId  ID del estado actual
+     * @param  bool  $esParticipante  Si el usuario está inscrito
+     * @param  bool  $esOperativo  Si el usuario es el facilitador/dueño
+     * @param  bool  $esGestor  Si el usuario tiene permisos administrativos
+     * @param  int|null  $cuposDisponibles  Cantidad de cupos
+     * @param  bool  $puedeInscribirse  Si el usuario tiene el permiso formal de inscripción (RBAC)
      * @return array Lista de capacidades únicas
      */
     public function obtenerCapacidades($estadoId, $esParticipante, $esOperativo, $esGestor, $cuposDisponibles, $puedeInscribirse = true, $puedeVerParticipantes = false)
@@ -137,27 +137,35 @@ class CondicionalEstadoCurso
 
             switch ($contextoRequerido) {
                 case 'gestion':
-                    if ($esGestor) $cumpleContexto = true;
+                    if ($esGestor) {
+                        $cumpleContexto = true;
+                    }
                     break;
                 case 'operativo':
-                    if ($esOperativo) $cumpleContexto = true;
+                    if ($esOperativo) {
+                        $cumpleContexto = true;
+                    }
                     break;
                 case 'participante':
-                    if ($esParticipante) $cumpleContexto = true;
+                    if ($esParticipante) {
+                        $cumpleContexto = true;
+                    }
                     break;
                 case 'publico':
                     // Caso especial para inscripción: debe cumplir contexto público,
                     // tener el permiso RBAC, y NO ser el facilitador del curso
                     if ($capacidad === 'inscribirse') {
-                        if (!$esParticipante && !$esOperativo && ($cuposDisponibles === null || $cuposDisponibles > 0) && $puedeInscribirse) {
+                        if (! $esParticipante && ! $esOperativo && ($cuposDisponibles === null || $cuposDisponibles > 0) && $puedeInscribirse) {
                             $cumpleContexto = true;
                         }
                     } else {
-                        if (!$esParticipante && ($cuposDisponibles === null || $cuposDisponibles > 0)) {
+                        if (! $esParticipante && ($cuposDisponibles === null || $cuposDisponibles > 0)) {
                             $cumpleContexto = true;
                         }
                     }
-                    if ($estadoId == 9) $cumpleContexto = true; // En cerrado todos ven el aviso
+                    if ($estadoId == 9) {
+                        $cumpleContexto = true;
+                    } // En cerrado todos ven el aviso
                     break;
             }
 
@@ -187,10 +195,11 @@ class CondicionalEstadoCurso
             $misCapacidades[] = 'ajustar_certificado';
         }
 
-        // Capacidad de gestionar certificación (Solo Gestor y Operativo, en Finalizado o Cerrado)
+        // Capacidad de gestionar certificación y ver satisfacción (Solo Gestor y Operativo, en Finalizado o Cerrado)
         if ($esGestor || $esOperativo) {
             if (in_array($estadoId, [8, 9])) {
                 $misCapacidades[] = 'gestionar_certificacion';
+                $misCapacidades[] = 'ver_satisfaccion';
             }
         }
 

@@ -10,10 +10,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Modules\Security\Entities\User;
 use Modules\Taller\Entities\ContenidoCurso;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\CursoRequisito;
-use Modules\Security\Entities\User;
 use Modules\Taller\Http\Requests\StoreCursoRequest;
 use Modules\Taller\Http\Requests\StorePaso1Request;
 use Modules\Taller\Http\Requests\StorePaso2Request;
@@ -33,7 +33,7 @@ class CrearCursoController extends BaseController
      */
     public function create()
     {
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
             abort(403, 'No tienes permiso para planificar cursos.');
         }
 
@@ -46,12 +46,11 @@ class CrearCursoController extends BaseController
      * Redirige al paso 1: los slices se capturan por separado con
      * StorePaso1/2/3Request y borrador por usuario.
      *
-     * @param  StoreCursoRequest  $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function store(StoreCursoRequest $request)
     {
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
             abort(403, 'No tienes permiso para planificar cursos.');
         }
 
@@ -92,9 +91,21 @@ class CrearCursoController extends BaseController
 
     private function exigirPermisoCrear(): void
     {
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
             abort(403, 'No tienes permiso para planificar cursos.');
         }
+    }
+
+    /**
+     * Descarta el borrador actual y empieza uno nuevo desde cero.
+     */
+    public function reiniciar()
+    {
+        $this->exigirPermisoCrear();
+        app(\Modules\Taller\Services\BorradorWizardService::class)->reiniciar(Auth::id());
+
+        return redirect()->route('taller.cursos.wizard.paso1.create')
+            ->with('info', 'Se ha iniciado un nuevo borrador en blanco.');
     }
 
     /**
@@ -103,14 +114,25 @@ class CrearCursoController extends BaseController
     public function createPaso1()
     {
         $this->exigirPermisoCrear();
-        $borrador = app(\Modules\Taller\Services\BorradorWizardService::class)->actual(Auth::id());
+        $servicio = app(\Modules\Taller\Services\BorradorWizardService::class);
+        $borrador = $servicio->actual(Auth::id());
         $payload = is_array($borrador->payload) ? $borrador->payload : [];
         $paso1 = $payload['paso1'] ?? [];
         $completados = $this->pasosCompletados($borrador);
+        $tieneBorradorPrevio = ! empty($payload['paso1']) || ! empty($payload['paso2']) || ! empty($payload['contenidos']);
+
+        $fotoUrl = $this->resolverFotoWizardUrl($borrador);
 
         return view('taller::a.CursoCrearPaso1', array_merge(
             $this->catalogosPaso1(),
-            ['paso1' => $paso1, 'pasoActual' => 1, 'completados' => $completados]
+            [
+                'paso1' => $paso1,
+                'pasoActual' => 1,
+                'completados' => $completados,
+                'borrador' => $borrador,
+                'tieneBorradorPrevio' => $tieneBorradorPrevio,
+                'fotoUrl' => $fotoUrl,
+            ]
         ));
     }
 
@@ -124,28 +146,43 @@ class CrearCursoController extends BaseController
         $borrador = $servicio->actual(Auth::id());
 
         $datos = $request->validated();
-        unset($datos['foto']);
+        unset($datos['foto'], $datos['eliminar_foto'], $datos['accion'], $datos['guardar_y_salir']);
 
         // La purga de temporales abandonados la hace el diario
         // taller:limpiar-wizards (respeta tokens con borrador vigente).
         $wizardDir = storage_path('app/public/Certificados/wizard/'.$borrador->token);
         if (! file_exists($wizardDir)) {
-            mkdir($wizardDir, 0755, true);
+            @mkdir($wizardDir, 0775, true);
         }
         // Foto de portada en temporal (extensión según MIME real).
         $fotoPath = $borrador->foto_path;
-        if ($request->hasFile('foto')) {
+
+        if ($request->boolean('eliminar_foto')) {
+            foreach (['png', 'jpg', 'jpeg'] as $ext) {
+                @unlink($wizardDir.'/foto.'.$ext);
+            }
+            $fotoPath = null;
+        } elseif ($request->hasFile('foto')) {
             $extensionFoto = ((string) $request->file('foto')->getMimeType()) === 'image/png' ? 'png' : 'jpg';
             foreach (['png', 'jpg', 'jpeg'] as $ext) {
                 @unlink($wizardDir.'/foto.'.$ext);
             }
             $request->file('foto')->move($wizardDir, 'foto.'.$extensionFoto);
+            @chmod($wizardDir.'/foto.'.$extensionFoto, 0664);
             $fotoPath = 'wizard/'.$borrador->token.'/foto.'.$extensionFoto;
         }
-        file_put_contents($wizardDir.'/datos.json', json_encode($datos, JSON_PRETTY_PRINT));
+
+        if (is_dir($wizardDir) && is_writable($wizardDir)) {
+            @file_put_contents($wizardDir.'/datos.json', json_encode($datos, JSON_PRETTY_PRINT));
+        }
 
         $servicio->guardarSlice(Auth::id(), 'paso1', $datos, 2);
         $servicio->marcarFoto(Auth::id(), $fotoPath);
+
+        if ($request->input('accion') === 'salir' || $request->filled('guardar_y_salir')) {
+            return redirect()->route('taller.cursos.index')
+                ->with('success', 'Borrador guardado exitosamente.');
+        }
 
         return redirect()->route('taller.cursos.wizard.paso2.create')
             ->with('success', 'Identidad guardada. Ahora define fechas, sede y facilitador.');
@@ -188,15 +225,26 @@ class CrearCursoController extends BaseController
             'correlativo' => $proximoCorrelativo,
         ]));
 
+        $catalogos = $this->catalogosPaso1();
+        $mapa = fn ($col, $key) => $col->pluck('abreviatura', $key);
+        $codigoPartes = [
+            'actividad' => $mapa($catalogos['actividades'], 'id_actividad_formativa')[$payload['paso1']['id_actividad_formativa'] ?? 0] ?? '',
+            'aspecto' => $mapa($catalogos['aspectos'], 'id_aspecto')[$payload['paso1']['id_aspecto'] ?? 0] ?? '',
+            'modalidad' => $mapa($catalogos['modalidades'], 'id_modalidad')[$payload['paso1']['id_modalidad'] ?? 0] ?? '',
+            'modEsp' => $mapa($catalogos['modalidadesEspeciales'], 'id_modalidad_especial')[$payload['paso1']['id_modalidad_especial'] ?? 0] ?? '',
+        ];
+
         return view('taller::a.CursoCrearPaso2', [
             'paso2' => $paso2,
             'pasoActual' => 2,
             'completados' => $this->pasosCompletados($borrador),
+            'borrador' => $borrador,
             'facilitadorSel' => $facilitadorSel,
             'facilitadoresIni' => $facilitadoresIni,
             'regiones' => $regiones,
             'proximoCorrelativo' => $proximoCorrelativo,
             'codigoPreview' => $codigoPreview,
+            'codigoPartes' => $codigoPartes,
             'trimestreSugerido' => $this->trimestreDe($paso2['fecha_inicio'] ?? null),
         ]);
     }
@@ -257,7 +305,13 @@ class CrearCursoController extends BaseController
     {
         $this->exigirPermisoCrear();
         $datos = $request->validated();
+        unset($datos['accion'], $datos['guardar_y_salir']);
         app(\Modules\Taller\Services\BorradorWizardService::class)->guardarSlice(Auth::id(), 'paso2', $datos, 3);
+
+        if ($request->input('accion') === 'salir' || $request->filled('guardar_y_salir')) {
+            return redirect()->route('taller.cursos.index')
+                ->with('success', 'Borrador guardado exitosamente.');
+        }
 
         return redirect()->route('taller.cursos.wizard.paso3.create')
             ->with('success', 'Logística guardada. Ahora arma el temario.');
@@ -281,6 +335,7 @@ class CrearCursoController extends BaseController
             'contenidos' => $payload['contenidos'] ?? [],
             'pasoActual' => 3,
             'completados' => $this->pasosCompletados($borrador),
+            'borrador' => $borrador,
             'rango' => [
                 'inicio' => $payload['paso2']['fecha_inicio'] ?? null,
                 'fin' => $payload['paso2']['fecha_fin'] ?? null,
@@ -292,8 +347,14 @@ class CrearCursoController extends BaseController
     {
         $this->exigirPermisoCrear();
         $datos = $request->validated();
+        unset($datos['accion'], $datos['guardar_y_salir']);
         app(\Modules\Taller\Services\BorradorWizardService::class)
             ->guardarSlice(Auth::id(), 'contenidos', $datos['contenidos'] ?? [], 4);
+
+        if ($request->input('accion') === 'salir' || $request->filled('guardar_y_salir')) {
+            return redirect()->route('taller.cursos.index')
+                ->with('success', 'Borrador guardado exitosamente.');
+        }
 
         return redirect()->route('taller.cursos.wizard.plantilla.create')
             ->with('success', 'Temario guardado. Configura el certificado (opcional).');
@@ -353,6 +414,8 @@ class CrearCursoController extends BaseController
             }, $requisitos);
         }
 
+        $fotoUrl = $this->resolverFotoWizardUrl($borrador);
+
         return view('taller::a.CursoRevision', [
             'paso1' => $payload['paso1'],
             'paso2' => $paso2,
@@ -365,7 +428,9 @@ class CrearCursoController extends BaseController
             'estadoCertificado' => $estadoCertificado,
             'esParaMenores' => $esParaMenores,
             'publicoObjetivo' => $modalidadEspecial->nombre ?? 'General',
-            'hayFoto' => is_file($wizardDir.'/foto.png') || is_file($wizardDir.'/foto.jpg') || is_file($wizardDir.'/foto.jpeg'),
+            'hayFoto' => ! empty($fotoUrl),
+            'fotoUrl' => $fotoUrl,
+            'borrador' => $borrador,
         ]);
     }
 
@@ -415,17 +480,21 @@ class CrearCursoController extends BaseController
      */
     public function wizardPlantillaCreate()
     {
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
             abort(403, 'No tienes permiso para planificar cursos.');
         }
 
-        $wizard = session('wizard_curso');
-        if (!$wizard || empty($wizard['token'])) {
-            return redirect()->route('taller.cursos.create')
-                ->withErrors(['error' => 'El proceso de creación expiró. Comienza nuevamente desde el Paso 1.']);
+        $servicio = app(\Modules\Taller\Services\BorradorWizardService::class);
+        $borrador = $servicio->actual(Auth::id());
+        $payload = is_array($borrador->payload) ? $borrador->payload : [];
+
+        if (empty($payload['paso1']) || empty($payload['paso2'])) {
+            return redirect()->route('taller.cursos.wizard.paso1.create')
+                ->withErrors(['error' => 'Completa los pasos previos de identidad y logística antes de configurar el certificado.']);
         }
 
-        $token = $wizard['token'];
+        $servicio->sincronizarSesion($borrador);
+        $token = $borrador->token;
         $config = \Modules\Taller\Services\CertificadoConfig::class;
 
         // --- MANEJO DE IMAGEN DE PLANTILLA CON PREVENCIÓN DE CACHÉ ---
@@ -448,7 +517,7 @@ class CrearCursoController extends BaseController
         }
 
         // Coordenadas del wizard (base → defaults → coords.json del token):
-        // al volver al paso 2 se retoma la calibración, nunca de cero.
+        // al volver al paso 4 se retoma la calibración, nunca de cero.
         $coords = \Modules\Taller\Services\CertificadoConfig::coordsBase();
 
         $defaultsPath = \Modules\Taller\Services\CertificadoConfig::rutaDefaults();
@@ -459,7 +528,7 @@ class CrearCursoController extends BaseController
             }
         }
 
-        $coordsPath = \Modules\Taller\Services\CertificadoConfig::dirWizard($token) . '/coords.json';
+        $coordsPath = \Modules\Taller\Services\CertificadoConfig::dirWizard($token).'/coords.json';
         if (is_file($coordsPath)) {
             $savedCoords = json_decode((string) @file_get_contents($coordsPath), true);
             if (is_array($savedCoords)) {
@@ -467,41 +536,46 @@ class CrearCursoController extends BaseController
             }
         }
 
+        $datosFusionados = array_merge($payload['paso1'] ?? [], $payload['paso2'] ?? []);
         $curso = (object) [
-            'codigo'   => $this->generarCodigoPreview($wizard['datos'] ?? []),
+            'codigo' => $this->generarCodigoPreview($datosFusionados),
             'crypt_id' => '',
-            'nombre'   => $wizard['datos']['nombre'] ?? '',
+            'nombre' => $payload['paso1']['nombre'] ?? '',
         ];
 
         return view('taller::a.CursoPlantillaCrear', compact('curso', 'plantillaUrl', 'coords', 'firmaUrl'))
             ->with('esWizard', true)
             ->with('pasoActual', 4)
-            ->with('completados', $this->pasosCompletados(
-                app(\Modules\Taller\Services\BorradorWizardService::class)->actual(Auth::id())
-            ));
+            ->with('borrador', $borrador)
+            ->with('completados', $this->pasosCompletados($borrador));
     }
 
     /**
-     * Paso 2: Guarda la plantilla/firma/coordenadas en el directorio temporal.
+     * Paso 4: Guarda la plantilla/firma/coordenadas en el directorio temporal.
      *
-     * @param  Request  $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function wizardPlantillaStore(Request $request)
     {
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
             abort(403, 'No tienes permiso para planificar cursos.');
         }
 
-        $wizard = session('wizard_curso');
-        if (!$wizard || empty($wizard['token'])) {
+        $servicio = app(\Modules\Taller\Services\BorradorWizardService::class);
+        $borrador = $servicio->actual(Auth::id());
+        $payload = is_array($borrador->payload) ? $borrador->payload : [];
+
+        if (empty($payload['paso1']) || empty($payload['paso2'])) {
             if ($request->wantsJson()) {
-                return response()->json(['ok' => false, 'error' => 'El proceso de creación expiró.'], 419);
+                return response()->json(['ok' => false, 'error' => 'Completa primero los pasos previos.'], 422);
             }
 
-            return redirect()->route('taller.cursos.create')
-                ->withErrors(['error' => 'El proceso de creación expiró. Comienza nuevamente desde el Paso 1.']);
+            return redirect()->route('taller.cursos.wizard.paso1.create')
+                ->withErrors(['error' => 'Completa los pasos previos de identidad y logística.']);
         }
+
+        $servicio->sincronizarSesion($borrador);
+        $token = $borrador->token;
 
         // Autoguardado del editor (fetch JSON): solo coordenadas, sin
         // redirect. Los archivos se suben con el submit clásico.
@@ -512,7 +586,7 @@ class CrearCursoController extends BaseController
                 return response()->json(['ok' => false, 'error' => $errorCoords], 422);
             }
 
-            $wizardDir = storage_path('app/public/Certificados/wizard/'.$wizard['token']);
+            $wizardDir = storage_path('app/public/Certificados/wizard/'.$token);
             if (! file_exists($wizardDir)) {
                 mkdir($wizardDir, 0755, true);
             }
@@ -526,8 +600,8 @@ class CrearCursoController extends BaseController
             return $redireccion;
         }
 
-        $wizardDir = storage_path('app/public/Certificados/wizard/' . $wizard['token']);
-        if (!file_exists($wizardDir)) {
+        $wizardDir = storage_path('app/public/Certificados/wizard/'.$token);
+        if (! file_exists($wizardDir)) {
             mkdir($wizardDir, 0755, true);
         }
 
@@ -536,8 +610,8 @@ class CrearCursoController extends BaseController
         if ($request->hasFile('plantilla')) {
             $mime = (string) $request->file('plantilla')->getMimeType();
             $extension = $mime === 'image/png' ? 'png' : 'jpg';
-            $this->eliminarVariantes($wizardDir . '/plantilla.', $extension);
-            $request->file('plantilla')->move($wizardDir, 'plantilla.' . $extension);
+            $this->eliminarVariantes($wizardDir.'/plantilla.', $extension);
+            $request->file('plantilla')->move($wizardDir, 'plantilla.'.$extension);
         }
 
         // Guardar firma con su extensión real en minúsculas (MIME, no la que diga el nombre).
@@ -545,8 +619,8 @@ class CrearCursoController extends BaseController
             $mime = (string) $request->file('firma')->getMimeType();
             $extension = $mime === 'image/png' ? 'png' : 'jpg';
             // Eliminar firmas previas con otras extensiones para evitar duplicidad de firmas
-            $this->eliminarVariantes($wizardDir . '/firma.', $extension);
-            $request->file('firma')->move($wizardDir, 'firma.' . $extension);
+            $this->eliminarVariantes($wizardDir.'/firma.', $extension);
+            $request->file('firma')->move($wizardDir, 'firma.'.$extension);
         }
 
         // Guardar coordenadas si se enviaron (validadas contra la hoja A4).
@@ -557,22 +631,27 @@ class CrearCursoController extends BaseController
                 return back()->withInput()->with('error', $errorCoords);
             }
 
-            file_put_contents($wizardDir . '/coords.json', $request->coords);
+            file_put_contents($wizardDir.'/coords.json', $request->coords);
 
             // Guardar como predeterminado global: solo gestión (son coordenadas de la institución).
             if ($request->has('guardar_default')) {
-                if (!hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
+                if (! hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
                     Log::warning('Intento de guardar coordenadas globales sin permiso (wizard)', [
                         'usuario' => Auth::id(),
                     ]);
                 } else {
                     $defaultsDir = storage_path('app/public/Certificados');
-                    if (!file_exists($defaultsDir)) {
+                    if (! file_exists($defaultsDir)) {
                         mkdir($defaultsDir, 0755, true);
                     }
-                    file_put_contents($defaultsDir . '/defaults.json', $request->coords);
+                    file_put_contents($defaultsDir.'/defaults.json', $request->coords);
                 }
             }
+        }
+
+        if ($request->input('accion') === 'salir' || $request->filled('guardar_y_salir')) {
+            return redirect()->route('taller.cursos.index')
+                ->with('success', 'Borrador guardado exitosamente.');
         }
 
         return redirect()->route('taller.cursos.wizard.requisitos.create')
@@ -583,12 +662,11 @@ class CrearCursoController extends BaseController
      * Finaliza el wizard: crea el curso en BD (POR_ACEPTAR) y mueve los
      * archivos temporales a su ubicación definitiva.
      *
-     * @param  Request  $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function finalizar(Request $request)
     {
-        if (!hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
             abort(403, 'No tienes permiso para planificar cursos.');
         }
 
@@ -674,7 +752,7 @@ class CrearCursoController extends BaseController
             'cantidad_cupos' => $validatedData['cantidad_cupos'] ?? null,
             'telegram' => $validatedData['telegram'] ?? null,
             'direccion_corta' => $validatedData['direccion_corta'],
-            'es_nacional' => !empty($validatedData['es_nacional']),
+            'es_nacional' => ! empty($validatedData['es_nacional']),
             'fecha_inicio' => $validatedData['fecha_inicio'],
             'fecha_fin' => $validatedData['fecha_fin'],
             'creado_por' => Auth::id(),
@@ -682,188 +760,188 @@ class CrearCursoController extends BaseController
         ];
 
         while (true) {
-        try {
-            DB::beginTransaction();
+            try {
+                DB::beginTransaction();
 
-            $curso = Curso::create($cursoData);
+                $curso = Curso::create($cursoData);
 
-            // Sincronizar múltiples localidades (Estados)
-            if (!empty($cursoData['es_nacional'])) {
-                $curso->localidades()->sync([]);
-            } elseif (isset($validatedData['localidades'])) {
-                $curso->localidades()->sync($validatedData['localidades']);
-            }
-
-            // Asignar estado inicial: Por Aceptar (completó los 3 pasos)
-            $curso->agregarEstado(EstadoCurso::POR_ACEPTAR->value);
-
-            Log::info('Curso creado', ['curso_id' => $curso->id_curso, 'creado_por' => Auth::id()]);
-
-            // Guardar contenidos si existen (temario de creación: nunca evaluaciones).
-            if (isset($validatedData['contenidos']) && is_array($validatedData['contenidos'])) {
-                foreach ($validatedData['contenidos'] as $contenidoData) {
-                    $dataToSave = [
-                        'titulo' => $contenidoData['titulo'],
-                        'descripcion' => $contenidoData['descripcion_breve'] ?? '',
-                        'descripcion_breve' => $contenidoData['descripcion_breve'] ?? '',
-                        'url_contenido' => $contenidoData['url_contenido'] ?? null,
-                        'fecha_contenido' => $contenidoData['fecha_contenido'] ?? null,
-                        'hora_inicio' => $contenidoData['hora_inicio'] ?? null,
-                        'hora_fin' => $contenidoData['hora_fin'] ?? null,
-                        'es_evaluacion' => false,
-                        'id_tipo_evaluacion' => null,
-                        'ponderacion' => 0,
-                        'id_curso' => $curso->id_curso,
-                        'creado_por' => Auth::id(),
-                    ];
-
-                    ContenidoCurso::create($dataToSave);
+                // Sincronizar múltiples localidades (Estados)
+                if (! empty($cursoData['es_nacional'])) {
+                    $curso->localidades()->sync([]);
+                } elseif (isset($validatedData['localidades'])) {
+                    $curso->localidades()->sync($validatedData['localidades']);
                 }
-            }
 
-            // Guardar requisitos ya re-validados en el pre-flight.
-            if (!empty($requisitosValidados)) {
-                foreach ($requisitosValidados as $req) {
-                    CursoRequisito::create([
-                        'id_curso' => $curso->id_curso,
-                        'tipo' => $req['tipo'],
-                        'titulo' => $req['titulo'],
-                        'descripcion' => $req['descripcion'] ?? null,
-                        'obligatorio' => isset($req['obligatorio']) ? (bool) $req['obligatorio'] : true,
+                // Asignar estado inicial: Por Aceptar (completó los 3 pasos)
+                $curso->agregarEstado(EstadoCurso::POR_ACEPTAR->value);
+
+                Log::info('Curso creado', ['curso_id' => $curso->id_curso, 'creado_por' => Auth::id()]);
+
+                // Guardar contenidos si existen (temario de creación: nunca evaluaciones).
+                if (isset($validatedData['contenidos']) && is_array($validatedData['contenidos'])) {
+                    foreach ($validatedData['contenidos'] as $contenidoData) {
+                        $dataToSave = [
+                            'titulo' => $contenidoData['titulo'],
+                            'descripcion' => $contenidoData['descripcion_breve'] ?? '',
+                            'descripcion_breve' => $contenidoData['descripcion_breve'] ?? '',
+                            'url_contenido' => $contenidoData['url_contenido'] ?? null,
+                            'fecha_contenido' => $contenidoData['fecha_contenido'] ?? null,
+                            'hora_inicio' => $contenidoData['hora_inicio'] ?? null,
+                            'hora_fin' => $contenidoData['hora_fin'] ?? null,
+                            'es_evaluacion' => false,
+                            'id_tipo_evaluacion' => null,
+                            'ponderacion' => 0,
+                            'id_curso' => $curso->id_curso,
+                            'creado_por' => Auth::id(),
+                        ];
+
+                        ContenidoCurso::create($dataToSave);
+                    }
+                }
+
+                // Guardar requisitos ya re-validados en el pre-flight.
+                if (! empty($requisitosValidados)) {
+                    foreach ($requisitosValidados as $req) {
+                        CursoRequisito::create([
+                            'id_curso' => $curso->id_curso,
+                            'tipo' => $req['tipo'],
+                            'titulo' => $req['titulo'],
+                            'descripcion' => $req['descripcion'] ?? null,
+                            'obligatorio' => isset($req['obligatorio']) ? (bool) $req['obligatorio'] : true,
+                        ]);
+                    }
+                }
+
+                // Guardar foto de presentación en su ubicación definitiva
+                $rutaImagen = $this->moverArchivosFoto($wizard['token'], $curso->id_curso);
+                if ($rutaImagen) {
+                    $curso->update(['imagen' => $rutaImagen]);
+                }
+
+                // Copiar los archivos temporales a la carpeta definitiva del curso.
+                // OJO: aquí NO se borra el wizard. Si el commit falla, el catch
+                // revierte la BD y necesita los originales para compensar.
+                $this->copiarArchivosPlantilla($wizard['token'], $curso->id_curso);
+
+                // Se lee el estado del certificado con los archivos ya en su carpeta
+                // definitiva. Omitir la calibración es una vía legítima del wizard
+                // ("Omitir calibración"), y ahí es donde nace un curso sin
+                // certificado: sin este dato el guardado se celebraría en silencio.
+                $estadoCertificado = $curso->estadoCertificado();
+
+                DB::commit();
+                $committeado = true;
+
+                // El curso ya está confirmado en la BD: ahora sí se descarta el temporal.
+                // Todo lo que sigue es limpieza y no admite compensación.
+                $this->eliminarDirectorio($this->wizardCertificadosDir($wizard['token']));
+
+                // Limpiar el borrador del usuario y la sesión del wizard
+                $servicioBorrador->eliminar($borrador);
+
+                // El curso ya está guardado: lo que sigue solo informa. Si quedó sin
+                // certificado, el aviso tiene que decirlo en vez de celebrar un
+                // guardado que el usuario va a descubrir incompleto más tarde.
+                if ($estadoCertificado !== EstadoCertificado::CONFIGURADO) {
+                    return redirect()->route('taller.cursos.index')
+                        ->with('warning', $this->avisoCertificadoIncompleto($curso, $estadoCertificado));
+                }
+
+                return redirect()->route('taller.cursos.index')
+                    ->with('success', 'Curso "'.$curso->nombre.'" y sus requisitos configurados exitosamente.');
+
+            } catch (\Illuminate\Database\QueryException $e) {
+                if ($committeado) {
+                    // El curso ya está en la BD y solo falló la limpieza de
+                    // temporales. No se revierte ni se borran sus archivos: se
+                    // informa con un único aviso, que no contradice al éxito.
+                    Log::warning('Curso creado; falló solo la limpieza de temporales', [
+                        'mensaje' => $e->getMessage(),
+                        'clase' => get_class($e),
+                        'archivo' => $e->getFile().':'.$e->getLine(),
+                        'id_curso' => $curso->id_curso ?? null,
+                        'token_wizard' => $wizard['token'] ?? null,
                     ]);
+
+                    return redirect()->route('taller.cursos.index')
+                        ->with('warning', 'El curso "'.($curso->nombre ?? '').'" y sus requisitos se guardaron correctamente, pero no se pudo limpiar una carpeta temporal del certificado. No afecta al curso.');
                 }
-            }
 
-            // Guardar foto de presentación en su ubicación definitiva
-            $rutaImagen = $this->moverArchivosFoto($wizard['token'], $curso->id_curso);
-            if ($rutaImagen) {
-                $curso->update(['imagen' => $rutaImagen]);
-            }
+                $this->revertirTransaccion();
 
-            // Copiar los archivos temporales a la carpeta definitiva del curso.
-            // OJO: aquí NO se borra el wizard. Si el commit falla, el catch
-            // revierte la BD y necesita los originales para compensar.
-            $this->copiarArchivosPlantilla($wizard['token'], $curso->id_curso);
+                // DB::rollBack() solo revierte filas. Las copias que se hubieran hecho
+                // para este id_curso quedarían huérfanas, así que se limpian aquí.
+                if (isset($curso) && $curso instanceof Curso && $curso->id_curso) {
+                    $this->eliminarArchivosPlantillaCurso($curso->id_curso);
+                    $this->eliminarFotoCurso($curso->id_curso);
+                }
 
-            // Se lee el estado del certificado con los archivos ya en su carpeta
-            // definitiva. Omitir la calibración es una vía legítima del wizard
-            // ("Omitir calibración"), y ahí es donde nace un curso sin
-            // certificado: sin este dato el guardado se celebraría en silencio.
-            $estadoCertificado = $curso->estadoCertificado();
+                // Colisión de código PROCINEC: la tx ya se revirtió, el siguiente
+                // intento arranca una tx fresca (en PG reintentar dentro de la
+                // misma tx abortada nunca funciona).
+                if (self::esCodigoDuplicado($e) && ++$intentos < 3) {
+                    $cursoData['correlativo'] = (int) $cursoData['correlativo'] + 1;
+                    $curso = null;
 
-            DB::commit();
-            $committeado = true;
+                    Log::warning('Colisión de código PROCINEC al crear curso, reintentando', [
+                        'intento' => $intentos,
+                        'correlativo' => $cursoData['correlativo'],
+                    ]);
 
-            // El curso ya está confirmado en la BD: ahora sí se descarta el temporal.
-            // Todo lo que sigue es limpieza y no admite compensación.
-            $this->eliminarDirectorio($this->wizardCertificadosDir($wizard['token']));
+                    continue;
+                }
 
-            // Limpiar el borrador del usuario y la sesión del wizard
-            $servicioBorrador->eliminar($borrador);
-
-            // El curso ya está guardado: lo que sigue solo informa. Si quedó sin
-            // certificado, el aviso tiene que decirlo en vez de celebrar un
-            // guardado que el usuario va a descubrir incompleto más tarde.
-            if ($estadoCertificado !== EstadoCertificado::CONFIGURADO) {
-                return redirect()->route('taller.cursos.index')
-                    ->with('warning', $this->avisoCertificadoIncompleto($curso, $estadoCertificado));
-            }
-
-            return redirect()->route('taller.cursos.index')
-                ->with('success', 'Curso "' . $curso->nombre . '" y sus requisitos configurados exitosamente.');
-
-        } catch (\Illuminate\Database\QueryException $e) {
-            if ($committeado) {
-                // El curso ya está en la BD y solo falló la limpieza de
-                // temporales. No se revierte ni se borran sus archivos: se
-                // informa con un único aviso, que no contradice al éxito.
-                Log::warning('Curso creado; falló solo la limpieza de temporales', [
+                Log::error('Error al crear curso', [
                     'mensaje' => $e->getMessage(),
                     'clase' => get_class($e),
-                    'archivo' => $e->getFile() . ':' . $e->getLine(),
-                    'id_curso' => $curso->id_curso ?? null,
+                    'archivo' => $e->getFile().':'.$e->getLine(),
+                    'id_curso_parcial' => $curso->id_curso ?? null,
                     'token_wizard' => $wizard['token'] ?? null,
                 ]);
 
-                return redirect()->route('taller.cursos.index')
-                    ->with('warning', 'El curso "' . ($curso->nombre ?? '') . '" y sus requisitos se guardaron correctamente, pero no se pudo limpiar una carpeta temporal del certificado. No afecta al curso.');
-            }
+                // El detalle técnico solo va al log: un getMessage() de Postgres
+                // expone nombres de tabla y columna al usuario.
+                return back()
+                    ->withErrors(['error' => 'Ocurrió un error al crear el curso y no se guardó nada. Revisa los datos e inténtalo de nuevo.']);
+            } catch (\Throwable $e) {
+                if ($committeado) {
+                    Log::warning('Curso creado; falló solo la limpieza de temporales', [
+                        'mensaje' => $e->getMessage(),
+                        'clase' => get_class($e),
+                        'archivo' => $e->getFile().':'.$e->getLine(),
+                        'id_curso' => $curso->id_curso ?? null,
+                        'token_wizard' => $wizard['token'] ?? null,
+                    ]);
 
-            $this->revertirTransaccion();
+                    return redirect()->route('taller.cursos.index')
+                        ->with('warning', 'El curso "'.($curso->nombre ?? '').'" y sus requisitos se guardaron correctamente, pero no se pudo limpiar una carpeta temporal del certificado. No afecta al curso.');
+                }
 
-            // DB::rollBack() solo revierte filas. Las copias que se hubieran hecho
-            // para este id_curso quedarían huérfanas, así que se limpian aquí.
-            if (isset($curso) && $curso instanceof Curso && $curso->id_curso) {
-                $this->eliminarArchivosPlantillaCurso($curso->id_curso);
-                $this->eliminarFotoCurso($curso->id_curso);
-            }
+                $this->revertirTransaccion();
 
-            // Colisión de código PROCINEC: la tx ya se revirtió, el siguiente
-            // intento arranca una tx fresca (en PG reintentar dentro de la
-            // misma tx abortada nunca funciona).
-            if (self::esCodigoDuplicado($e) && ++$intentos < 3) {
-                $cursoData['correlativo'] = (int) $cursoData['correlativo'] + 1;
-                $curso = null;
+                if (isset($curso) && $curso instanceof Curso && $curso->id_curso) {
+                    $this->eliminarArchivosPlantillaCurso($curso->id_curso);
+                    $this->eliminarFotoCurso($curso->id_curso);
+                }
 
-                Log::warning('Colisión de código PROCINEC al crear curso, reintentando', [
-                    'intento' => $intentos,
-                    'correlativo' => $cursoData['correlativo'],
-                ]);
-
-                continue;
-            }
-
-            Log::error('Error al crear curso', [
-                'mensaje' => $e->getMessage(),
-                'clase' => get_class($e),
-                'archivo' => $e->getFile() . ':' . $e->getLine(),
-                'id_curso_parcial' => $curso->id_curso ?? null,
-                'token_wizard' => $wizard['token'] ?? null,
-            ]);
-
-            // El detalle técnico solo va al log: un getMessage() de Postgres
-            // expone nombres de tabla y columna al usuario.
-            return back()
-                ->withErrors(['error' => 'Ocurrió un error al crear el curso y no se guardó nada. Revisa los datos e inténtalo de nuevo.']);
-        } catch (\Throwable $e) {
-            if ($committeado) {
-                Log::warning('Curso creado; falló solo la limpieza de temporales', [
+                Log::error('Error al crear curso', [
                     'mensaje' => $e->getMessage(),
                     'clase' => get_class($e),
-                    'archivo' => $e->getFile() . ':' . $e->getLine(),
-                    'id_curso' => $curso->id_curso ?? null,
+                    'archivo' => $e->getFile().':'.$e->getLine(),
+                    'id_curso_parcial' => $curso->id_curso ?? null,
                     'token_wizard' => $wizard['token'] ?? null,
                 ]);
 
-                return redirect()->route('taller.cursos.index')
-                    ->with('warning', 'El curso "' . ($curso->nombre ?? '') . '" y sus requisitos se guardaron correctamente, pero no se pudo limpiar una carpeta temporal del certificado. No afecta al curso.');
+                return back()
+                    ->withErrors(['error' => 'Ocurrió un error al crear el curso y no se guardó nada. Revisa los datos e inténtalo de nuevo.']);
             }
-
-            $this->revertirTransaccion();
-
-            if (isset($curso) && $curso instanceof Curso && $curso->id_curso) {
-                $this->eliminarArchivosPlantillaCurso($curso->id_curso);
-                $this->eliminarFotoCurso($curso->id_curso);
-            }
-
-            Log::error('Error al crear curso', [
-                'mensaje' => $e->getMessage(),
-                'clase' => get_class($e),
-                'archivo' => $e->getFile() . ':' . $e->getLine(),
-                'id_curso_parcial' => $curso->id_curso ?? null,
-                'token_wizard' => $wizard['token'] ?? null,
-            ]);
-
-            return back()
-                ->withErrors(['error' => 'Ocurrió un error al crear el curso y no se guardó nada. Revisa los datos e inténtalo de nuevo.']);
-        }
         } // while: reintento con tx fresca ante colisión uq_cursos_codigo.
     }
 
     /**
      * Muestra el formulario para cargar la plantilla del certificado (curso ya existente)
      *
-     * @param int|string $id_curso
+     * @param  int|string  $id_curso
      * @return \Illuminate\View\View
      */
     /**
@@ -877,7 +955,7 @@ class CrearCursoController extends BaseController
         $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
         $estadoId = $curso->estado_actual->id_estado ?? 0;
 
-        if (!app(CondicionalEstadoCurso::class)->puedeAjustarCertificado($estadoId, $esGestor)) {
+        if (! app(CondicionalEstadoCurso::class)->puedeAjustarCertificado($estadoId, $esGestor)) {
             abort(403, 'No tienes permiso para ajustar el certificado de este curso.');
         }
     }
@@ -889,10 +967,10 @@ class CrearCursoController extends BaseController
 
         // --- MANEJO DE IMAGEN DE PLANTILLA CON PREVENCIÓN DE CACHÉ ---
         $plantillaPath = \Modules\Taller\Services\CertificadoConfig::rutaPlantilla($curso->id_curso);
-        $esGlobal = $plantillaPath !== null && !str_contains($plantillaPath, '/cursos/');
+        $esGlobal = $plantillaPath !== null && ! str_contains($plantillaPath, '/cursos/');
 
         $plantillaUrl = null;
-        if ($plantillaPath !== null && !$esGlobal) {
+        if ($plantillaPath !== null && ! $esGlobal) {
             // Agregamos ?v=timestamp para obligar al navegador a refrescar la imagen
             $plantillaUrl = $this->plantillaUrl('curso', $curso->id_curso, $plantillaPath);
         } elseif ($plantillaPath !== null) {
@@ -917,8 +995,7 @@ class CrearCursoController extends BaseController
     /**
      * Almacena la plantilla del certificado de un curso ya existente (Paso 2)
      *
-     * @param Request $request
-     * @param int|string $id_curso
+     * @param  int|string  $id_curso
      * @return \Illuminate\Http\RedirectResponse
      */
     public function plantillaStore(Request $request, $id_curso)
@@ -961,29 +1038,29 @@ class CrearCursoController extends BaseController
                 $coords = $imagenes->coordsAjustadas($coords);
             }
 
-            file_put_contents($destinationPath . '/' . $curso->id_curso . '.json', json_encode($coords));
+            file_put_contents($destinationPath.'/'.$curso->id_curso.'.json', json_encode($coords));
 
             // Guardar como predeterminado global: solo gestión (son coordenadas de la institución).
             // Se guarda la versión ya recorrida si hubo auto-ajuste de la plantilla.
             if ($request->has('guardar_default')) {
-                if (!hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
+                if (! hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
                     Log::warning('Intento de guardar coordenadas globales sin permiso', [
                         'id_curso' => $curso->id_curso,
                         'usuario' => Auth::id(),
                     ]);
                 } else {
                     $defaultsDir = storage_path('app/public/Certificados');
-                    if (!file_exists($defaultsDir)) {
+                    if (! file_exists($defaultsDir)) {
                         mkdir($defaultsDir, 0755, true);
                     }
-                    file_put_contents($defaultsDir . '/defaults.json', json_encode($coords));
+                    file_put_contents($defaultsDir.'/defaults.json', json_encode($coords));
                 }
             }
         }
 
         $mensaje = 'Certificado actualizado exitosamente.';
         if ($imagenes->fueAjustada() && $imagenes->detalleAjuste() !== null) {
-            $mensaje .= ' ' . $imagenes->detalleAjuste();
+            $mensaje .= ' '.$imagenes->detalleAjuste();
         }
 
         // "Probar Emisión" envía el formulario para guardar las imágenes y
@@ -1010,8 +1087,6 @@ class CrearCursoController extends BaseController
      * "pero" en la misma oración vuelve el texto incoherente, y el PDF sale
      * distinto según lo que falte, así que cada estado necesita el suyo.
      *
-     * @param  Curso  $curso
-     * @param  EstadoCertificado  $estado
      * @return string
      */
     private function avisoCertificadoIncompleto(Curso $curso, EstadoCertificado $estado)
@@ -1027,9 +1102,9 @@ class CrearCursoController extends BaseController
             ],
         };
 
-        return 'El curso "' . $curso->nombre . '" y sus requisitos se guardaron correctamente. '
-            . 'Queda pendiente ' . $pendiente . '. ' . $comoSaldra . '. '
-            . 'Puedes completarlo desde la ficha del curso, con "Ajustar Certificado".';
+        return 'El curso "'.$curso->nombre.'" y sus requisitos se guardaron correctamente. '
+            .'Queda pendiente '.$pendiente.'. '.$comoSaldra.'. '
+            .'Puedes completarlo desde la ficha del curso, con "Ajustar Certificado".';
     }
 
     /**
@@ -1039,15 +1114,15 @@ class CrearCursoController extends BaseController
      * pantalla de error), se captura el primer mensaje y se devuelve un flash
      * 'error', que el layout convierte en un Swal con el texto exacto.
      *
-     * @return \Illuminate\Http\RedirectResponse|null  null si todo es válido
+     * @return \Illuminate\Http\RedirectResponse|null null si todo es válido
      */
     private function validarImagenesCertificado(Request $request)
     {
         try {
             $request->validate([
                 'plantilla' => ['nullable', 'image', 'mimes:png,jpg,jpeg', ImagenCertificado::plantilla()],
-                'firma'     => ['nullable', 'image', 'mimes:png,jpg,jpeg', ImagenCertificado::firma()],
-                'coords'    => 'nullable|json',
+                'firma' => ['nullable', 'image', 'mimes:png,jpg,jpeg', ImagenCertificado::firma()],
+                'coords' => 'nullable|json',
                 'guardar_default' => 'nullable',
             ]);
         } catch (ValidationException $e) {
@@ -1071,7 +1146,7 @@ class CrearCursoController extends BaseController
      * la imagen no cargaba y el editor calibraba sobre un lienzo en blanco.
      *
      * @param  string  $tipo  'global', 'curso' o 'wizard'
-     * @param  string  $ref   id del curso o token del wizard
+     * @param  string  $ref  id del curso o token del wizard
      * @param  string|null  $cacheBustFrom  Archivo cuyo mtime se usa para invalidar caché
      * @return string
      */
@@ -1082,7 +1157,7 @@ class CrearCursoController extends BaseController
             : route('taller.certificados.plantilla.ver', ['tipo' => $tipo, 'ref' => $ref]);
 
         if ($cacheBustFrom && file_exists($cacheBustFrom)) {
-            $url .= '?v=' . filemtime($cacheBustFrom);
+            $url .= '?v='.filemtime($cacheBustFrom);
         }
 
         return $url;
@@ -1092,7 +1167,7 @@ class CrearCursoController extends BaseController
      * URL de la firma del certificado, servida por la aplicación.
      *
      * @param  string  $tipo  'curso' o 'wizard'
-     * @param  string  $ref   id del curso o token del wizard
+     * @param  string  $ref  id del curso o token del wizard
      * @param  string|null  $cacheBustFrom  Archivo cuyo mtime se usa para invalidar caché
      * @return string
      */
@@ -1101,10 +1176,90 @@ class CrearCursoController extends BaseController
         $url = route('taller.certificados.firma.ver', ['tipo' => $tipo, 'ref' => $ref]);
 
         if ($cacheBustFrom && file_exists($cacheBustFrom)) {
-            $url .= '?v=' . filemtime($cacheBustFrom);
+            $url .= '?v='.filemtime($cacheBustFrom);
         }
 
         return $url;
+    }
+
+    /**
+     * Sirve la foto de portada del wizard de forma segura sin depender del symlink public/storage
+     * ni caer en la trampa de estáticos de Nginx (location ~* \.(png|jpg)$).
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function verFotoWizard(string $token)
+    {
+        $this->exigirPermisoCrear();
+
+        $fotoPath = $this->resolverFotoWizardRuta($token);
+        if (! $fotoPath || ! is_file($fotoPath)) {
+            abort(404);
+        }
+
+        $baseDir = realpath(storage_path('app/public/Certificados/wizard'));
+        $realPath = realpath($fotoPath);
+        if ($baseDir === false || $realPath === false || ! str_starts_with($realPath, $baseDir.DIRECTORY_SEPARATOR)) {
+            abort(404);
+        }
+
+        $mime = \Illuminate\Support\Facades\File::mimeType($realPath);
+        if (! in_array($mime, ['image/png', 'image/jpeg'], true)) {
+            abort(404);
+        }
+
+        $file = \Illuminate\Support\Facades\File::get($realPath);
+        $lastModified = filemtime($realPath);
+        $etag = '"'.md5($file).'"';
+
+        if (trim((string) request()->header('If-None-Match')) === $etag) {
+            return response(null, 304)
+                ->header('ETag', $etag)
+                ->header('Cache-Control', 'public, max-age=86400');
+        }
+
+        return response($file, 200)
+            ->header('Content-Type', $mime)
+            ->header('ETag', $etag)
+            ->header('Last-Modified', gmdate('D, d M Y H:i:s', $lastModified).' GMT')
+            ->header('Cache-Control', 'public, max-age=86400');
+    }
+
+    /**
+     * Resuelve la URL pública (ruta controlada sin extensión) para la foto del wizard con cache-busting.
+     */
+    private function resolverFotoWizardUrl($borrador): ?string
+    {
+        $fotoPath = $this->resolverFotoWizardRuta($borrador->token, $borrador->foto_path);
+        if (! $fotoPath) {
+            return null;
+        }
+
+        return route('taller.cursos.wizard.foto', ['token' => $borrador->token])
+            .'?v='.filemtime($fotoPath);
+    }
+
+    /**
+     * Resuelve la ruta física del archivo de foto de un wizard.
+     */
+    private function resolverFotoWizardRuta(string $token, ?string $fotoPathRelativa = null): ?string
+    {
+        $wizardDir = storage_path('app/public/Certificados/wizard/'.$token);
+        foreach (['png', 'jpg', 'jpeg'] as $ext) {
+            $p = $wizardDir.'/foto.'.$ext;
+            if (is_file($p)) {
+                return $p;
+            }
+        }
+
+        if (! empty($fotoPathRelativa)) {
+            $p = storage_path('app/public/Certificados/'.$fotoPathRelativa);
+            if (is_file($p)) {
+                return $p;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1113,7 +1268,6 @@ class CrearCursoController extends BaseController
      * Usa los mapas id→abreviatura de los catálogos cacheados: cero queries
      * extra por render (antes eran hasta 4 finds por llamada).
      *
-     * @param array $datos
      * @return string
      */
     private function generarCodigoPreview(array $datos)
@@ -1144,7 +1298,7 @@ class CrearCursoController extends BaseController
      */
     private function wizardCertificadosDir($token)
     {
-        return storage_path('app/public/Certificados/wizard/' . $token);
+        return storage_path('app/public/Certificados/wizard/'.$token);
     }
 
     /**
@@ -1153,8 +1307,8 @@ class CrearCursoController extends BaseController
      * No borra el temporal: esa limpieza ocurre en finalizar() después de
      * DB::commit(), para que un fallo no destruya lo que el usuario subió.
      *
-     * @param string $token
-     * @param int $id_curso
+     * @param  string  $token
+     * @param  int  $id_curso
      * @return void
      */
     /**
@@ -1163,7 +1317,7 @@ class CrearCursoController extends BaseController
      */
     private function eliminarVariantes($prefijoSinExtension, $conservarExtension)
     {
-        foreach (glob($prefijoSinExtension . '*') ?: [] as $ruta) {
+        foreach (glob($prefijoSinExtension.'*') ?: [] as $ruta) {
             if (is_file($ruta) && strtolower((string) pathinfo($ruta, PATHINFO_EXTENSION)) !== strtolower($conservarExtension)) {
                 @unlink($ruta);
             }
@@ -1174,7 +1328,7 @@ class CrearCursoController extends BaseController
     {
         $wizardDir = $this->wizardCertificadosDir($token);
         $destPath = storage_path('app/public/Certificados/cursos');
-        if (!file_exists($destPath)) {
+        if (! file_exists($destPath)) {
             mkdir($destPath, 0755, true);
         }
 
@@ -1185,17 +1339,17 @@ class CrearCursoController extends BaseController
         $plantilla = $config::buscarPrimero($wizardDir, 'plantilla');
         if ($plantilla !== null) {
             $extension = strtolower((string) pathinfo($plantilla, PATHINFO_EXTENSION));
-            $this->copiarArchivo($plantilla, $destPath . '/' . $id_curso . '.' . $extension);
+            $this->copiarArchivo($plantilla, $destPath.'/'.$id_curso.'.'.$extension);
         }
 
         $firma = $config::buscarPrimero($wizardDir, 'firma');
         if ($firma !== null) {
             $extension = strtolower((string) pathinfo($firma, PATHINFO_EXTENSION));
-            $this->copiarArchivo($firma, $destPath . '/' . $id_curso . '_firma.' . $extension);
+            $this->copiarArchivo($firma, $destPath.'/'.$id_curso.'_firma.'.$extension);
         }
 
-        if (file_exists($wizardDir . '/coords.json')) {
-            $this->copiarArchivo($wizardDir . '/coords.json', $destPath . '/' . $id_curso . '.json');
+        if (file_exists($wizardDir.'/coords.json')) {
+            $this->copiarArchivo($wizardDir.'/coords.json', $destPath.'/'.$id_curso.'.json');
         }
     }
 
@@ -1252,14 +1406,14 @@ class CrearCursoController extends BaseController
      */
     private function copiarArchivo($origen, $destino)
     {
-        if (!@copy($origen, $destino)) {
-            throw new \RuntimeException('No se pudo guardar el archivo del certificado en ' . basename($destino) . '. Revisa los permisos de escritura.');
+        if (! @copy($origen, $destino)) {
+            throw new \RuntimeException('No se pudo guardar el archivo del certificado en '.basename($destino).'. Revisa los permisos de escritura.');
         }
 
         clearstatcache();
-        if (!is_file($destino) || filesize($destino) !== filesize($origen)) {
+        if (! is_file($destino) || filesize($destino) !== filesize($origen)) {
             @unlink($destino);
-            throw new \RuntimeException('La copia de ' . basename($destino) . ' quedó incompleta.');
+            throw new \RuntimeException('La copia de '.basename($destino).' quedó incompleta.');
         }
     }
 
@@ -1299,8 +1453,8 @@ class CrearCursoController extends BaseController
     /**
      * Mueve la foto de presentación del wizard a la carpeta pública definitiva.
      *
-     * @param string $token
-     * @param int $id_curso
+     * @param  string  $token
+     * @param  int  $id_curso
      * @return string|null Ruta pública relativa, o null si no hay foto
      */
     private function moverArchivosFoto($token, $id_curso)
@@ -1308,26 +1462,33 @@ class CrearCursoController extends BaseController
         $wizardDir = $this->wizardCertificadosDir($token);
         $fotoPath = null;
         foreach (['png', 'jpg', 'jpeg'] as $ext) {
-            if (file_exists($wizardDir . '/foto.' . $ext)) {
-                $fotoPath = $wizardDir . '/foto.' . $ext;
+            if (file_exists($wizardDir.'/foto.'.$ext)) {
+                $fotoPath = $wizardDir.'/foto.'.$ext;
                 break;
             }
         }
 
-        if (!$fotoPath) {
+        if (! $fotoPath) {
             return null;
         }
 
-        $extension = pathinfo($fotoPath, PATHINFO_EXTENSION);
+        $extension = strtolower((string) pathinfo($fotoPath, PATHINFO_EXTENSION));
         $destDir = public_path('imagenes/cursos');
-        if (!file_exists($destDir)) {
-            mkdir($destDir, 0755, true);
+        if (! file_exists($destDir)) {
+            @mkdir($destDir, 0775, true);
         }
 
-        $filename = $id_curso . '.' . $extension;
-        $this->copiarArchivo($fotoPath, $destDir . '/' . $filename);
+        foreach (['png', 'jpg', 'jpeg'] as $e) {
+            if (strtolower($e) !== $extension) {
+                @unlink($destDir.'/'.$id_curso.'.'.$e);
+            }
+        }
 
-        return 'imagenes/cursos/' . $filename;
+        $filename = $id_curso.'.'.$extension;
+        $this->copiarArchivo($fotoPath, $destDir.'/'.$filename);
+        @chmod($destDir.'/'.$filename, 0664);
+
+        return 'imagenes/cursos/'.$filename;
     }
 
     /**
@@ -1336,25 +1497,25 @@ class CrearCursoController extends BaseController
      * Se niega a borrar cualquier cosa que no esté dentro de storage/, para que
      * un token mal formada no pueda acabar eliminando un directorio equivocado.
      *
-     * @param string $dir
+     * @param  string  $dir
      * @return void
      */
     private function eliminarDirectorio($dir)
     {
-        if (!is_dir($dir)) {
+        if (! is_dir($dir)) {
             return;
         }
 
         $real = realpath($dir);
         $base = realpath(storage_path());
 
-        if ($real === false || $base === false || $real === $base || strpos($real, $base . DIRECTORY_SEPARATOR) !== 0) {
+        if ($real === false || $base === false || $real === $base || strpos($real, $base.DIRECTORY_SEPARATOR) !== 0) {
             Log::warning('Se evitó eliminar un directorio fuera de storage', ['ruta' => $dir]);
 
             return;
         }
 
-        $items = glob($real . '/*');
+        $items = glob($real.'/*');
         foreach ($items as $item) {
             if (is_dir($item)) {
                 $this->eliminarDirectorio($item);
@@ -1373,11 +1534,11 @@ class CrearCursoController extends BaseController
     private function limpiarTemporalesWizard()
     {
         $base = storage_path('app/public/Certificados/wizard');
-        if (!file_exists($base)) {
+        if (! file_exists($base)) {
             return;
         }
         $corte = now()->subHours(24)->timestamp;
-        foreach (glob($base . '/*') as $dir) {
+        foreach (glob($base.'/*') as $dir) {
             if (is_dir($dir) && @filemtime($dir) < $corte) {
                 $this->eliminarDirectorio($dir);
             }

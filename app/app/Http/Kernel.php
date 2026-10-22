@@ -37,6 +37,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\VerifyCsrfToken::class,
             \App\Http\Middleware\DecryptIds::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \Modules\Security\Http\Middleware\ValidarPerfilActivo::class,
         ],
 
         'api' => [

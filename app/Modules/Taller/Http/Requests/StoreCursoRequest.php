@@ -47,7 +47,7 @@ class StoreCursoRequest extends FormRequest
             'es_nacional'           => 'nullable|boolean',
             'foto'                  => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'fecha_inicio'          => 'required|date',
-            'fecha_fin'             => 'required|date|after_or_equal:fecha_inicio',
+            'fecha_fin'             => 'required|date|after:fecha_inicio',
             'localidades'           => 'required_unless:es_nacional,true,1|array',
             'localidades.*'         => [Rule::exists(Estados::class, 'id')],
 
@@ -58,7 +58,7 @@ class StoreCursoRequest extends FormRequest
             'contenidos.*.id_tipo_evaluacion'   => 'nullable|integer',
             'contenidos.*.ponderacion'          => 'nullable|numeric|min:0|max:100',
             'contenidos.*.url_contenido'        => 'nullable|url|max:500',
-            'contenidos.*.fecha_contenido'      => 'nullable|date',
+            'contenidos.*.fecha_contenido'      => 'required_with:contenidos|date',
             'contenidos.*.hora_inicio'          => 'nullable|date_format:H:i',
             'contenidos.*.hora_fin'             => 'nullable|date_format:H:i',
             'contenidos.*.descripcion_breve'    => 'nullable|string|max:500',
@@ -69,7 +69,7 @@ class StoreCursoRequest extends FormRequest
      * Lógica personalizada de validación:
      * - Horas de clase obligatorias y secuenciales
      * - Contenidos dentro del rango de fechas del curso
-     * - El rango de fechas lo valida la regla 'fecha_fin.after_or_equal'
+     * - El rango de fechas lo valida la regla 'fecha_fin.after'
      *
      * Nota: Se eliminaron las reglas de trimestre que bloqueaban la creación
      * (Regla 1 "el trimestre debe coincidir con la fecha de inicio" ahora es
@@ -99,10 +99,18 @@ class StoreCursoRequest extends FormRequest
             // Reglas de contenidos
             foreach ($this->input('contenidos', []) as $index => $contenido) {
                 $esEvaluacion = (bool) ($contenido['es_evaluacion'] ?? false);
+                $nombreBloque = $contenido['titulo'] ?? 'Bloque ' . ($index + 1);
 
                 // Regla 3: La fecha del contenido debe estar dentro del rango del curso
                 $fechaContenido = $contenido['fecha_contenido'] ?? null;
-                if ($fechaContenido && isset($inicio, $fin)) {
+                if (empty($fechaContenido)) {
+                    if (isset($inicio, $fin)) {
+                        $validator->errors()->add(
+                            "contenidos.$index.fecha_contenido",
+                            'La fecha de clase es obligatoria para el bloque "' . $nombreBloque . '".'
+                        );
+                    }
+                } elseif (isset($inicio, $fin)) {
                     try {
                         $fc = Carbon::parse($fechaContenido);
                     } catch (\Throwable $e) {
@@ -111,7 +119,7 @@ class StoreCursoRequest extends FormRequest
                     if ($fc->lt($inicio) || $fc->gt($fin)) {
                         $validator->errors()->add(
                             "contenidos.$index.fecha_contenido",
-                            'La fecha del contenido "' . ($contenido['titulo'] ?? "Bloque " . ($index + 1)) . '" debe estar entre ' . $inicio->format('d/m/Y') . ' y ' . $fin->format('d/m/Y') . '.'
+                            'La fecha del contenido "' . $nombreBloque . '" debe estar entre ' . $inicio->format('d/m/Y') . ' y ' . $fin->format('d/m/Y') . '.'
                         );
                     }
                 }
@@ -158,7 +166,7 @@ class StoreCursoRequest extends FormRequest
             'anio.required'         => 'El año es obligatorio.',
             'fecha_inicio.required' => 'La fecha de inicio es obligatoria.',
             'fecha_fin.required'    => 'La fecha de fin es obligatoria.',
-            'fecha_fin.after_or_equal' => 'La fecha de fin debe ser igual o posterior a la fecha de inicio.',
+            'fecha_fin.after'       => 'La fecha de finalización debe ser posterior a la fecha de inicio.',
             'cantidad_cupos.required' => 'Debe indicar la cantidad de cupos disponibles.',
             'cantidad_cupos.min'      => 'La cantidad de cupos debe ser al menos 1.',
             'telegram.url'          => 'El enlace de Telegram debe ser una URL válida.',
@@ -167,6 +175,8 @@ class StoreCursoRequest extends FormRequest
             'direccion_corta.required' => 'La dirección del curso es obligatoria.',
             'localidades.required_unless' => 'Debe seleccionar al menos una localidad cuando el curso no es de alcance nacional.',
             'contenidos.*.titulo.required_with' => 'Cada contenido debe tener un título.',
+            'contenidos.*.fecha_contenido.required_with' => 'Cada bloque de contenido debe tener una fecha de clase.',
+            'contenidos.*.fecha_contenido.date' => 'La fecha de clase debe ser una fecha válida.',
             'contenidos.*.hora_inicio.date_format' => 'La hora de inicio debe tener formato HH:MM (24h).',
             'contenidos.*.hora_fin.date_format'    => 'La hora de fin debe tener formato HH:MM (24h).',
         ];
