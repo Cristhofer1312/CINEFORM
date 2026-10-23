@@ -143,7 +143,7 @@
                                         <i class="fas fa-exchange-alt small"></i>
                                     </button>
                                 </div>
-                                <input type="hidden" name="id_persona" id="id_persona" value="{{ old('id_persona', $curso->persona->crypt_id) }}" required>
+                                <input type="hidden" name="id_persona" id="id_persona" value="{{ old('id_persona', $curso->persona?->crypt_id ?? '') }}" required>
                             </div>
 
                             <div class="col-md-5 d-flex align-items-end">

@@ -15,7 +15,6 @@ class CursoPolicy
 {
     use ResuelveRolesTaller;
 
-
     /**
      * Acceso al contenido formativo (temario, clases, materiales) de un curso.
      * Permitido a Gestores, al Facilitador asignado o a participantes inscritos y aprobados.
@@ -31,7 +30,7 @@ class CursoPolicy
         }
 
         $idPersona = $this->personaId($user);
-        if (!$idPersona) {
+        if (! $idPersona) {
             return false;
         }
 
@@ -56,7 +55,7 @@ class CursoPolicy
      */
     public function responderAsignacion(User $user, Curso $curso): bool
     {
-        if (!$this->autorizacion()->puede('taller.cursos.index', SecurityAction::RESPONDER_CURSO, $user)) {
+        if (! $this->autorizacion()->puede('taller.cursos.index', SecurityAction::RESPONDER_CURSO, $user)) {
             return false;
         }
 
@@ -93,16 +92,22 @@ class CursoPolicy
             if ($origen === \App\Enums\EstadoCurso::APROBACION->value) {
                 return $this->esGestor($user);
             }
+
             return $this->esGestor($user) || ($this->esFacilitador($user) && $this->esFacilitadorDe($user, $curso));
         }
 
         // 2. Destino DECLINADO (3)
         if ($destino === \App\Enums\EstadoCurso::DECLINADO->value) {
+            if ($origen === \App\Enums\EstadoCurso::APROBACION->value) {
+                return $this->esGestor($user);
+            }
+
             if ($origen === \App\Enums\EstadoCurso::POR_ACEPTAR->value) {
                 return $this->esFacilitador($user)
                     && $this->esFacilitadorDe($user, $curso)
                     && $this->autorizacion()->puede('taller.cursos.index', SecurityAction::RESPONDER_CURSO, $user);
             }
+
             return false;
         }
 
@@ -118,7 +123,17 @@ class CursoPolicy
 
         // 5. Destino RECHAZADO (2)
         if ($destino === \App\Enums\EstadoCurso::RECHAZADO->value) {
-            return $this->esGestor($user);
+            if ($this->esGestor($user)) {
+                return true;
+            }
+
+            if ($origen === \App\Enums\EstadoCurso::POR_ACEPTAR->value) {
+                return $this->esFacilitador($user)
+                    && $this->esFacilitadorDe($user, $curso)
+                    && $this->autorizacion()->puede('taller.cursos.index', SecurityAction::RESPONDER_CURSO, $user);
+            }
+
+            return false;
         }
 
         // 6. Otros destinos administrativos: EN_CURSO (7), FINALIZADO (8), CERRADO (9), POR_ACEPTAR (1), BORRADOR (10)

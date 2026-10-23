@@ -25,12 +25,4 @@ class Profile extends Model {
         return $this->belongsToMany(Permission::class, 'security.profile_permissions', 'profile_id', 'permission_id')
                     ->withTimestamps();
     }
-
-    /**
-     * Relación legada (Mantener mientras se termina la migración total)
-     */
-    public function getPermissions(){
-        return $this->belongsToMany(Process::class, 'security.profile_processes')
-                        ->withPivot('process_id', 'profile_id', 'actions');
-    }
 }

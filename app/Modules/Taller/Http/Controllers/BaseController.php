@@ -25,4 +25,13 @@ class BaseController extends Controller
         $user = $this->getUsuarioAutenticado();
         return view('taller::a.prueba', compact('user'));
     }
+
+    protected function decryptId($id)
+    {
+        if (is_numeric($id)) {
+            return (int) $id;
+        }
+        $decrypted = \App\Helpers\Encryptor::decrypt($id);
+        return ($decrypted !== false && $decrypted !== null) ? (int) $decrypted : $id;
+    }
 }

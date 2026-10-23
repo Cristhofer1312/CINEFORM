@@ -30,7 +30,7 @@ class ValidarPerfilActivo
 
     public function handle(Request $request, Closure $next)
     {
-        if (!Auth::check() || (int) Auth::id() === 1) {
+        if (!Auth::check() || app(\App\Services\Security\Autorizacion::class)->esRaiz()) {
             return $next($request);
         }
 

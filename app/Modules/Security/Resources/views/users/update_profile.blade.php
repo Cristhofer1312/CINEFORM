@@ -376,7 +376,7 @@
                                         </div>
                                         <div class="col-12 col-md-4">
                                             <div class="form-floating form-floating-custom position-relative">
-                                                <input id="new_password" name="new_password" type="password" maxlength="16" class="form-control" placeholder="{{__('New Password')}}" required>
+                                                <input id="new_password" name="new_password" type="password" maxlength="72" minlength="10" autocomplete="new-password" class="form-control" placeholder="{{__('New Password')}}" required>
                                                 <label for="new_password">{{__('New Password')}} *</label>
                                                 <div class="show-password position-absolute top-50 end-0 translate-middle-y me-2"><i class="icon-eye"></i></div>
                                             </div>
@@ -386,7 +386,7 @@
                                         </div>
                                         <div class="col-12 col-md-4">
                                             <div class="form-floating form-floating-custom position-relative">
-                                                <input id="re_password" name="re_password" type="password" maxlength="16" class="form-control" placeholder="{{__('Repeat your Password')}}" required>
+                                                <input id="re_password" name="re_password" type="password" maxlength="72" autocomplete="new-password" class="form-control" placeholder="{{__('Repeat your Password')}}" required>
                                                 <label for="re_password">{{__('Repeat your Password')}} *</label>
                                                 <div class="show-password position-absolute top-50 end-0 translate-middle-y me-2"><i class="icon-eye"></i></div>
                                             </div>

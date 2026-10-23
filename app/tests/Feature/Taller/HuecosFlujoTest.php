@@ -162,6 +162,107 @@ class HuecosFlujoTest extends TestCase
     }
 
     /**
+     * UX-32: un gestor no puede anular/restaurar asistencias de otro curso (IDOR).
+     */
+    public function test_no_se_puede_anular_ni_restaurar_asistencia_de_otro_curso(): void
+    {
+        $cursoAjeno = Curso::withoutEvents(function () {
+            $c = new Curso;
+            $c->nombre = 'Curso Ajeno UX32';
+            $c->codigo = 'LAB-TEST-UX32-'.random_int(1000, 9999);
+            $c->id_persona = $this->curso->id_persona;
+            $c->id_actividad_formativa = 1;
+            $c->id_aspecto = 1;
+            $c->id_modalidad = 1;
+            $c->id_modalidad_especial = 1;
+            $c->fecha_inicio = now();
+            $c->fecha_fin = now()->addMonths(1);
+            $c->save();
+
+            return $c;
+        });
+
+        $contenidoAjeno = ContenidoCurso::create([
+            'id_curso' => $cursoAjeno->id_curso,
+            'titulo' => 'Clase curso ajeno',
+            'descripcion' => 'Descripción detallada de la clase ajena',
+            'descripcion_breve' => 'Descripción breve',
+            'fecha_contenido' => now(),
+            'hora_inicio' => '09:00',
+            'hora_fin' => '11:00',
+            'es_evaluacion' => false,
+            'creado_por' => 1,
+            'orden' => 1,
+        ]);
+
+        $asistenciaAjena = Asistencia::create([
+            'id_contenido_curso' => $contenidoAjeno->id_contenido_curso,
+            'id_persona' => $this->participante->personalData->id_persona,
+            'id_inscripcion' => $this->inscripcion->id_inscripcion,
+            'fecha_hora_marcado' => now(),
+            'activa' => true,
+            'metodo_marcado' => 'link',
+        ]);
+
+        $this->actingAs($this->facilitador)
+            ->withSession(['profile_id' => Perfil::FACILITADOR])
+            ->post("/taller/cursos/{$this->curso->id_curso}/asistencia/{$asistenciaAjena->id_asistencia}/anular", [
+                'motivo' => 'Intento cruzado',
+            ])
+            ->assertNotFound();
+
+        $this->assertTrue($asistenciaAjena->fresh()->activa);
+
+        $asistenciaAjena->update(['activa' => false]);
+
+        $this->actingAs($this->facilitador)
+            ->withSession(['profile_id' => Perfil::FACILITADOR])
+            ->post("/taller/cursos/{$this->curso->id_curso}/asistencia/{$asistenciaAjena->id_asistencia}/restaurar")
+            ->assertNotFound();
+
+        $this->assertFalse($asistenciaAjena->fresh()->activa);
+    }
+
+    /**
+     * UX-33: no se pueden guardar notas de personas no inscritas/aprobadas ni de contenidos de otro curso.
+     */
+    public function test_calificacion_rechaza_persona_no_inscrita_y_contenido_de_otro_curso(): void
+    {
+        $evaluacion = ContenidoCurso::create([
+            'id_curso' => $this->curso->id_curso,
+            'titulo' => 'Evaluación UX33',
+            'descripcion' => 'Descripción detallada de la evaluación',
+            'descripcion_breve' => 'Breve evaluación',
+            'fecha_contenido' => now(),
+            'es_evaluacion' => true,
+            'creado_por' => 1,
+            'orden' => 3,
+        ]);
+
+        $idPersonaAjena = $this->admin->personalData->id_persona;
+
+        $this->actingAs($this->facilitador)
+            ->withSession(['profile_id' => Perfil::FACILITADOR])
+            ->post("/taller/cursos/{$this->curso->id_curso}/contenido/{$evaluacion->id_contenido_curso}/calificar", [
+                'calificaciones' => [$idPersonaAjena => ['nota' => '90', 'observacion' => '']],
+            ])
+            ->assertStatus(422);
+
+        $this->assertDatabaseMissing('taller.calificaciones', [
+            'id_contenido_curso' => $evaluacion->id_contenido_curso,
+            'id_persona' => $idPersonaAjena,
+        ]);
+
+        // Contenido que pertenece a otro curso: 404 al usar el id de nuestro curso.
+        $this->actingAs($this->facilitador)
+            ->withSession(['profile_id' => Perfil::FACILITADOR])
+            ->post("/taller/cursos/{$this->curso->id_curso}/contenido/999999/calificar", [
+                'calificaciones' => [$this->participante->personalData->id_persona => ['nota' => '90']],
+            ])
+            ->assertNotFound();
+    }
+
+    /**
      * UX-14 / RF-38 / RF-39: Guardar calificaciones no borra notas existentes con entradas vacías.
      */
     public function test_calificacion_no_sobrescribe_con_valores_vacios(): void

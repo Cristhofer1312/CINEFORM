@@ -49,6 +49,8 @@ class PermissionsSeeder extends Seeder
             ],
             7 => [
                 ['slug' => 'view', 'name' => 'Acceso a gestión de catálogos'],
+                ['slug' => 'create', 'name' => 'Crear actividades y aspectos'],
+                ['slug' => 'edit', 'name' => 'Editar y activar/desactivar actividades y aspectos'],
             ],
         ];
 

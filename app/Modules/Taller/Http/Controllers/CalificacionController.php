@@ -2,6 +2,7 @@
 
 namespace Modules\Taller\Http\Controllers;
 
+use App\Enums\EstadoCurso;
 use Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,7 @@ class CalificacionController extends BaseController
         // Obtener estudiantes inscritos y sus calificaciones para este contenido
         // Usamos leftJoin para traer la calificación si existe
         $query = Inscripcion::where('taller.inscripciones.id_curso', $curso_id)
+            ->where('taller.inscripciones.estado', Inscripcion::ESTADO_APROBADO)
             ->join('comun.personas', 'taller.inscripciones.id_persona', '=', 'comun.personas.id_persona')
             ->leftJoin('taller.calificaciones', function ($join) use ($contenido_id) {
                 $join->on('taller.inscripciones.id_persona', '=', 'taller.calificaciones.id_persona')
@@ -74,11 +76,36 @@ class CalificacionController extends BaseController
         $curso = Curso::findOrFail($curso_id);
         $this->authorize('calificar', $curso);
 
+        $estadoActualId = $curso->estado_actual->id_estado ?? null;
+        if (in_array($estadoActualId, [EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value], true)) {
+            abort(403, 'No se pueden modificar calificaciones: el curso ya está Finalizado o Cerrado.');
+        }
+
+        $contenido = ContenidoCurso::where('id_curso', $curso_id)
+            ->where('id_contenido_curso', $contenido_id)
+            ->firstOrFail();
+
+        if (! $contenido->es_evaluacion) {
+            abort(400, 'Este contenido no es una evaluación.');
+        }
+
         $request->validate([
             'calificaciones' => 'array',
             'calificaciones.*.nota' => 'nullable|numeric|min:0|max:100',
             'calificaciones.*.observacion' => 'nullable|string|max:500',
         ]);
+
+        // Solo se puede calificar a participantes con inscripción aprobada en este curso.
+        $personasValidas = Inscripcion::where('id_curso', $curso_id)
+            ->where('estado', Inscripcion::ESTADO_APROBADO)
+            ->pluck('id_persona')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $personasInvalidas = array_diff(array_map('intval', array_keys($request->calificaciones ?? [])), $personasValidas);
+        if (! empty($personasInvalidas)) {
+            abort(422, 'Hay participantes que no están inscritos y aprobados en este curso.');
+        }
 
         DB::beginTransaction();
         try {

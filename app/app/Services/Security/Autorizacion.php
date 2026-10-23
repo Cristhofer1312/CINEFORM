@@ -4,6 +4,7 @@ namespace App\Services\Security;
 
 use App\Constants\SecurityAction;
 use App\Helpers\Encryptor;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +28,10 @@ class Autorizacion
 
     private const TTL_SEGUNDOS = 600;
 
-    /** @var array<int, array{rutas: array<string, true>, procesos: array<string, true>}> */
+    /** Proceso que agrupa los permisos del dominio de cursos. */
+    public const PROCESO_CURSOS = 'taller.cursos.index';
+
+    /** @var array<int, array{codigos: array<string, true>, procesos: array<string, true>}> */
     private array $memo = [];
 
     /** Usuario raíz del sistema: bypass total (mismo criterio que CheckPermission). */
@@ -98,12 +102,12 @@ class Autorizacion
     }
 
     /**
-     * ¿Puede el perfil activo (o el usuario dado) ejecutar $accionId sobre el proceso identificado
-     * por su `route` (ej. 'taller.cursos.index')?
+     * ¿Puede el perfil activo (o el usuario dado) ejecutar $accionId sobre el proceso
+     * identificado por su `codigo` estable (ej. 'taller.catalogos.index')?
      *
-     * A diferencia de los helpers legacy, aquí SÍ aplica el bypass del usuario 1.
+     * Aplica el bypass del usuario raíz.
      */
-    public function puede(string $procesoRoute, int $accionId, $user = null): bool
+    public function puede(string $procesoCodigo, int $accionId, $user = null): bool
     {
         if ($this->esRaiz($user)) {
             return true;
@@ -111,7 +115,7 @@ class Autorizacion
 
         $perfil = $this->perfilActivoPara($user);
 
-        return $this->puedeComoPerfil($perfil, $procesoRoute, $accionId);
+        return $this->puedeComoPerfil($perfil, $procesoCodigo, $accionId);
     }
 
     /** Variante por ID de proceso (compatibilidad con `hasPermission()`). */
@@ -141,14 +145,43 @@ class Autorizacion
      * Sin bypass: evalúa un perfil concreto. Útil para tests y para el middleware
      * que ya resolvió el bypass por su cuenta.
      */
-    public function puedeComoPerfil(?int $perfilId, string $procesoRoute, int $accionId): bool
+    public function puedeComoPerfil(?int $perfilId, string $procesoCodigo, int $accionId): bool
     {
         $slug = SecurityAction::dbString($accionId);
         if (!$perfilId || !$slug) {
             return false;
         }
 
-        return isset($this->permisos($perfilId)['rutas'][$procesoRoute . '|' . $slug]);
+        return isset($this->permisos($perfilId)['codigos'][$procesoCodigo . '|' . $slug]);
+    }
+
+    /**
+     * Usuarios elegibles como facilitador: cuenta activa y al menos un perfil
+     * activo, con asignación activa, que tenga EDITAR_CURSO sobre cursos.
+     *
+     * Es la única definición de elegibilidad: la usan los listados de candidatos
+     * y la validación de reasignación, para que no puedan divergir.
+     */
+    public function consultaElegiblesFacilitador(): Builder
+    {
+        $slug = SecurityAction::dbString(SecurityAction::EDITAR_CURSO);
+
+        return \Modules\Security\Entities\User::query()
+            ->where('active', 1)
+            ->whereHas('perfiles', function ($perfiles) use ($slug) {
+                $perfiles->where('security.profiles.active', true)
+                    ->where('security.profiles_users.status', 1)
+                    ->whereHas('permissions', function ($permisos) use ($slug) {
+                        $permisos->where('security.permissions.slug', $slug)
+                            ->whereHas('process', fn ($proceso) => $proceso->where('security.processes.codigo', self::PROCESO_CURSOS));
+                    });
+            });
+    }
+
+    public function esElegibleFacilitador($user): bool
+    {
+        return $user !== null && isset($user->id)
+            && $this->consultaElegiblesFacilitador()->whereKey($user->id)->exists();
     }
 
     /** Registra el uso del bypass raíz (auditoría). */
@@ -173,7 +206,7 @@ class Autorizacion
     }
 
     /**
-     * @return array{rutas: array<string, true>, procesos: array<string, true>}
+     * @return array{codigos: array<string, true>, procesos: array<string, true>}
      */
     private function permisos(int $perfilId): array
     {
@@ -183,24 +216,27 @@ class Autorizacion
 
         $version = Cache::get(self::VERSION_KEY, 1);
 
+        // "codigos" en la clave: la estructura cambió (antes "rutas"); así no se
+        // leen entradas antiguas de la caché tras desplegar.
         return $this->memo[$perfilId] = Cache::remember(
-            "rbac:perfil:{$perfilId}:v{$version}",
+            "rbac:codigos:perfil:{$perfilId}:v{$version}",
             self::TTL_SEGUNDOS,
             function () use ($perfilId) {
+                // Los procesos se identifican por `codigo` (estable), no por el nombre de ruta.
                 $filas = DB::table('security.profile_permissions as pp')
                     ->join('security.permissions as p', 'p.id', '=', 'pp.permission_id')
                     ->join('security.processes as pr', 'pr.id', '=', 'p.process_id')
                     ->where('pp.profile_id', $perfilId)
-                    ->get(['pr.id as proceso_id', 'pr.route as proceso_route', 'p.slug']);
+                    ->get(['pr.id as proceso_id', 'pr.codigo as proceso_codigo', 'p.slug']);
 
-                $rutas = [];
+                $codigos = [];
                 $procesos = [];
                 foreach ($filas as $fila) {
-                    $rutas[$fila->proceso_route . '|' . $fila->slug] = true;
+                    $codigos[$fila->proceso_codigo . '|' . $fila->slug] = true;
                     $procesos[$fila->proceso_id . '|' . $fila->slug] = true;
                 }
 
-                return ['rutas' => $rutas, 'procesos' => $procesos];
+                return ['codigos' => $codigos, 'procesos' => $procesos];
             }
         );
     }

@@ -3,7 +3,7 @@
 @php
     // Categorización de capacidades para organizar la interfaz
     $principales = ['inscribirse', 'cancelar_inscripcion', 'acceder_contenido', 'emitir_certificado', 'ver_archivo'];
-    $gestion = ['ver_participantes', 'ajustar_certificado', 'aceptar_asignacion', 'rechazar_asignacion', 'editar', 'enviar_aprobacion', 'aprobar', 'rechazar', 'finalizar_inscripciones', 'finalizar_curso', 'cerrar_curso', 'ver_motivo', 'en_revision', 'gestionar_certificacion', 'ver_satisfaccion'];
+    $gestion = ['ver_participantes', 'reasignar_facilitador', 'ajustar_certificado', 'aceptar_asignacion', 'rechazar_asignacion', 'editar', 'enviar_aprobacion', 'aprobar', 'rechazar', 'finalizar_inscripciones', 'finalizar_curso', 'cerrar_curso', 'ver_motivo', 'en_revision', 'gestionar_certificacion', 'ver_satisfaccion'];
     
     // Filtrar qué capacidades tiene el usuario en cada categoría
     $capsPrincipales = array_intersect($capacidades, $principales);
@@ -79,15 +79,17 @@
                         @break
 
                     @case('acceder_contenido')
-                        @if($curso->contenidos_count > 0 || $curso->contenidos->count() > 0)
-                            <a class="btn btn-success w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push" href="{{ route('taller.cursos.contenido', ['curso' => $curso->crypt_id]) }}">
-                                <i class="fas fa-play-circle me-2"></i> Ver contenidos del programa
-                            </a>
-                        @else
-                            <div class="alert alert-light text-center small p-3 mb-0 rounded-4 border">
-                                <i class="fas fa-folder-open fa-2x mb-2 d-block opacity-25"></i>
-                                <strong class="opacity-50">Sin contenidos disponibles</strong>
-                            </div>
+                        @if(!isset($inscripcion) || ($inscripcion && $inscripcion->esAprobado()))
+                            @if($curso->contenidos_count > 0 || $curso->contenidos->count() > 0)
+                                <a class="btn btn-success w-100 fw-bold py-3 rounded-pill shadow-sm hvr-push" href="{{ route('taller.cursos.contenido', ['curso' => $curso->crypt_id]) }}">
+                                    <i class="fas fa-play-circle me-2"></i> Ver contenidos del programa
+                                </a>
+                            @else
+                                <div class="alert alert-light text-center small p-3 mb-0 rounded-4 border">
+                                    <i class="fas fa-folder-open fa-2x mb-2 d-block opacity-25"></i>
+                                    <strong class="opacity-50">Sin contenidos disponibles</strong>
+                                </div>
+                            @endif
                         @endif
                         @break
 
@@ -148,6 +150,11 @@
                                 <i class="fas fa-users-cog me-1"></i> Postulados y Participantes
                             </a>
                             @break
+                        @case('reasignar_facilitador')
+                            <button type="button" class="btn btn-warning btn-sm py-2 fw-bold rounded-pill shadow-xs text-dark" onclick="abrirModalReasignarFacilitador()">
+                                <i class="fas fa-user-edit me-1"></i> Reasignar Facilitador
+                            </button>
+                            @break
                         @case('ajustar_certificado')
                             <a href="{{ route('taller.cursos.certificado.edit', $curso->crypt_id) }}" class="btn btn-outline-primary btn-sm py-2 fw-bold border shadow-xs rounded-pill">
                                 <i class="fas fa-certificate me-1"></i> Ajustar Certificado
@@ -159,8 +166,8 @@
                             </button>
                             @break
                         @case('rechazar_asignacion')
-                             <button class="btn btn-outline-danger btn-sm py-2 fw-bold rounded-pill" onclick="rechazarContenido('{{ $curso->crypt_id }}', 3)">
-                                 <i class="fas fa-times-circle me-1"></i> Rechazar
+                             <button class="btn btn-outline-danger btn-sm py-2 fw-bold rounded-pill" onclick="rechazarContenido('{{ $curso->crypt_id }}', 2)">
+                                 <i class="fas fa-times-circle me-1"></i> Rechazar Asignación
                              </button>
                              @break
                         @case('editar')
@@ -182,7 +189,7 @@
                             </button>
                             @break
                         @case('rechazar')
-                            <button class="btn btn-danger btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="rechazarContenido('{{ $curso->crypt_id }}', 2)">
+                            <button class="btn btn-danger btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="rechazarContenido('{{ $curso->crypt_id }}', 3)">
                                 <i class="fas fa-ban me-1"></i> Declinar Propuesta
                             </button>
                             @break
@@ -211,7 +218,9 @@
                         @case('ver_motivo')
                             <div class="d-flex align-items-center justify-content-center mb-2">
                                 <i class="fas fa-exclamation-triangle me-2 text-danger"></i>
-                                <span class="fw-bold text-danger small">Propuesta Rechazada</span>
+                                <span class="fw-bold text-danger small">
+                                    {{ ($curso->estado_actual->id_estado ?? 0) == 2 ? 'Asignación Rechazada' : 'Propuesta Declinada' }}
+                                </span>
                             </div>
                             <button class="btn btn-info btn-sm py-2 fw-bold rounded-pill shadow-xs text-white w-100"
                                     onclick="verObservaciones('{{ $curso->crypt_id }}')">

@@ -2,43 +2,42 @@
 
 namespace Modules\Security\Http\Controllers;
 
+use App;
+use App\Helpers\Encryptor;
+use App\Helpers\LockDB;
+use App\Http\Controllers\Controller;
+// use Illuminate\Routing\Controller;
+use Carbon\Carbon;
+use Config;
+use File;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Mail;
-//use Illuminate\Routing\Controller;
-use App;
-use Config;
-use App\Http\Controllers\Controller;
-use Modules\Security\Entities\User;
-use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Support\Facades\Auth;
-use App\Helpers\Encryptor;
-use File;
-use Response;
-use App\Helpers\LockDB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
+use Modules\Security\Entities\User;
+use Response;
 
 class SecurityController extends Controller
 {
-
     private $NAC_VENEZOLANA = 1;
+
     private $PROFILE_TRAMITES = 3;
 
     private function storeAvatar($imagenCodificada)
     {
-        if (!is_string($imagenCodificada) || empty($imagenCodificada)) {
+        if (! is_string($imagenCodificada) || empty($imagenCodificada)) {
             return false;
         }
 
-        if (!preg_match('#^data:image/[a-z0-9.+-]+;base64,#i', $imagenCodificada)) {
+        if (! preg_match('#^data:image/[a-z0-9.+-]+;base64,#i', $imagenCodificada)) {
             return false;
         }
 
-        list(, $imagenCodificada) = explode(',', $imagenCodificada, 2);
+        [, $imagenCodificada] = explode(',', $imagenCodificada, 2);
         $imagenCodificada = base64_decode($imagenCodificada, true);
 
         if ($imagenCodificada === false) {
@@ -48,15 +47,15 @@ class SecurityController extends Controller
         // Validar que el contenido decodificado sea realmente una imagen
         $finfo = new \finfo(FILEINFO_MIME_TYPE);
         $mime = $finfo->buffer($imagenCodificada) ?: '';
-        if (!preg_match('#^image/#i', $mime)) {
+        if (! preg_match('#^image/#i', $mime)) {
             return false;
         }
 
-        $fileName = Auth::user()->id . '.png';
-        $file_fin = "app" . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . "img" . DIRECTORY_SEPARATOR . "avatars" . DIRECTORY_SEPARATOR . $fileName;
+        $fileName = Auth::user()->id.'.png';
+        $file_fin = 'app'.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'img'.DIRECTORY_SEPARATOR.'avatars'.DIRECTORY_SEPARATOR.$fileName;
 
         $directorio = dirname(storage_path($file_fin));
-        if (!File::isDirectory($directorio)) {
+        if (! File::isDirectory($directorio)) {
             File::makeDirectory($directorio, 0755, true, true);
         }
 
@@ -70,18 +69,19 @@ class SecurityController extends Controller
     public function file_admin($id = null)
     {
 
-        $pdfFile = storage_path($id . '.pdf');
-        $FILE_PDF = new \Smalot\PdfParser\Parser();
+        $pdfFile = storage_path($id.'.pdf');
+        $FILE_PDF = new \Smalot\PdfParser\Parser;
 
         $documento = $FILE_PDF->parseFile($pdfFile);
 
         $paginas = $documento->getPages();
-        //$paginas = count($paginas);
+        // $paginas = count($paginas);
         $pages = [];
-        //dd($paginas);
+        // dd($paginas);
         foreach ($paginas as $key => $values) {
             $pages[$key] = $key + 1;
         }
+
         return view('security::files.see', compact('id', 'pages'));
     }
 
@@ -96,59 +96,59 @@ class SecurityController extends Controller
     public function show_pdf($pdf, $page = 0)
     {
         // Ruta al archivo PDF
-        //$pdfFile = 'a.pdf';
+        // $pdfFile = 'a.pdf';
 
-        $draw = new \ImagickDraw();
+        $draw = new \ImagickDraw;
         $draw->setFont(public_path('fonts/arial.ttf')); // Asegúrate de que la fuente esté disponible
         $draw->setFontSize(150);
         $draw->setFillColor(new \ImagickPixel('rgba(128, 128, 128, 0.7)')); // Color blanco con opacidad
         // Posicionar el texto
         $text = Auth::user()->full_name;
-        //$draw->annotation(100, 100, $text); // Ajusta la posición según sea necesario
+        // $draw->annotation(100, 100, $text); // Ajusta la posición según sea necesario
         $draw->setGravity(\Imagick::GRAVITY_CENTER);
 
-        $pdfFile = storage_path($pdf . '.pdf');
+        $pdfFile = storage_path($pdf.'.pdf');
 
-        $FILE_PDF = new \Smalot\PdfParser\Parser();
+        $FILE_PDF = new \Smalot\PdfParser\Parser;
 
         $documento = $FILE_PDF->parseFile($pdfFile);
 
         $paginas = $documento->getPages();
 
         if ($page >= count($paginas)) {
-            return response()->json(["error" => "page not found"], 400);
+            return response()->json(['error' => 'page not found'], 400);
         }
 
-        $imagick = new \Imagick();
+        $imagick = new \Imagick;
 
-        # Leer la página específica del PDF
+        // Leer la página específica del PDF
         $imagick->setResolution(200, 200); // Establecer la resolución (opcional)
         $imagick->readImage("{$pdfFile}[{$page}]");
 
-        # Opcional: configurar el formato de salida
+        // Opcional: configurar el formato de salida
         $imagick->setImageFormat('png'); // Cambia 'png' a 'jpeg' o el formato que necesites
-        # Guardar la imagen resultante
+        // Guardar la imagen resultante
         $outputFile = 'pdf_img.png';
 
         $angle = -45; // Ángulo en grados
         $imagick->annotateImage($draw, 0, 0, $angle, $text);
 
-        //header("Content-type: image/png");
-        $IMAGE = '<img id="img-book" style="width:100%" oncontextmenu="return false;"  src="data:image/png;base64,' . base64_encode($imagick->getImageBlob()) . '">';
+        // header("Content-type: image/png");
+        $IMAGE = '<img id="img-book" style="width:100%" oncontextmenu="return false;"  src="data:image/png;base64,'.base64_encode($imagick->getImageBlob()).'">';
 
-        # Limpiar recursos
+        // Limpiar recursos
         $imagick->clear();
         $imagick->destroy();
 
-        //return $IMAGE;
+        // return $IMAGE;
         return view('security::files.img', compact('IMAGE'));
     }
 
     public function captcha($seed = null)
     {
         $seed = substr(bcrypt($seed == null ? rand(1, 99999) : $seed), 10, 5);
-        //dd($seed);
-        #create image and set background color
+        // dd($seed);
+        // create image and set background color
         $captcha = imagecreatetruecolor(200, 50);
         $color1 = rand(0, 255);
         $color2 = rand(0, 255);
@@ -156,7 +156,7 @@ class SecurityController extends Controller
         $background_color = imagecolorallocate($captcha, $color1, $color2, $color3);
         imagefill($captcha, 0, 0, $background_color);
 
-        #draw some lines
+        // draw some lines
         for ($i = 0; $i < 10; $i++) {
             $color = rand(48, 96);
             imageline($captcha, rand(0, 255), rand(0, 255), rand(0, 255), rand(0, 255), imagecolorallocate($captcha, $color3, $color1, $color2));
@@ -172,7 +172,7 @@ class SecurityController extends Controller
          */
         $string = Upper($seed);
 
-        #save string in session "captcha" key
+        // save string in session "captcha" key
 
         /*
           session_start();
@@ -183,8 +183,8 @@ class SecurityController extends Controller
 
         session()->put('SET_CAPTCHA', $string);
 
-        #place each character in a random position
-        //putenv('GDFONTPATH=' . realpath('.'));
+        // place each character in a random position
+        // putenv('GDFONTPATH=' . realpath('.'));
         $font = 'fonts/arial.ttf';
         for ($i = 0; $i < 5; $i++) {
             $color = rand(0, 32);
@@ -201,21 +201,23 @@ class SecurityController extends Controller
             }
         }
 
-        #applies distorsion to image
-        $matrix = array(array(1, 1, 1), array(1.0, 7, 1.0), array(1, 1, 1));
+        // applies distorsion to image
+        $matrix = [[1, 1, 1], [1.0, 7, 1.0], [1, 1, 1]];
         imageconvolution($captcha, $matrix, 16, 32);
 
         $response = Response::make(imagejpeg($captcha), 200);
-        $response->header("Content-Type", "image/jpeg");
+        $response->header('Content-Type', 'image/jpeg');
+
         return $response;
 
-        #avoids catching
-        header("Expires: 0");
-        header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-        header("Cache-Control: private", false);
+        // avoids catching
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+        header('Cache-Control: private', false);
 
-        #return the image
-        header("Content-type: image/gif");
+        // return the image
+        header('Content-type: image/gif');
+
         return imagejpeg($captcha);
     }
 
@@ -225,12 +227,12 @@ class SecurityController extends Controller
         // puede llegar como id numérico; si aún viene cifrado, lo desciframos aquí.
         $num = is_numeric($img) ? $img : Encryptor::decrypt($img);
 
-        if (!is_numeric($num) || $num < 0) {
+        if (! is_numeric($num) || $num < 0) {
             abort(404);
         }
 
-        $path = storage_path('app/public/img/avatars/' . $num . '.png');
-        if (!File::exists($path)) {
+        $path = storage_path('app/public/img/avatars/'.$num.'.png');
+        if (! File::exists($path)) {
             abort(404);
         }
 
@@ -245,10 +247,10 @@ class SecurityController extends Controller
 
         // ETag: si el navegador ya tiene esta versión exacta de la imagen, 304
         $requestIfNoneMatch = request()->header('If-None-Match');
-        if ($requestIfNoneMatch !== null && trim($requestIfNoneMatch) === '"' . $etag . '"') {
+        if ($requestIfNoneMatch !== null && trim($requestIfNoneMatch) === '"'.$etag.'"') {
             return response(null, 304)
                 ->header('Cache-Control', $cacheHeaders['Cache-Control'])
-                ->header('ETag', '"' . $etag . '"');
+                ->header('ETag', '"'.$etag.'"');
         }
 
         // Last-Modified: 304 si la imagen no cambió desde la última petición
@@ -256,14 +258,14 @@ class SecurityController extends Controller
         if ($requestIfModified !== null && $lastModified <= \Carbon\Carbon::parse($requestIfModified)->getTimestamp()) {
             return response(null, 304)
                 ->header('Cache-Control', $cacheHeaders['Cache-Control'])
-                ->header('Last-Modified', gmdate('D, d M Y H:i:s', $lastModified) . ' GMT');
+                ->header('Last-Modified', gmdate('D, d M Y H:i:s', $lastModified).' GMT');
         }
 
         $response = Response::make($file, 200);
-        $response->header("Content-Type", $type);
+        $response->header('Content-Type', $type);
         $response->header('Cache-Control', $cacheHeaders['Cache-Control']);
-        $response->header('Last-Modified', gmdate('D, d M Y H:i:s', $lastModified) . ' GMT');
-        $response->header('ETag', '"' . $etag . '"');
+        $response->header('Last-Modified', gmdate('D, d M Y H:i:s', $lastModified).' GMT');
+        $response->header('ETag', '"'.$etag.'"');
 
         return $response;
     }
@@ -299,36 +301,36 @@ class SecurityController extends Controller
                             $code->code = $generateCode;
                             $code->save();
                         } else {
-                            return response()->json(["type" => "danger", "message" => __("You have an active code, you must wait 15 minutes"), "status" => "0"]);
+                            return response()->json(['type' => 'danger', 'message' => __('You have an active code, you must wait 15 minutes'), 'status' => '0']);
                         }
                     } else {
-                        $code = new \Modules\Security\Entities\Codes();
+                        $code = new \Modules\Security\Entities\Codes;
                         $code->code = $generateCode;
                         $code->email = Lower($request->email);
                         $code->date = now();
                         $code->save();
                     }
-                    $subject = __("Registration Code");
+                    $subject = __('Registration Code');
                     $for = $code->email;
 
-                    Mail::send('security::emails.send_code', ["code" => $generateCode], function ($email) use ($subject, $for) {
+                    Mail::send('security::emails.send_code', ['code' => $generateCode], function ($email) use ($subject, $for) {
                         $email->subject($subject);
                         $email->to($for);
-                        //$msj->attachData($proforma->output(), "PROFORMA_" . showCode($Proforma->id) . ".pdf");
+                        // $msj->attachData($proforma->output(), "PROFORMA_" . showCode($Proforma->id) . ".pdf");
                     });
 
-                    return response()->json(["type" => "success", "message" => __("A code has been sent to your email"), "status" => "1"]);
+                    return response()->json(['type' => 'success', 'message' => __('A code has been sent to your email'), 'status' => '1']);
                 } else {
-                    return response()->json(["type" => "danger", "message" => __("A User Already Exists with That Email"), "status" => "0"]);
+                    return response()->json(['type' => 'danger', 'message' => __('A User Already Exists with That Email'), 'status' => '0']);
                 }
             } else {
-                //dd($request->all());
+                // dd($request->all());
                 $request->validate([
-                    'email'       => 'required|email',
-                    'code'        => 'required',
-                    'password'    => ['required', 'same:re_password', Password::min(8)->mixedCase()->numbers()->symbols()->max(72)],
+                    'email' => 'required|email',
+                    'code' => 'required',
+                    'password' => ['required', 'same:re_password', Password::defaults()],
                     're_password' => 'required',
-                    'captcha'     => 'required',
+                    'captcha' => 'required',
                 ]);
 
                 if (Lower(session()->get('SET_CAPTCHA')) !== Lower($request->captcha)) {
@@ -346,14 +348,14 @@ class SecurityController extends Controller
 
                             $Country = \Modules\Security\Entities\Countries::where('iso2', 've')->first();
 
-                            $User = new User();
+                            $User = new User;
                             $User->document_type_id = $this->NAC_VENEZOLANA;
-                            $User->document = "";
-                            $User->full_name = "";
+                            $User->document = '';
+                            $User->full_name = '';
                             $User->email = $request->email;
-                            $User->username = "";
+                            $User->username = '';
                             $User->password = Hash::make($request->password);
-                            $User->phone = "";
+                            $User->phone = '';
                             $User->country_id = $Country ? $Country->id : null;
                             $User->profile_id = $this->PROFILE_TRAMITES;
 
@@ -401,33 +403,36 @@ class SecurityController extends Controller
                             session()->put('SET_ID_ALTER_PASSWORD', $User->crypt_id);
                             // Consumir el token (invalidarlo para evitar re-uso)
                             User::whereId($User->id)->update([
-                                'change_password'      => true,
-                                'token'                => '', // Token consumido tras validación
+                                'change_password' => true,
+                                'token' => '', // Token consumido tras validación
                                 'date_change_password' => $User->date_change_password, // Mantener timestamp
                             ]);
+
                             return view('security::users.recovery_password', compact('User'));
                         } else {
                             User::whereId($User->id)->update([
-                                'change_password'      => false,
-                                'token'                => '',
+                                'change_password' => false,
+                                'token' => '',
                                 'date_change_password' => null,
                             ]);
+
                             return to_route('login')->withErrors(['error-message' => __('Security Token Expired')]);
                         }
                     } else {
                         User::whereId($User->id)->update([
-                            'change_password'      => false,
-                            'token'                => '',
+                            'change_password' => false,
+                            'token' => '',
                             'date_change_password' => null,
                         ]);
                     }
                 }
+
                 return to_route('login');
                 //
             }
         } else {
             if (\Request::isMethod('post')) {
-                //dd($request->all());
+                // dd($request->all());
                 $request->validate([
                     'email' => 'required|email',
                     'captcha' => 'required',
@@ -440,16 +445,16 @@ class SecurityController extends Controller
 
                 if ($user != null) {
                     // Generar token criptográfico aleatorio seguro (64 chars)
-                    $plainToken  = Str::random(64);
+                    $plainToken = Str::random(64);
                     // Almacenar SOLO el hash en DB — nunca el token en claro
                     $hashedToken = hash('sha256', $plainToken);
 
-                    $subject = __("Recover Password");
-                    $for     = $request->email;
+                    $subject = __('Recover Password');
+                    $for = $request->email;
 
                     try {
                         // Enviar el token PLANO por email (el receptor tendrá el link con token real)
-                        Mail::send('security::emails.recovery_password', ["code" => $plainToken, "user" => $user->toArray()], function ($email) use ($subject, $for) {
+                        Mail::send('security::emails.recovery_password', ['code' => $plainToken, 'user' => $user->toArray()], function ($email) use ($subject, $for) {
                             $email->subject($subject);
                             $email->to($for);
                         });
@@ -459,8 +464,8 @@ class SecurityController extends Controller
 
                     // Guardar HASH del token en DB — nunca en texto plano
                     User::whereId($user->id)->update([
-                        'change_password'      => true,
-                        'token'                => $hashedToken,
+                        'change_password' => true,
+                        'token' => $hashedToken,
                         'date_change_password' => now(),
                     ]);
 
@@ -470,9 +475,9 @@ class SecurityController extends Controller
                 }
             } else {
                 $request->validate([
-                    'password'    => ['required', 'same:re_password', Password::min(8)->mixedCase()->numbers()->symbols()->max(72)],
+                    'password' => ['required', 'same:re_password', Password::defaults()],
                     're_password' => 'required',
-                    'captcha'     => 'required',
+                    'captcha' => 'required',
                 ]);
 
                 if (Lower(session()->get('SET_CAPTCHA')) !== Lower($request->captcha)) {
@@ -491,7 +496,7 @@ class SecurityController extends Controller
                         'change_password' => false,
                         'token' => '',
                         'date_change_password' => null,
-                        'password' => Hash::make($request->password)
+                        'password' => Hash::make($request->password),
                     ]);
 
                     return to_route('login')->withSuccess(__('User Updated Successfully'));
@@ -503,47 +508,46 @@ class SecurityController extends Controller
     }
 
     public function login(Request $request)
-    { //Define el método login, que recibe como parámetro un objeto $request, que contiene los datos enviados por el usuario.
+    { // Define el método login, que recibe como parámetro un objeto $request, que contiene los datos enviados por el usuario.
 
         if (Auth::check() == true) {
             session()->flush();
             Auth::logout();
-        } //Si el usuario está autenticado (ya inició sesión), se limpia toda la sesión y se ejecuta el cierre de sesión para asegurar un estado limpio antes de continuar.
+        } // Si el usuario está autenticado (ya inició sesión), se limpia toda la sesión y se ejecuta el cierre de sesión para asegurar un estado limpio antes de continuar.
 
         if (\Request::ajax()) {
             exit;
         } // Si la petición es AJAX, se termina la ejecución inmediatamente, probablemente para prevenir accesos no autorizados por AJAX.
 
         if (\Request::isMethod('get')) {
-            //Config::set('app.javascripts', ['5', '6']);
-            //dd(config('app.javascripts'))
-            //return view('login');
-            //return view('welcome');
-            return view('security::users.login'); //Si la petición es GET, muestra la vista del formulario de login desde el módulo security, y no realiza nada más.
-        } else { //Si es otro tipo de petición (usualmente POST), continúa con la lógica de autenticación.
+            // Config::set('app.javascripts', ['5', '6']);
+            // dd(config('app.javascripts'))
+            // return view('login');
+            // return view('welcome');
+            return view('security::users.login'); // Si la petición es GET, muestra la vista del formulario de login desde el módulo security, y no realiza nada más.
+        } else { // Si es otro tipo de petición (usualmente POST), continúa con la lógica de autenticación.
 
             $request->validate([
                 'username' => 'required',
                 'password' => 'required',
                 'captcha' => 'required',
-            ]);//Valida que los campos username, password y captcha estén presentes en el request, caso contrario lanza error.
+            ]); // Valida que los campos username, password y captcha estén presentes en el request, caso contrario lanza error.
             if (Lower(session()->get('SET_CAPTCHA')) !== Lower($request->captcha)) {
                 return back()->withErrors(['error-message' => __('Captcha does not match')])->withInput();
-            } //Compara el captcha almacenado en sesión (convertido a minúsculas) con el captcha enviado. Si no coinciden, retorna con error y llena el formulario con los datos previamente ingresados.
+            } // Compara el captcha almacenado en sesión (convertido a minúsculas) con el captcha enviado. Si no coinciden, retorna con error y llena el formulario con los datos previamente ingresados.
 
             $usernameNormalized = mb_strtolower($request->username);
             $user = User::whereRaw('LOWER(username) = ?', [$usernameNormalized])
                 ->orWhereRaw('LOWER(email) = ?', [$usernameNormalized])
-                ->first(); //Busca en la base de datos el usuario cuyo campo (email o username) coincide con el valor recibido, de forma case-insensitive.
+                ->first(); // Busca en la base de datos el usuario cuyo campo (email o username) coincide con el valor recibido, de forma case-insensitive.
 
-            if ($user == null) {//Si no encuentra usuario, retorna con mensaje de error. Si sí, continúa.
-
+            if ($user == null) {// Si no encuentra usuario, retorna con mensaje de error. Si sí, continúa.
 
                 return back()->withErrors(['error-message' => __('Wrong Data')]);
             } else {
-                if ($user->active == 1) {//Verifica que el usuario esté activo. Si no lo está, retorna error.
-                    if (Hash::check($request->password, $user->password)) {//Verifica la contraseña contra el hash almacenado, sin depender del formato exacto del username en la DB.
-                        Auth::login($user);//Autentica directamente con el modelo recuperado (case-insensitive).
+                if ($user->active == 1) {// Verifica que el usuario esté activo. Si no lo está, retorna error.
+                    if (Hash::check($request->password, $user->password)) {// Verifica la contraseña contra el hash almacenado, sin depender del formato exacto del username en la DB.
+                        Auth::login($user); // Autentica directamente con el modelo recuperado (case-insensitive).
 
                         session()->regenerate(); // Previene session fixation: genera nuevo ID de sesión tras autenticación exitosa
 
@@ -560,11 +564,11 @@ class SecurityController extends Controller
                             'change_password' => false,
                             'token' => '',
                             'date_change_password' => null,
-                        ]);//Si el login es exitoso, actualiza el usuario logueado para quitar flags temporales relacionados con el cambio de contraseña y limpiar tokens.
+                        ]); // Si el login es exitoso, actualiza el usuario logueado para quitar flags temporales relacionados con el cambio de contraseña y limpiar tokens.
 
                         // Solo perfiles activos pueden elegirse/seleccionarse
-                        $perfiles = Auth::user()->perfiles()->where('security.profiles.active', true)->get(); //$user->profiles; // Ya gracias a la relación
-                        //dd($perfiles);
+                        $perfiles = Auth::user()->perfiles()->where('security.profiles.active', true)->get(); // $user->profiles; // Ya gracias a la relación
+                        // dd($perfiles);
                         if ($perfiles->count() <= 1) {
                             // Obtener el primer perfil si existe, usando método first()
                             $perfil = $perfiles->first();
@@ -576,6 +580,7 @@ class SecurityController extends Controller
                             /* Mostrar selección porque hay más de un perfil */
                             $layout = 'layouts.kaiadmin-login';
                             $withinSession = false;
+
                             return view('security::users.select_profile', compact('perfiles', 'layout', 'withinSession'));
                         }
 
@@ -584,12 +589,12 @@ class SecurityController extends Controller
                         //     session()->put('MODULE', Auth::user()->getModules()[0]->id);
                         // }
 
-                        return redirect()->intended(route('home')); //Redirige a la ruta nombrada home (dashboard o página principal).
+                        return redirect()->intended(route('home')); // Redirige a la ruta nombrada home (dashboard o página principal).
                     } else {
-                        return back()->withErrors(['error-message' => __('Wrong Data')])->withInput(); //Si el login falla, muestra error y rellena el formulario con datos ingresados.
+                        return back()->withErrors(['error-message' => __('Wrong Data')])->withInput(); // Si el login falla, muestra error y rellena el formulario con datos ingresados.
                     }
                 } else {
-                    return back()->withErrors(['error-message' => __('User blocked')])->withInput(); //Si el usuario no está activo (bloqueado), muestra error específico.
+                    return back()->withErrors(['error-message' => __('User blocked')])->withInput(); // Si el usuario no está activo (bloqueado), muestra error específico.
                 }
             }
         }
@@ -598,24 +603,25 @@ class SecurityController extends Controller
     public function seleccionarPerfil($id_rol)
     {
         // El id_rol puede venir encriptado o ya descifrado por DecryptIds
-        if (!is_numeric($id_rol)) {
+        if (! is_numeric($id_rol)) {
             $id_rol = Encryptor::decrypt($id_rol);
         }
 
         // Seguridad: Verificar que el usuario realmente tiene asignado este perfil
         $tienePerfil = Auth::user()->perfiles()->where('security.profiles.id', $id_rol)->exists();
 
-        if (!$tienePerfil) {
+        if (! $tienePerfil) {
             Log::warning('Intento de acceso a perfil no autorizado', [
                 'user_id' => Auth::id(),
-                'requested_profile' => $id_rol
+                'requested_profile' => $id_rol,
             ]);
+
             return to_route('home')->withErrors(['error-message' => __('Unauthorized profile selection.')]);
         }
 
         // El perfil debe estar activo para poder seleccionarse
         $perfil = \Modules\Security\Entities\Profile::where('id', $id_rol)->where('active', true)->first();
-        if (!$perfil) {
+        if (! $perfil) {
             return to_route('home')->withErrors(['error-message' => __('Cannot select an inactive profile')]);
         }
 
@@ -648,13 +654,13 @@ class SecurityController extends Controller
 
     public function home()
     {
-        //dd(Auth::user()->getMenu());
+        // dd(Auth::user()->getMenu());
         return view('security::users.home');
     }
 
     public function registroHome()
     {
-        //dd(Auth::user()->getMenu());
+        // dd(Auth::user()->getMenu());
         return view('registro::personas.home');
     }
 
@@ -665,10 +671,11 @@ class SecurityController extends Controller
     //     return to_route('home');
     // }
 
-    public function logout()
+    public function logout(Request $request)
     {
-        session()->flush();
         Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return to_route('login');
     }
@@ -679,17 +686,18 @@ class SecurityController extends Controller
         if (\Request::isMethod('get')) {
 
             $typeDoc = \Modules\Security\Entities\DocumentType::get()->pluck('code', 'crypt_id');
+
             return view('security::users.update_profile', compact('typeDoc'));
         } else {
             $option = LockDB::crazy($request->option);
-            //dd($option);
+            // dd($option);
             switch ($option) {
                 case 'photo':
                     $request->validate([
-                        'set_new_photo' => 'required'
+                        'set_new_photo' => 'required',
                     ]);
 
-                    if (!$this->storeAvatar($request->set_new_photo)) {
+                    if (! $this->storeAvatar($request->set_new_photo)) {
                         return to_route('update_profile')->withErrors(['error-message' => __('Photo upload failed. Make sure to take a new photo and try again.')]);
                     }
 
@@ -702,7 +710,7 @@ class SecurityController extends Controller
                         'address' => 'nullable|string|max:255',
                         'phone' => 'required',
                         'email' => 'required|email|max:100',
-                        'code' => 'required'
+                        'code' => 'required',
                     ]);
 
                     $email = strtolower(trim($request->email));
@@ -725,7 +733,7 @@ class SecurityController extends Controller
                         ->where('code', $request->code)
                         ->where('processed', false)
                         ->first();
-                    if (!$findCodeExists) {
+                    if (! $findCodeExists) {
                         return to_route('update_profile')->withErrors(['error-message' => __('Your verification code is wrong')]);
                     }
 
@@ -770,30 +778,29 @@ class SecurityController extends Controller
                 case 'credentials':
                     $request->validate([
                         'current_password' => 'required',
-                        'new_password'     => ['required', 'same:re_password', Password::min(8)->mixedCase()->numbers()->symbols()->max(72)],
-                        're_password'      => 'required',
+                        'new_password' => ['required', 'same:re_password', Password::defaults()],
+                        're_password' => 'required',
                     ]);
 
-                    if (!Hash::check($request->current_password, Auth::user()->password)) {
+                    if (! Hash::check($request->current_password, Auth::user()->password)) {
                         return to_route('update_profile')->withErrors(['error-message' => __("Old Password Doesn't match!")]);
                     }
                     if (Hash::check($request->new_password, Auth::user()->password)) {
-                        return to_route('update_profile')->withErrors(['error-message' => __("New Password cannot be same as your current password.")]);
+                        return to_route('update_profile')->withErrors(['error-message' => __('New Password cannot be same as your current password.')]);
                     }
 
-
-
-
                     User::whereId(auth()->user()->id)->update([
-                        'password' => Hash::make($request->new_password)
+                        'password' => Hash::make($request->new_password),
                     ]);
+
                     return to_route('update_profile')->withSuccess(__('Password changed successfully!'));
-                    //dd($request->all());
+                    // dd($request->all());
                     break;
                 default:
                     return to_route('update_profile');
                     break;
             }
+
             return view('security::users.update_profile');
         }
     }
@@ -806,11 +813,11 @@ class SecurityController extends Controller
     public function update_profile_send_code(Request $request)
     {
         $request->validate([
-            'email' => 'required|email|max:100'
+            'email' => 'required|email|max:100',
         ]);
 
         if (User::where('email', strtolower($request->email))->where('id', '!=', Auth::user()->id)->exists()) {
-            return response()->json(["type" => "danger", "message" => __("The email has already been taken."), "status" => "0"]);
+            return response()->json(['type' => 'danger', 'message' => __('The email has already been taken.'), 'status' => '0']);
         }
 
         $generateCode = $this->generateCode();
@@ -825,33 +832,34 @@ class SecurityController extends Controller
                 $code->processed = false;
                 $code->save();
             } else {
-                return response()->json(["type" => "danger", "message" => __("You have an active code, you must wait 15 minutes"), "status" => "0"]);
+                return response()->json(['type' => 'danger', 'message' => __('You have an active code, you must wait 15 minutes'), 'status' => '0']);
             }
         } else {
-            $code = new \Modules\Security\Entities\Codes();
+            $code = new \Modules\Security\Entities\Codes;
             $code->code = $generateCode;
             $code->email = strtolower($request->email);
             $code->date = now();
             $code->save();
         }
 
-        $subject = __("Security Code");
+        $subject = __('Security Code');
         $for = $code->email;
 
         try {
-            Mail::send('security::emails.send_code', ["code" => $generateCode], function ($email) use ($subject, $for) {
+            Mail::send('security::emails.send_code', ['code' => $generateCode], function ($email) use ($subject, $for) {
                 $email->subject($subject);
                 $email->to($for);
             });
         } catch (\Exception $e) {
-            return response()->json(["type" => "danger", "message" => __("Error sending email: ") . $e->getMessage(), "status" => "0"]);
+            return response()->json(['type' => 'danger', 'message' => __('Error sending email: ').$e->getMessage(), 'status' => '0']);
         }
 
-        return response()->json(["type" => "success", "message" => __("A code has been sent to your email"), "status" => "1"]);
+        return response()->json(['type' => 'success', 'message' => __('A code has been sent to your email'), 'status' => '1']);
     }
 
     /**
      * Display a listing of the resource.
+     *
      * @return Renderable
      */
     public function index()
@@ -861,6 +869,7 @@ class SecurityController extends Controller
 
     /**
      * Show the form for creating a new resource.
+     *
      * @return Renderable
      */
     public function create()
@@ -870,7 +879,7 @@ class SecurityController extends Controller
 
     /**
      * Store a newly created resource in storage.
-     * @param Request $request
+     *
      * @return Renderable
      */
     public function store(Request $request)
@@ -880,7 +889,8 @@ class SecurityController extends Controller
 
     /**
      * Show the specified resource.
-     * @param int $id
+     *
+     * @param  int  $id
      * @return Renderable
      */
     public function show($id)
@@ -890,7 +900,8 @@ class SecurityController extends Controller
 
     /**
      * Show the form for editing the specified resource.
-     * @param int $id
+     *
+     * @param  int  $id
      * @return Renderable
      */
     public function edit($id)
@@ -900,8 +911,8 @@ class SecurityController extends Controller
 
     /**
      * Update the specified resource in storage.
-     * @param Request $request
-     * @param int $id
+     *
+     * @param  int  $id
      * @return Renderable
      */
     public function update(Request $request, $id)
@@ -911,7 +922,8 @@ class SecurityController extends Controller
 
     /**
      * Remove the specified resource from storage.
-     * @param int $id
+     *
+     * @param  int  $id
      * @return Renderable
      */
     public function destroy($id)

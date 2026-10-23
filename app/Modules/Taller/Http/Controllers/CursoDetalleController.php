@@ -2,13 +2,12 @@
 
 namespace Modules\Taller\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Constants\SecurityAction;
 use Illuminate\Support\Facades\DB;
+use Modules\Comun\Entities\PersonalData;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\Inscripcion;
-use Modules\Comun\Entities\PersonalData;
 use Modules\Taller\Services\CondicionalEstadoCurso;
-use App\Constants\SecurityAction;
 
 /**
  * Controlador: CursoDetalleController
@@ -17,7 +16,8 @@ class CursoDetalleController extends BaseController
 {
     public function show($id)
     {
-        $condicional = new CondicionalEstadoCurso();
+        $id = $this->decryptId($id);
+        $condicional = new CondicionalEstadoCurso;
 
         $curso = Curso::with([
             'modalidad',
@@ -27,7 +27,7 @@ class CursoDetalleController extends BaseController
             'inscripciones.persona',
             'persona.user',
             'estados',
-            'observaciones.autor'
+            'observaciones.autor',
         ])->findOrFail($id);
 
         $datosUsuario = $this->obtenerDatosUsuario();
@@ -40,12 +40,17 @@ class CursoDetalleController extends BaseController
 
         // El administrador (gestor) NO actúa como facilitador ni como participante.
         // Solo ve herramientas de gestión y acceso a contenidos como revisor.
-        $esParticipante  = $datosCurso['inscripcion'] !== null;
-        $esOperativo     = $datosCurso['esFacilitador'];
+        $inscripcion = $datosCurso['inscripcion'];
+        $esParticipante = $inscripcion !== null && (
+            ($curso->estado_actual->id_estado ?? 0) === \App\Enums\EstadoCurso::INSCRIPCION->value
+                ? true
+                : $inscripcion->esAprobado()
+        );
+        $esOperativo = $datosCurso['esFacilitador'];
 
         if ($datosUsuario['esGestor']) {
-            $esParticipante   = false;
-            $esOperativo      = false;
+            $esParticipante = false;
+            $esOperativo = false;
             $puedeInscribirse = false;
         }
 
@@ -62,12 +67,20 @@ class CursoDetalleController extends BaseController
         $satisfaccion = app(\Modules\Taller\Services\SatisfaccionCursoService::class);
 
         $contextoSatisfaccion = [
-            'disponible' => $satisfaccion->cursoPermiteEncuesta($curso) && $datosCurso['inscripcion'] !== null,
-            'respondida' => $datosCurso['inscripcion'] ? $satisfaccion->yaRespondio($datosCurso['inscripcion']) : false,
+            'disponible' => $satisfaccion->cursoPermiteEncuesta($curso) && $datosCurso['inscripcion'] !== null && $datosCurso['inscripcion']->esAprobado(),
+            'respondida' => ($datosCurso['inscripcion'] && $datosCurso['inscripcion']->esAprobado()) ? $satisfaccion->yaRespondio($datosCurso['inscripcion']) : false,
         ];
 
+        $facilitadores = [];
+        if ($datosUsuario['esGestor']) {
+            $facilitadores = app(\App\Services\Security\Autorizacion::class)
+                ->consultaElegiblesFacilitador()
+                ->with('personalData')
+                ->get();
+        }
+
         return view('taller::a.CursoDetalle', array_merge(
-            compact('curso', 'capacidades', 'puedeCancelarInscripciones', 'puedeVerParticipantes', 'contextoSatisfaccion'),
+            compact('curso', 'capacidades', 'puedeCancelarInscripciones', 'puedeVerParticipantes', 'contextoSatisfaccion', 'facilitadores'),
             $datosUsuario,
             $datosCurso
         ));
@@ -80,7 +93,7 @@ class CursoDetalleController extends BaseController
             'inscripciones.rechazadoPor',
             'persona.user',
             'estados',
-            'requisitos'
+            'requisitos',
         ])->findOrFail($id);
 
         $this->authorize('verParticipantes', $curso);
@@ -89,12 +102,12 @@ class CursoDetalleController extends BaseController
 
         // Categorización por Workflow de Postulación
         $postulados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_POSTULADO);
-        $aprobados  = $curso->inscripciones->where('estado', Inscripcion::ESTADO_APROBADO);
+        $aprobados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_APROBADO);
         $rechazados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_RECHAZADO);
-        $denegados  = $curso->inscripciones->where('estado', Inscripcion::ESTADO_DENEGADO);
+        $denegados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_DENEGADO);
 
         return view('taller::a.CursoParticipantes', compact(
-            'curso', 
+            'curso',
             'puedeCancelarInscripciones',
             'postulados',
             'aprobados',
@@ -105,7 +118,7 @@ class CursoDetalleController extends BaseController
 
     private function obtenerDatosUsuario(): array
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return [
                 'user' => null,
                 'idPersona' => null,
@@ -133,12 +146,11 @@ class CursoDetalleController extends BaseController
         $inscripcion = $idPersona
             ? Inscripcion::where('id_curso', $curso->id_curso)
                 ->where('id_persona', $idPersona)
-                ->where('estado', Inscripcion::ESTADO_APROBADO)
                 ->first()
             : null;
 
-        $cuposDisponibles = $curso->cantidad_cupos !== null 
-            ? max(0, (int)$curso->cantidad_cupos - $curso->inscripcionesActivas->count()) 
+        $cuposDisponibles = $curso->cantidad_cupos !== null
+            ? max(0, (int) $curso->cantidad_cupos - $curso->inscripcionesActivas->count())
             : null;
 
         $datosPromedio = $this->calcularPromedioEstudiante($curso, $idPersona, $inscripcion);
@@ -167,7 +179,7 @@ class CursoDetalleController extends BaseController
             'debeMostrarPromedio' => $debeMostrarPromedio,
         ];
 
-        if (!$inscripcion || !$debeMostrarPromedio || !$idPersona) {
+        if (! $inscripcion || ! $inscripcion->esAprobado() || ! $debeMostrarPromedio || ! $idPersona) {
             return $datosPromedio;
         }
 
@@ -181,7 +193,9 @@ class CursoDetalleController extends BaseController
         $ponderacionEvaluada = 0;
 
         foreach ($curso->contenidos as $contenido) {
-            if (!$contenido->es_evaluacion) continue;
+            if (! $contenido->es_evaluacion) {
+                continue;
+            }
 
             $calificacion = $calificacionesEstudiante->get($contenido->id_contenido_curso);
             if ($calificacion && isset($calificacion->calificacion)) {

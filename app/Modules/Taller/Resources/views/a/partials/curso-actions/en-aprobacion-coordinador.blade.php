@@ -11,6 +11,6 @@
     </div>
 @endcan
 
-<button class="btn btn-danger w-100 mb-2" onclick="rechazarContenido('{{ $curso->crypt_id }}', 2)">
+<button class="btn btn-danger w-100 mb-2" onclick="rechazarContenido('{{ $curso->crypt_id }}', 3)">
     <i class="fas fa-times-circle me-2"></i> Declinar Propuesta
 </button>

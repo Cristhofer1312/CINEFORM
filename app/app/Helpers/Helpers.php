@@ -10,34 +10,28 @@ if (! function_exists('Upper')) {
 }
 if (! function_exists('showActions')) {
 
-    function showActions($text, $name, $actions)
+    /**
+     * Pinta las casillas de permisos de un proceso.
+     *
+     * @param  iterable  $permisos  Filas de security.permissions del proceso: la
+     *                              única fuente de slug, nombre y descripción (RF-83).
+     * @param  array  $actions  Slugs que el perfil tiene.
+     */
+    function showActions($permisos, $name, $actions)
     {
-        $text = trim($text);
-        if ($text == '' || $text == '*') {
+        $permisos = collect($permisos)->unique('slug');
+        if ($permisos->isEmpty()) {
             return '';
         }
-        $options = array_unique(array_filter(explode('|', $text)));
         $html = '<ul class="list-group p-0" style="margin-top:0.5rem; gap: 0.5rem;">';
-        foreach ($options as $value) {
+        foreach ($permisos as $permiso) {
+            $value = $permiso->slug;
             $checked = in_array($value, $actions) ? 'checked="checked"' : '';
 
-            // Buscar etiquetas amigables y descripciones usando el nuevo mapeo RBAC
-            $idAction = \App\Constants\SecurityAction::stringToId($value);
-            $friendlyName = $value;
-            $descriptionLabel = '';
-
-            if ($idAction !== 0) {
-                $labels = \App\Constants\SecurityAction::labels();
-                $descriptions = \App\Constants\SecurityAction::descriptions();
-
-                $friendlyName = $labels[$idAction] ?? $value;
-                $desc = $descriptions[$idAction] ?? '';
-                if ($desc) {
-                    $descriptionLabel = '<span class="d-block text-muted mt-1" style="font-size:0.8rem; line-height: 1.2;">'.$desc.'</span>';
-                }
-            } else {
-                $friendlyName = ucwords(str_replace('_', ' ', $value));
-            }
+            $friendlyName = e($permiso->name ?: ucwords(str_replace('_', ' ', $value)));
+            $descriptionLabel = $permiso->description
+                ? '<span class="d-block text-muted mt-1" style="font-size:0.8rem; line-height: 1.2;">'.e($permiso->description).'</span>'
+                : '';
 
             // Determinar clases extra para opciones marcadas vs desmarcadas para que sea más vistoso
             $bordeExtra = in_array($value, $actions) ? 'border-primary border-2 shadow-sm' : 'border-primary border-opacity-50';
@@ -45,7 +39,7 @@ if (! function_exists('showActions')) {
 
             $html .= '<li class="list-group-item d-flex align-items-start border rounded px-3 py-2 mb-2 bg-white '.$bordeExtra.'"> 
                         <div class="form-check p-0 m-0 w-100 d-flex">
-                            <input '.$checked.' name="permissions['.$name.']['.$value.']" class="form-check-input mt-1 me-2 pointer border-primary" type="checkbox" id="chk_'.$cleanName.'_'.$value.'" /> 
+                            <input '.$checked.' name="permissions['.$name.']['.$value.']" class="form-check-input mt-1 me-2 pointer border-primary" type="checkbox" id="chk_'.$cleanName.'_'.$value.'" />
                             <div class="flex-grow-1">
                                 <label class="form-check-label fw-bold m-0 text-dark" style="cursor:pointer;" for="chk_'.$cleanName.'_'.$value.'">'.$friendlyName.'</label>
                                 '.$descriptionLabel.'
@@ -224,30 +218,23 @@ if (! function_exists('checkCta')) {
 
 if (! function_exists('hasPermission')) {
     /**
-     * @deprecated Delega en App\Services\Security\Autorizacion. Sin bypass del usuario 1.
+     * @deprecated Usar App\Services\Security\Autorizacion::puedeEnProceso().
+     * Aplica el mismo bypass del usuario raíz que el middleware `permiso:`.
      */
     function hasPermission($processId, int $actionId): bool
     {
-        $autorizacion = app(\App\Services\Security\Autorizacion::class);
-        $perfil = $autorizacion->perfilActivo();
-        $slug = \App\Constants\SecurityAction::dbString($actionId);
-        if (! $perfil || ! $slug) {
-            return false;
-        }
-
-        return $autorizacion->puedeEnProcesoComoPerfil($perfil, $processId, $actionId);
+        return app(\App\Services\Security\Autorizacion::class)->puedeEnProceso($processId, $actionId);
     }
 }
 
 if (! function_exists('hasPermissionRoute')) {
     /**
-     * @deprecated Delega en App\Services\Security\Autorizacion. Sin bypass del usuario 1.
+     * @deprecated Usar App\Services\Security\Autorizacion::puede().
+     * Aplica el mismo bypass del usuario raíz que el middleware `permiso:`.
      */
     function hasPermissionRoute(string $routeSlug, int $actionId): bool
     {
-        $autorizacion = app(\App\Services\Security\Autorizacion::class);
-
-        return $autorizacion->puedeComoPerfil($autorizacion->perfilActivo(), $routeSlug, $actionId);
+        return app(\App\Services\Security\Autorizacion::class)->puede($routeSlug, $actionId);
     }
 }
 

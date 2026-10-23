@@ -2,9 +2,15 @@
 
 namespace App\Constants;
 
+/**
+ * Identificadores de las acciones de permiso.
+ *
+ * Solo contiene la correspondencia número ↔ slug. El nombre y la descripción de
+ * cada permiso viven en `security.permissions` (name, description), que es la
+ * única fuente que muestra la pantalla de permisos (RF-83).
+ */
 class SecurityAction
 {
-    // IDs numéricos de la acción (Lo que usarás en tu código)
     const VER = 1;
     const CREAR = 2;
     const CREAR_CURSO = 3;
@@ -12,142 +18,57 @@ class SecurityAction
     const EDITAR_CURSO = 5;
     const EDITAR_CURSO_E = 6;
     const CALIFICAR_CURSO = 7;
-    const RESPONDER_CURSO = 8; // Para que el facilitador acepte o rechace la asignación
-    const APROBAR_CURSO = 9; // Para aprobar un curso y abrir las inscripciones (Estado 5 → 6)
-    const INSCRIBIRSE_CURSO = 18; // Para que un participante pueda inscribirse en un curso
-    const CANCELAR_INSCRIPCION = 19; // Para que un coordinador pueda retirar participantes de un curso
-    const VER_PARTICIPANTES = 21; // Para poder ver el listado de participantes inscritos
+    const RESPONDER_CURSO = 8;
+    const APROBAR_CURSO = 9;
+    const EDITAR = 10;
+    const GESTIONAR_PERMISOS = 11;
+    const SEGURIDAD_USUARIO = 12;
+    const INSCRIBIRSE_CURSO = 18;
+    const CANCELAR_INSCRIPCION = 19;
+    const ASIGNAR_PERFIL = 20;
+    const VER_PARTICIPANTES = 21;
+    const MARCAR_ASISTENCIA = 22;
+    const GESTIONAR_ASISTENCIA = 23;
+    const POSTULARSE_FACILITADOR = 24;
+    const GESTIONAR_POSTULACIONES_FACILITADOR = 25;
+    const VER_ESTADISTICAS = 26;
 
-    // ── Administración de Seguridad ──────────────────────────────────────────
-    const EDITAR = 10; // Editar registros en módulos de administración (perfiles, usuarios)
-    const GESTIONAR_PERMISOS = 11; // Asignar / revocar acciones sobre los perfiles del sistema
-    const SEGURIDAD_USUARIO = 12; // Cambiar credenciales de seguridad (contraseña) de otro usuario
-    const ASIGNAR_PERFIL = 20; // Asignar o quitar perfiles a usuarios desde el panel administrativo
-    const MARCAR_ASISTENCIA = 22;    // Marcar propia asistencia vía link/QR
-    const GESTIONAR_ASISTENCIA = 23; // Ver listas, generar tokens, anular/restaurar, marcar manual
-    const POSTULARSE_FACILITADOR = 24; // Para que el participante vea el landing y se postule a facilitador
-    const GESTIONAR_POSTULACIONES_FACILITADOR = 25; // Para que el coordinador gestione los requisitos y apruebe/rechace postulaciones
-    const VER_ESTADISTICAS = 26; // Para consultar la interfaz de estadísticas de cursos
+    /** Slug con el que se guarda cada acción en `security.permissions.slug`. */
+    private const SLUGS = [
+        self::VER => 'view',
+        self::CREAR => 'create',
+        self::CREAR_CURSO => 'create_course',
+        self::GESTIONAR_CURSO => 'manage_course',
+        self::EDITAR_CURSO => 'edit_course',
+        self::EDITAR_CURSO_E => 'edit_course_e',
+        self::CALIFICAR_CURSO => 'grade_course',
+        self::RESPONDER_CURSO => 'accept_course',
+        self::APROBAR_CURSO => 'approve_course',
+        self::EDITAR => 'edit',
+        self::GESTIONAR_PERMISOS => 'permissions',
+        self::SEGURIDAD_USUARIO => 'security',
+        self::INSCRIBIRSE_CURSO => 'enroll',
+        self::CANCELAR_INSCRIPCION => 'cancel_enrollment',
+        self::ASIGNAR_PERFIL => 'assign',
+        self::VER_PARTICIPANTES => 'view_participants',
+        self::MARCAR_ASISTENCIA => 'mark_attendance',
+        self::GESTIONAR_ASISTENCIA => 'manage_attendance',
+        self::POSTULARSE_FACILITADOR => 'apply_facilitator',
+        self::GESTIONAR_POSTULACIONES_FACILITADOR => 'manage_facilitator_applications',
+        self::VER_ESTADISTICAS => 'view_statistics',
+    ];
 
-    /**
-     * Nombres amigables para mostrar en la interfaz (Checkboxes).
-     */
-    public static function labels(): array
-    {
-        return [
-            self::VER => 'Acceso a la Sección',
-            self::CREAR => 'Crear Registros Nuevos',
-            self::CREAR_CURSO => 'Planificar Nuevo Curso',
-            self::GESTIONAR_CURSO => 'Rol Coordinador / Supervisor',
-            self::EDITAR_CURSO => 'Rol Facilitador',
-            self::EDITAR_CURSO_E => 'Edición Excepcional',
-            self::CALIFICAR_CURSO => 'Calificar Curso',
-            self::RESPONDER_CURSO => 'Aceptar / Rechazar Asignación',
-            self::APROBAR_CURSO => 'Abrir Inscripciones Oficialmente',
-            self::EDITAR => 'Modificar Registros',
-            self::GESTIONAR_PERMISOS => 'Modificar Permisos del Sistema',
-            self::SEGURIDAD_USUARIO => 'Restablecer Contraseñas',
-            self::INSCRIBIRSE_CURSO => 'Inscribirse en Cursos',
-            self::VER_PARTICIPANTES => 'Ver Participantes Inscritos',
-            self::CANCELAR_INSCRIPCION => 'Cancelar Inscripciones de Participantes',
-            self::ASIGNAR_PERFIL => 'Asignar Perfiles a Usuarios',
-            self::MARCAR_ASISTENCIA => 'Marcar Asistencia Propia',
-            self::GESTIONAR_ASISTENCIA => 'Gestionar Asistencia de Cursos',
-            self::POSTULARSE_FACILITADOR => 'Postularse a Facilitador',
-            self::GESTIONAR_POSTULACIONES_FACILITADOR => 'Gestionar Postulaciones a Facilitador',
-            self::VER_ESTADISTICAS => 'Consultar Estadísticas de Cursos',
-        ];
-    }
-
-    /**
-     * Descripciones detalladas de lo que permite hacer cada acción.
-     */
-    public static function descriptions(): array
-    {
-        return [
-            self::VER => 'Es el permiso base requerido. Permite ver esta sección en el menú lateral y hace visible el listado de elementos en pantalla.',
-            self::CREAR => 'Otorga la capacidad de crear nuevos perfiles en el sistema.',
-            self::CREAR_CURSO => 'Permite diseñar planes de curso desde cero.',
-            self::GESTIONAR_CURSO => 'Permite gestionar cursos sin ser el facilitador directo, reasignar personal y alterar cualquier estado del ciclo general de cursos.',
-            self::EDITAR_CURSO => 'Hace que un usuario sea seleccionable como "Facilitador". Permite al facilitador designado poder editar, agregar material y solicitar la aprobación final de su curso.',
-            self::EDITAR_CURSO_E => 'Poder exclusivo de excepciones: Permite alterar información fundamental de un curso que ya está en progreso o que cerró inscripciones.',
-            self::CALIFICAR_CURSO => 'Autoriza formalmente a un usuario a registrar calificaciones definitivas.',
-            self::RESPONDER_CURSO => 'Habilita al usuario asignado a aceptar el compromiso de dictar la clase o rechazar la responsabilidad.',
-            self::APROBAR_CURSO => 'Autoridad final: Cambia el curso a estado "Activo" para abrir la fase de inscripciones y hacerlo público a los participantes.',
-            self::EDITAR => 'Permite modificar datos basicos de usuarios, Cambiar perfiles y activar/desactivar cuentas.',
-            self::GESTIONAR_PERMISOS => 'Permite alterar el nivel de acceso de cualquier perfil de la institución. Solo para administradores principales.',
-            self::SEGURIDAD_USUARIO => 'Permite forzar o restaurar contraseñas de las cuentas de otros empleados del sistema.',
-            self::INSCRIBIRSE_CURSO => 'Permite que el perfil pueda realizar inscripciones formales en los cursos disponibles.',
-            self::VER_PARTICIPANTES => 'Permite ver el listado completo de participantes inscritos en el curso.',
-            self::CANCELAR_INSCRIPCION => 'Permite retirar participantes de un curso. Solo efectivo en estados donde las inscripciones están activas o el curso está en progreso.',
-            self::ASIGNAR_PERFIL => 'Permite buscar usuarios por cédula y asignar o quitar perfiles/roles desde el panel administrativo.',
-            self::MARCAR_ASISTENCIA => 'Permite al participante registrar su asistencia a las sesiones de clase mediante enlace o código QR.',
-            self::GESTIONAR_ASISTENCIA => 'Permite ver listas de asistencia, generar enlaces/QR, anular o restaurar registros, y marcar asistencia manualmente por otros participantes.',
-            self::POSTULARSE_FACILITADOR => 'Permite a los participantes que no son facilitadores postularse entregando los recaudos necesarios.',
-            self::GESTIONAR_POSTULACIONES_FACILITADOR => 'Permite a los coordinadores gestionar los requisitos y aprobar o rechazar las postulaciones de facilitador.',
-            self::VER_ESTADISTICAS => 'Permite consultar los indicadores y gráficos de la interfaz de estadísticas de cursos.',
-        ];
-    }
-
-    /**
-     * Mapea el ID numérico con el texto real que se guarda en la Base de Datos.
-     */
+    /** Slug de la acción, o '' si no existe. */
     public static function dbString(int $actionId): string
     {
-        return match ($actionId) {
-            self::VER => 'view',
-            self::CREAR => 'create',
-            self::CREAR_CURSO => 'create_course',
-            self::GESTIONAR_CURSO => 'manage_course',
-            self::EDITAR_CURSO => 'edit_course',
-            self::EDITAR_CURSO_E => 'edit_course_e',
-            self::CALIFICAR_CURSO => 'grade_course',
-            self::RESPONDER_CURSO => 'accept_course',
-            self::APROBAR_CURSO => 'approve_course',
-            self::EDITAR => 'edit',
-            self::GESTIONAR_PERMISOS => 'permissions',
-            self::SEGURIDAD_USUARIO => 'security',
-            self::INSCRIBIRSE_CURSO => 'enroll',
-            self::VER_PARTICIPANTES => 'view_participants',
-            self::CANCELAR_INSCRIPCION => 'cancel_enrollment',
-            self::ASIGNAR_PERFIL => 'assign',
-            self::MARCAR_ASISTENCIA => 'mark_attendance',
-            self::GESTIONAR_ASISTENCIA => 'manage_attendance',
-            self::POSTULARSE_FACILITADOR => 'apply_facilitator',
-            self::GESTIONAR_POSTULACIONES_FACILITADOR => 'manage_facilitator_applications',
-            self::VER_ESTADISTICAS => 'view_statistics',
-            default => '',
-        };
+        return self::SLUGS[$actionId] ?? '';
     }
 
-    /**
-     * Convierte un texto de la DB a nuestro ID numérico
-     */
+    /** Identificador de la acción a partir de su slug, o 0 si no existe. */
     public static function stringToId(string $actionString): int
     {
-        return match ($actionString) {
-            'view' => self::VER,
-            'create' => self::CREAR,
-            'create_course' => self::CREAR_CURSO,
-            'manage_course' => self::GESTIONAR_CURSO,
-            'edit_course' => self::EDITAR_CURSO,
-            'edit_course_e' => self::EDITAR_CURSO_E,
-            'grade_course' => self::CALIFICAR_CURSO,
-            'accept_course' => self::RESPONDER_CURSO,
-            'approve_course' => self::APROBAR_CURSO,
-            'edit' => self::EDITAR,
-            'permissions' => self::GESTIONAR_PERMISOS,
-            'security' => self::SEGURIDAD_USUARIO,
-            'enroll' => self::INSCRIBIRSE_CURSO,
-            'view_participants' => self::VER_PARTICIPANTES,
-            'cancel_enrollment' => self::CANCELAR_INSCRIPCION,
-            'assign' => self::ASIGNAR_PERFIL,
-            'mark_attendance' => self::MARCAR_ASISTENCIA,
-            'manage_attendance' => self::GESTIONAR_ASISTENCIA,
-            'apply_facilitator' => self::POSTULARSE_FACILITADOR,
-            'manage_facilitator_applications' => self::GESTIONAR_POSTULACIONES_FACILITADOR,
-            'view_statistics' => self::VER_ESTADISTICAS,
-            default => 0, // Desconocido
-        };
+        $id = array_search($actionString, self::SLUGS, true);
+
+        return $id === false ? 0 : $id;
     }
 }

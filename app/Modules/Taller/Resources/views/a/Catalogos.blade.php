@@ -71,10 +71,12 @@
                             <small class="text-muted">Tipo de actividad educativa (Taller, Foro, Conferencia…)</small>
                         </div>
                     </div>
+                    @if($puedeCrear)
                     <button type="button" class="btn btn-primary rounded-pill px-4 shadow-sm fw-bold" data-bs-toggle="modal"
                         data-bs-target="#modalCrearActividad">
                         <i class="fas fa-plus me-2"></i> Agregar
                     </button>
+                    @endif
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -112,6 +114,7 @@
                                             @endif
                                         </td>
                                         <td class="text-center pe-4">
+                                            @if($puedeEditar)
                                             {{-- Editar --}}
                                             <button type="button"
                                                 class="btn btn-sm btn-light border shadow-xs rounded-3 me-1 btn-editar-actividad"
@@ -134,6 +137,9 @@
                                                         class="fas {{ $act->status === 'Activo' ? 'fa-ban' : 'fa-check-circle' }}"></i>
                                                 </button>
                                             </form>
+                                            @else
+                                                <span class="text-muted small">Solo lectura</span>
+                                            @endif
                                         </td>
                                     </tr>
                                 @empty
@@ -165,10 +171,12 @@
                             <small class="text-muted">Área cinematográfica del curso (Guion, Dirección, Sonido…)</small>
                         </div>
                     </div>
+                    @if($puedeCrear)
                     <button type="button" class="btn rounded-pill px-4 shadow-sm fw-bold text-white"
                         style="background:#0891b2;" data-bs-toggle="modal" data-bs-target="#modalCrearAspecto">
                         <i class="fas fa-plus me-2"></i> Agregar
                     </button>
+                    @endif
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -207,6 +215,7 @@
                                             @endif
                                         </td>
                                         <td class="text-center pe-4">
+                                            @if($puedeEditar)
                                             {{-- Editar --}}
                                             <button type="button"
                                                 class="btn btn-sm btn-light border shadow-xs rounded-3 me-1 btn-editar-aspecto"
@@ -229,6 +238,9 @@
                                                         class="fas {{ $asp->status === 'Activo' ? 'fa-ban' : 'fa-check-circle' }}"></i>
                                                 </button>
                                             </form>
+                                            @else
+                                                <span class="text-muted small">Solo lectura</span>
+                                            @endif
                                         </td>
                                     </tr>
                                 @empty

@@ -2,24 +2,23 @@
 
 namespace Modules\Taller\Http\Controllers;
 
-use Modules\Taller\Entities\Curso;
-use Modules\Comun\Entities\PersonalData;
-use Modules\Taller\Entities\Inscripcion;
-use Modules\Taller\Entities\ObservacionCurso;
+use App\Constants\SecurityAction;
+use App\Enums\EstadoCurso;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use App\Constants\SecurityAction;
-use App\Enums\EstadoCurso;
+use Modules\Comun\Entities\PersonalData;
+use Modules\Taller\Entities\Curso;
+use Modules\Taller\Entities\Inscripcion;
+use Modules\Taller\Entities\ObservacionCurso;
 
 class CursoController extends BaseController
 {
-
     /**
      * Display the course content for enrolled students.
      *
      * @param  int  $id
-     * @param  int|null $contenido_id
+     * @param  int|null  $contenido_id
      * @return \Illuminate\View\View
      */
     public function contenido($id, $contenido_id = null)
@@ -30,7 +29,7 @@ class CursoController extends BaseController
                 $query->orderBy('fecha_contenido', 'asc')->orderBy('id_contenido_curso', 'asc')->with('tipoEvaluacion');
             },
             'persona',
-            'estados'
+            'estados',
         ])->findOrFail($id);
 
         // Autorización centralizada via Policy
@@ -53,7 +52,7 @@ class CursoController extends BaseController
 
         // Si es estudiante y es una evaluación, buscar calificación
         $calificacion = null;
-        if (!$esFacilitador && $contenidoActual && $contenidoActual->es_evaluacion) {
+        if (! $esFacilitador && $contenidoActual && $contenidoActual->es_evaluacion) {
             $calificacion = DB::table('taller.calificaciones')
                 ->where('id_contenido_curso', $contenidoActual->id_contenido_curso)
                 ->where('id_persona', $personalData->id_persona)
@@ -65,51 +64,82 @@ class CursoController extends BaseController
 
     public function updateStatus(Request $request, $id)
     {
+        $id = $this->decryptId($id);
         $curso = Curso::findOrFail($id);
         $nuevoEstado = (int) $request->id_estado;
+
+        $origen = EstadoCurso::tryFrom((int) ($curso->estado_actual->id_estado ?? 0));
+        $destino = EstadoCurso::tryFrom($nuevoEstado);
+
+        // Si el curso está en POR_ACEPTAR y no se especificó un destino explícito entre rechazar/declinar,
+        // por defecto se asigna RECHAZADO (2).
+        if ($origen === EstadoCurso::POR_ACEPTAR && !in_array($destino, [EstadoCurso::RECHAZADO, EstadoCurso::DECLINADO], true)) {
+            $nuevoEstado = EstadoCurso::RECHAZADO->value;
+            $destino = EstadoCurso::RECHAZADO;
+        }
 
         // 1. Autorización estricta por par (origen, destino) via Policy
         $this->authorize('cambiarEstado', [$curso, $nuevoEstado]);
 
-        // 2. Validación de negocio de la transición de estado
-        $origen = EstadoCurso::tryFrom((int) ($curso->estado_actual->id_estado ?? 0));
-        $destino = EstadoCurso::tryFrom($nuevoEstado);
-
         if ($destino === null) {
             return response()->json([
                 'success' => false,
-                'message' => 'Estado de destino inválido.'
+                'message' => 'Estado de destino inválido.',
             ], 422);
         }
 
-        if ($origen !== null && !$origen->puedeTransicionarA($destino)) {
+        if ($origen !== null && ! $origen->puedeTransicionarA($destino)) {
             return response()->json([
                 'success' => false,
-                'message' => 'El curso no puede pasar de "' . $origen->label() . '" a "' . $destino->label() . '".'
+                'message' => 'El curso no puede pasar de "'.$origen->label().'" a "'.$destino->label().'".',
             ], 422);
         }
 
         try {
+            DB::beginTransaction();
+
             $curso->agregarEstado($nuevoEstado);
 
-            // Si es un rechazo o declinación, guardar el motivo en su propia tabla
-            if (in_array($nuevoEstado, [EstadoCurso::DECLINADO->value, EstadoCurso::RECHAZADO->value], true)
+            // Si el facilitador rechaza/declina la asignación desde POR_ACEPTAR,
+            // se le quita la asignación al curso (id_persona = null) y se registra la observación
+            if ($origen === EstadoCurso::POR_ACEPTAR && in_array($destino, [EstadoCurso::RECHAZADO, EstadoCurso::DECLINADO], true)) {
+                $nombreFacilitador = $curso->persona
+                    ? ($curso->persona->primer_nombre.' '.$curso->persona->primer_apellido)
+                    : 'Facilitador';
+
+                $motivoTexto = $request->filled('motivo') ? $request->motivo : 'Sin motivo especificado.';
+
+                $curso->update([
+                    'id_persona' => null,
+                    'actualizado_por' => auth()->id(),
+                ]);
+
+                ObservacionCurso::create([
+                    'id_curso' => $curso->id_curso,
+                    'observacion' => "El facilitador {$nombreFacilitador} rechazó la asignación del curso. Motivo: {$motivoTexto}",
+                    'creado_por' => auth()->id(),
+                ]);
+            } elseif (in_array($nuevoEstado, [EstadoCurso::DECLINADO->value, EstadoCurso::RECHAZADO->value], true)
                 && $request->filled('motivo')) {
                 ObservacionCurso::create([
-                    'id_curso'    => $curso->id_curso,
+                    'id_curso' => $curso->id_curso,
                     'observacion' => $request->motivo,
-                    'creado_por'  => auth()->id(),
+                    'creado_por' => auth()->id(),
                 ]);
             }
 
+            DB::commit();
+
             return response()->json([
                 'success' => true,
-                'message' => 'Estado del curso actualizado correctamente'
+                'message' => 'Estado del curso actualizado correctamente',
             ]);
         } catch (\Exception $e) {
+            DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error al actualizar el estado: ' . $e->getMessage()
+                'message' => 'Error al actualizar el estado: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -124,7 +154,7 @@ class CursoController extends BaseController
         if ($this->usuarioSinDatosPersonales()) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se encontraron datos personales para el usuario actual'
+                'message' => 'No se encontraron datos personales para el usuario actual',
             ], 404);
         }
 
@@ -139,9 +169,9 @@ class CursoController extends BaseController
             ->withCount(['contenidos', 'inscripciones']);
 
         // Si NO es gestor, ni facilitador, ni coordinador (Participante Base)
-        if (!hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO) &&
-            !hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::EDITAR_CURSO)) {
-            
+        if (! hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO) &&
+            ! hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::EDITAR_CURSO)) {
+
             $personalData = Auth::user()->personalData;
             $idEstadoUsuario = $personalData->id_estado ?? null;
             $idPersonaActual = $personalData->id_persona ?? null;
@@ -168,11 +198,11 @@ class CursoController extends BaseController
                     });
 
                     // REGLA DE ALCANCE: Nacional o Localidad Coincidente
-                    $qPublico->where(function($qAlcance) use ($idEstadoUsuario) {
+                    $qPublico->where(function ($qAlcance) use ($idEstadoUsuario) {
                         $qAlcance->where('es_nacional', true); // Opción 1: Es de alcance nacional
 
                         if ($idEstadoUsuario) {
-                            $qAlcance->orWhereHas('localidades', function($qLoc) use ($idEstadoUsuario) {
+                            $qAlcance->orWhereHas('localidades', function ($qLoc) use ($idEstadoUsuario) {
                                 $qLoc->where('comun.estados.id', $idEstadoUsuario);
                             }); // Opción 2: El estado del usuario está permitido
                         }
@@ -181,7 +211,7 @@ class CursoController extends BaseController
 
                 // REGLA: Si el participante ya está inscrito en un curso de otra localidad (antes del cambio o por excepción), permitir que lo siga viendo
                 if ($idPersonaActual) {
-                    $q->orWhereHas('inscripciones', function($qIns) use ($idPersonaActual) {
+                    $q->orWhereHas('inscripciones', function ($qIns) use ($idPersonaActual) {
                         $qIns->where('id_persona', $idPersonaActual);
                     });
                 }
@@ -189,25 +219,27 @@ class CursoController extends BaseController
         }
 
         // Filtro por búsqueda (nombre o descripción)
-        if ($request->has('search') && !empty($request->search)) {
+        if ($request->has('search') && ! empty($request->search)) {
             $query->where(function ($q) use ($request) {
-                $q->where('nombre', 'like', '%' . $request->search . '%')
-                    ->orWhere('descripcion', 'like', '%' . $request->search . '%');
+                $q->where('nombre', 'like', '%'.$request->search.'%')
+                    ->orWhere('descripcion', 'like', '%'.$request->search.'%');
             });
         }
 
         // Filtro por estado específico (usa la tabla pivote curso_estado para determinar el estado actual)
-        if ($request->has('id_estado') && !empty($request->id_estado)) {
-            $idEstadoFiltro = $request->id_estado;
+        if ($request->has('id_estado') && ! empty($request->id_estado)) {
+            $idEstadoFiltro = $this->decryptId($request->id_estado);
             $query->whereExists(function ($sub) use ($idEstadoFiltro) {
                 $sub->select(DB::raw(1))
                     ->from('taller.curso_estado as ce_filtro')
                     ->whereColumn('ce_filtro.id_curso', 'taller.cursos.id_curso')
                     ->where('ce_filtro.id_estado', $idEstadoFiltro)
-                    ->whereRaw('ce_filtro.created_at = (
-                        SELECT MAX(ce_m.created_at)
+                    ->whereRaw('ce_filtro.id = (
+                        SELECT ce_m.id
                         FROM taller.curso_estado AS ce_m
                         WHERE ce_m.id_curso = taller.cursos.id_curso
+                        ORDER BY ce_m.created_at DESC, ce_m.id DESC
+                        LIMIT 1
                     )');
             });
         }
@@ -231,7 +263,7 @@ class CursoController extends BaseController
     /**
      * Procesa cada curso para agregar propiedades calculadas necesarias en la vista
      *
-     * @param \Illuminate\Pagination\LengthAwarePaginator $cursos
+     * @param  \Illuminate\Pagination\LengthAwarePaginator  $cursos
      * @return void
      */
     private function procesarCursosParaVista($cursos)
@@ -246,7 +278,7 @@ class CursoController extends BaseController
             $curso->modalidadIcon = $curso->modalidad === 'Presencial' ? 'fa-building' : 'fa-laptop';
 
             // Color del badge según EstadoCurso::color() (fuente única, sin mapa duplicado).
-            $curso->badgeClass = 'bg-' . (EstadoCurso::tryFrom((int) $estadoId)?->color() ?? 'secondary');
+            $curso->badgeClass = 'bg-'.(EstadoCurso::tryFrom((int) $estadoId)?->color() ?? 'secondary');
         }
     }
 
@@ -260,7 +292,7 @@ class CursoController extends BaseController
         if ($this->usuarioSinDatosPersonales()) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se encontraron datos personales para el usuario actual'
+                'message' => 'No se encontraron datos personales para el usuario actual',
             ], 404);
         }
 
@@ -276,7 +308,7 @@ class CursoController extends BaseController
 
         return response()->json([
             'success' => true,
-            'data' => $cursosParticipante
+            'data' => $cursosParticipante,
         ]);
     }
 
@@ -291,7 +323,7 @@ class CursoController extends BaseController
         if ($this->usuarioSinDatosPersonales()) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se encontraron datos personales para el usuario actual'
+                'message' => 'No se encontraron datos personales para el usuario actual',
             ], 404);
         }
 
@@ -301,10 +333,10 @@ class CursoController extends BaseController
         $curso = Curso::with(['modalidad', 'contenidos', 'inscripciones.persona'])
             ->find($id);
 
-        if (!$curso) {
+        if (! $curso) {
             return response()->json([
                 'success' => false,
-                'message' => 'Curso no encontrado'
+                'message' => 'Curso no encontrado',
             ], 404);
         }
 
@@ -313,10 +345,10 @@ class CursoController extends BaseController
         $esParticipante = $curso->inscripciones->contains('id_persona', $persona->id_persona);
         $esCoordinador = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO);
 
-        if (!$esFacilitador && !$esParticipante && !$esCoordinador) {
+        if (! $esFacilitador && ! $esParticipante && ! $esCoordinador) {
             return response()->json([
                 'success' => false,
-                'message' => 'No tienes permiso para ver este curso'
+                'message' => 'No tienes permiso para ver este curso',
             ], 403);
         }
 
@@ -324,14 +356,13 @@ class CursoController extends BaseController
             'success' => true,
             'data' => $curso,
             'es_facilitador' => $esFacilitador,
-            'es_participante' => $esParticipante
+            'es_participante' => $esParticipante,
         ]);
     }
 
     /**
      * Almacena un nuevo curso en la base de datos
      *
-     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
@@ -345,7 +376,7 @@ class CursoController extends BaseController
          * ('taller.cursos') desde la propiedad del modelo, evitando la ambigüedad.
          */
         $request->validate([
-            'id_curso' => 'required|exists:' . Curso::class . ',id_curso',
+            'id_curso' => 'required|exists:'.Curso::class.',id_curso',
         ]);
 
         $curso = Curso::findOrFail($request->id_curso);
@@ -353,7 +384,7 @@ class CursoController extends BaseController
         if ($this->usuarioSinDatosPersonales()) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se encontraron los datos personales del usuario.'
+                'message' => 'No se encontraron los datos personales del usuario.',
             ], 404);
         }
 
@@ -363,7 +394,7 @@ class CursoController extends BaseController
         if ($curso->id_persona == $personalData->id_persona) {
             return response()->json([
                 'success' => false,
-                'message' => 'No puedes inscribirte en tu propio curso.'
+                'message' => 'No puedes inscribirte en tu propio curso.',
             ], 403);
         }
 
@@ -375,7 +406,7 @@ class CursoController extends BaseController
         if ($inscripcionExistente) {
             return response()->json([
                 'success' => false,
-                'message' => 'Ya estás inscrito en este curso.'
+                'message' => 'Ya estás inscrito en este curso.',
             ], 409);
         }
 
@@ -384,7 +415,7 @@ class CursoController extends BaseController
         if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
             return response()->json([
                 'success' => false,
-                'message' => 'No hay cupos disponibles para este curso.'
+                'message' => 'No hay cupos disponibles para este curso.',
             ], 400);
         }
 
@@ -392,16 +423,16 @@ class CursoController extends BaseController
         $inscripcion = Inscripcion::create([
             'id_curso' => $request->id_curso,
             'id_persona' => $personalData->id_persona,
-            'fecha_inscripcion' => now()
+            'fecha_inscripcion' => now(),
         ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Inscripción realizada con éxito.',
             'data' => $inscripcion,
-            'cupos_restantes' => $curso->cantidad_cupos !== null 
-                ? max(0, (int)$curso->cantidad_cupos - Inscripcion::where('id_curso', $curso->id_curso)->count()) 
-                : null
+            'cupos_restantes' => $curso->cantidad_cupos !== null
+                ? max(0, (int) $curso->cantidad_cupos - Inscripcion::where('id_curso', $curso->id_curso)->count())
+                : null,
         ], 201);
     }
 
@@ -416,7 +447,7 @@ class CursoController extends BaseController
         if ($this->usuarioSinDatosPersonales()) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se encontraron los datos personales del usuario.'
+                'message' => 'No se encontraron los datos personales del usuario.',
             ], 404);
         }
 
@@ -426,10 +457,10 @@ class CursoController extends BaseController
             ->where('id_persona', $personalData->id_persona)
             ->first();
 
-        if (!$inscripcion) {
+        if (! $inscripcion) {
             return response()->json([
                 'success' => false,
-                'message' => 'Inscripción no encontrada o no autorizada para cancelar.'
+                'message' => 'Inscripción no encontrada o no autorizada para cancelar.',
             ], 404);
         }
 
@@ -439,9 +470,9 @@ class CursoController extends BaseController
         return response()->json([
             'success' => true,
             'message' => 'Inscripción cancelada correctamente.',
-            'cupos_restantes' => $curso->cantidad_cupos !== null 
-                ? max(0, (int)$curso->cantidad_cupos - Inscripcion::where('id_curso', $curso->id_curso)->count()) 
-                : null
+            'cupos_restantes' => $curso->cantidad_cupos !== null
+                ? max(0, (int) $curso->cantidad_cupos - Inscripcion::where('id_curso', $curso->id_curso)->count())
+                : null,
         ]);
     }
 
@@ -461,7 +492,7 @@ class CursoController extends BaseController
             if ($this->usuarioSinDatosPersonales()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No autorizado para finalizar la edición de este curso'
+                    'message' => 'No autorizado para finalizar la edición de este curso',
                 ], 403);
             }
 
@@ -470,16 +501,16 @@ class CursoController extends BaseController
             if ($curso->id_persona != $personalData->id_persona) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No autorizado para finalizar la edición de este curso'
+                    'message' => 'No autorizado para finalizar la edición de este curso',
                 ], 403);
             }
 
             $origen = EstadoCurso::tryFrom($curso->estado_actual->id_estado ?? 0);
 
-            if (!$origen || !$origen->puedeTransicionarA(EstadoCurso::APROBACION)) {
+            if (! $origen || ! $origen->puedeTransicionarA(EstadoCurso::APROBACION)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El curso no puede pasar a En Aprobación desde su estado actual.'
+                    'message' => 'El curso no puede pasar a En Aprobación desde su estado actual.',
                 ], 422);
             }
 
@@ -489,27 +520,27 @@ class CursoController extends BaseController
             return response()->json([
                 'success' => true,
                 'message' => 'Propuesta de curso enviada a coordinación exitosamente.',
-                'estado_actual' => EstadoCurso::APROBACION->value
+                'estado_actual' => EstadoCurso::APROBACION->value,
             ]);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Curso no encontrado'
+                'message' => 'Curso no encontrado',
             ], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error al finalizar la edición del curso: ' . $e->getMessage()
+                'message' => 'Error al finalizar la edición del curso: '.$e->getMessage(),
             ], 500);
         }
     }
+
     /**
      * Reasigna el facilitador de un curso.
      * Solo coordinadores (GESTIONAR_CURSO) pueden ejecutar esta acción.
      * Solo permitido en estados 1-5 (antes de Inscripción).
      *
-     * @param  Request  $request
      * @param  int  $id
      * @return \Illuminate\Http\JsonResponse
      */
@@ -517,16 +548,17 @@ class CursoController extends BaseController
     {
         try {
             // Verificar permiso de gestión
-            if (!hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
+            if (! hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No tienes permiso para reasignar facilitadores.'
+                    'message' => 'No tienes permiso para reasignar facilitadores.',
                 ], 403);
             }
 
+            $id = $this->decryptId($id);
             $curso = Curso::with('estados')->findOrFail($id);
 
-            // Validar estado del curso: solo estados 1-5
+            // Validar estado del curso: se permite durante preparación o ejecución activa
             $estadoActualId = $curso->estado_actual?->id_estado ?? 0;
             $estadosPermitidos = [
                 EstadoCurso::POR_ACEPTAR->value,
@@ -534,90 +566,113 @@ class CursoController extends BaseController
                 EstadoCurso::DECLINADO->value,
                 EstadoCurso::EDICION->value,
                 EstadoCurso::APROBACION->value,
+                EstadoCurso::INSCRIPCION->value,
+                EstadoCurso::EN_CURSO->value,
             ];
 
-            if (!in_array($estadoActualId, $estadosPermitidos)) {
+            if (! in_array($estadoActualId, $estadosPermitidos, true)) {
                 $estadoNombre = EstadoCurso::tryFrom($estadoActualId)?->label() ?? 'Desconocido';
+
                 return response()->json([
                     'success' => false,
-                    'message' => "No se puede reasignar el facilitador. El curso está en estado \"$estadoNombre\"."
+                    'message' => "No se puede reasignar el facilitador. El curso está en estado \"$estadoNombre\".",
                 ], 422);
             }
 
             // Validar que se envió id_persona
             $nuevoIdPersona = $request->id_persona;
-            if (!$nuevoIdPersona) {
+            if (! $nuevoIdPersona) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Debe seleccionar un facilitador.'
+                    'message' => 'Debe seleccionar un facilitador.',
                 ], 422);
             }
 
-            // Validar que no es el mismo facilitador
-            if ((int) $nuevoIdPersona === (int) $curso->id_persona) {
+            // Validar que no es el mismo facilitador si ya tenía uno asignado
+            if ($curso->id_persona && (int) $nuevoIdPersona === (int) $curso->id_persona) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El facilitador seleccionado ya es el facilitador actual del curso.'
+                    'message' => 'El facilitador seleccionado ya es el facilitador actual del curso.',
                 ], 422);
             }
 
             // Validar que la persona existe
             $nuevaPersona = PersonalData::find($nuevoIdPersona);
-            if (!$nuevaPersona) {
+            if (! $nuevaPersona) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'La persona seleccionada no fue encontrada.'
+                    'message' => 'La persona seleccionada no fue encontrada.',
                 ], 404);
+            }
+
+            // El nuevo responsable debe ser elegible como facilitador (misma regla que el listado de candidatos)
+            if (! app(\App\Services\Security\Autorizacion::class)->esElegibleFacilitador($nuevaPersona->user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La persona seleccionada no es elegible como facilitador.',
+                ], 422);
             }
 
             // Guardar referencia al facilitador anterior para la observación
             $facilitadorAnterior = $curso->persona;
             $nombreAnterior = $facilitadorAnterior
-                ? $facilitadorAnterior->primer_nombre . ' ' . $facilitadorAnterior->primer_apellido
+                ? $facilitadorAnterior->primer_nombre.' '.$facilitadorAnterior->primer_apellido
                 : 'No asignado';
-            $nombreNuevo = $nuevaPersona->primer_nombre . ' ' . $nuevaPersona->primer_apellido;
+            $nombreNuevo = $nuevaPersona->primer_nombre.' '.$nuevaPersona->primer_apellido;
+            $estadoNombreActual = EstadoCurso::tryFrom($estadoActualId)?->label() ?? 'activo';
 
             DB::beginTransaction();
 
             // Actualizar el facilitador
             $curso->update([
-                'id_persona'      => $nuevoIdPersona,
+                'id_persona' => $nuevoIdPersona,
                 'actualizado_por' => Auth::id(),
             ]);
 
-            $origen = EstadoCurso::tryFrom($curso->estado_actual->id_estado ?? 0);
+            // Comportamiento del ciclo de vida tras la reasignación:
+            // 1. Fases de preparación (1-5): vuelve a POR_ACEPTAR para que el nuevo docente acepte.
+            // 2. Fases operativas activas (6-7): se mantiene en la fase actual sin interrumpir inscripciones ni avance del curso.
+            if (in_array($estadoActualId, [EstadoCurso::INSCRIPCION->value, EstadoCurso::EN_CURSO->value], true)) {
+                $mensajeExito = "Facilitador reasignado exitosamente a $nombreNuevo. El curso se mantiene en estado \"$estadoNombreActual\".";
+                $observacionTexto = "Facilitador reasignado de \"$nombreAnterior\" a \"$nombreNuevo\" durante el estado \"$estadoNombreActual\" por incumplimiento o cambio de asignación.";
+            } else {
+                $origen = EstadoCurso::tryFrom($estadoActualId);
 
-            if (!$origen || !$origen->puedeTransicionarA(EstadoCurso::POR_ACEPTAR)) {
-                DB::rollBack();
+                if (! $origen || ! $origen->puedeTransicionarA(EstadoCurso::POR_ACEPTAR)) {
+                    DB::rollBack();
 
-                return response()->json([
-                    'success' => false,
-                    'message' => 'El curso no puede reasignarse desde su estado actual.'
-                ], 422);
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'El curso no puede reasignarse desde su estado actual.',
+                    ], 422);
+                }
+
+                // Volver al estado POR_ACEPTAR para que el nuevo facilitador acepte
+                $curso->agregarEstado(EstadoCurso::POR_ACEPTAR->value);
+                $mensajeExito = "Facilitador reasignado exitosamente a $nombreNuevo. El curso ha vuelto al estado \"Por Aceptar\".";
+                $observacionTexto = "Facilitador reasignado de \"$nombreAnterior\" a \"$nombreNuevo\".";
             }
-
-            // Volver al estado POR_ACEPTAR para que el nuevo facilitador acepte
-            $curso->agregarEstado(EstadoCurso::POR_ACEPTAR->value);
 
             // Registrar observación automática del cambio
             ObservacionCurso::create([
-                'id_curso'    => $curso->id_curso,
-                'observacion' => "Facilitador reasignado de \"$nombreAnterior\" a \"$nombreNuevo\".",
-                'creado_por'  => Auth::id(),
+                'id_curso' => $curso->id_curso,
+                'observacion' => $observacionTexto,
+                'creado_por' => Auth::id(),
             ]);
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => "Facilitador reasignado exitosamente a $nombreNuevo. El curso ha vuelto al estado \"Por Aceptar\"."
+                'message' => $mensajeExito,
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error al reasignar el facilitador: ' . $e->getMessage()
+                'message' => 'Error al reasignar el facilitador: '.$e->getMessage(),
             ], 500);
         }
     }

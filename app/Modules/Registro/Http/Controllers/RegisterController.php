@@ -2,24 +2,24 @@
 
 namespace Modules\Registro\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use Carbon\Carbon;
-use Modules\Security\Entities\User;
+use Illuminate\Validation\Rule;
 use Modules\Comun\Entities\PersonalData;
-use Modules\Security\Entities\Profile;
 use Modules\Security\Entities\Codes;
 use Modules\Security\Entities\Countries;
-use Illuminate\Validation\Rule;
+use Modules\Security\Entities\User;
 
 class RegisterController extends Controller
 {
     /**
      * Muestra el formulario de registro
+     *
      * @return Renderable
      */
     public function index()
@@ -32,7 +32,7 @@ class RegisterController extends Controller
 
     private function generateCode()
     {
-        return str_pad(mt_rand(100000, 999999), 6, '0', STR_PAD_LEFT);
+        return str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -41,7 +41,7 @@ class RegisterController extends Controller
     public function sendCode(Request $request)
     {
         $request->validate([
-            'email' => 'required|email'
+            'email' => 'required|email',
         ]);
 
         $generateCode = $this->generateCode();
@@ -57,37 +57,37 @@ class RegisterController extends Controller
                     $code->code = $generateCode;
                     $code->save();
                 } else {
-                    return response()->json(["type" => "danger", "message" => __("You have an active code, you must wait 15 minutes"), "status" => "0"]);
+                    return response()->json(['type' => 'danger', 'message' => __('You have an active code, you must wait 15 minutes'), 'status' => '0']);
                 }
             } else {
-                $code = new Codes();
+                $code = new Codes;
                 $code->code = $generateCode;
                 $code->email = strtolower($request->email);
                 $code->date = now();
                 $code->save();
             }
 
-            $subject = __("Registration Code");
+            $subject = __('Registration Code');
             $for = $code->email;
 
             try {
-                Mail::send('registro::emails.send_code', ["code" => $generateCode], function ($email) use ($subject, $for) {
+                Mail::send('registro::emails.send_code', ['code' => $generateCode], function ($email) use ($subject, $for) {
                     $email->subject($subject);
                     $email->to($for);
                 });
             } catch (\Exception $e) {
-                return response()->json(["type" => "danger", "message" => __("Error sending email: ") . $e->getMessage(), "status" => "0"]);
+                return response()->json(['type' => 'danger', 'message' => __('Error sending email: ').$e->getMessage(), 'status' => '0']);
             }
 
-            return response()->json(["type" => "success", "message" => __("A code has been sent to your email"), "status" => "1"]);
+            return response()->json(['type' => 'success', 'message' => __('A code has been sent to your email'), 'status' => '1']);
         } else {
-            return response()->json(["type" => "danger", "message" => __("A User Already Exists with That Email"), "status" => "0"]);
+            return response()->json(['type' => 'danger', 'message' => __('A User Already Exists with That Email'), 'status' => '0']);
         }
     }
 
     /**
      * Guarda el nuevo usuario y perfil
-     * @param Request $request
+     *
      * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
@@ -96,19 +96,19 @@ class RegisterController extends Controller
             'username' => ['required', 'string', 'max:30', Rule::unique(User::class, 'username')],
             'email' => ['required', 'email', Rule::unique(User::class, 'email')],
             'code' => 'required',
-            'password' => 'required|min:6|confirmed',
+            'password' => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
             'tipo_dni' => 'required',
             'dni' => [
                 'required',
-                Rule::unique(PersonalData::class, 'dni')
+                Rule::unique(PersonalData::class, 'dni'),
             ],
             /* 'pasaporte' => [
-                'nullable', 
+                'nullable',
                 Rule::unique(PersonalData::class, 'pasaporte')
             ], */
             'rif' => [
                 'nullable',
-                Rule::unique(PersonalData::class, 'rif')
+                Rule::unique(PersonalData::class, 'rif'),
             ],
             'genero' => 'required',
             'primer_nombre' => 'required|string|max:100',
@@ -130,8 +130,13 @@ class RegisterController extends Controller
             ->where('processed', false)
             ->first();
 
-        if (!$findCodeExists) {
+        if (! $findCodeExists) {
             return back()->with('error', 'El código de verificación es inválido o ya ha sido procesado.')->withInput();
+        }
+
+        // El código caduca a los 15 minutos (el correo lo indica así)
+        if (Carbon::parse($findCodeExists->date)->diffInMinutes(Carbon::now()) > 15) {
+            return back()->with('error', 'El código de verificación ha expirado. Solicita uno nuevo.')->withInput();
         }
 
         DB::beginTransaction();
@@ -166,7 +171,7 @@ class RegisterController extends Controller
                     'id_rol' => $perfilParticipante,
                     'status' => true,
                     'creado_por' => $user->id,
-                    'creado_en' => now()
+                    'creado_en' => now(),
                 ]);
             }
 
@@ -197,7 +202,7 @@ class RegisterController extends Controller
 
             // Enviar correo de registro exitoso
             try {
-                $subject = "Registro Exitoso - CINEFORM";
+                $subject = 'Registro Exitoso - CINEFORM';
                 Mail::send('registro::emails.registro_exitoso', ['user' => $user], function ($m) use ($user, $subject) {
                     $m->to($user->email)->subject($subject);
                 });
@@ -209,7 +214,8 @@ class RegisterController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Ocurrió un error en el registro: ' . $e->getMessage())->withInput();
+
+            return back()->with('error', 'Ocurrió un error en el registro: '.$e->getMessage())->withInput();
         }
     }
 

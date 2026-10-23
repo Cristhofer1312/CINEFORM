@@ -31,7 +31,9 @@
                                         {{-- Estado de la configuración del certificado.
                                              Derivado de los archivos en disco por
                                              Curso::estadoCertificado(), no del ciclo de vida del curso. --}}
-                                        @php($estadoCertificado = $curso->estado_certificado)
+                                        @php
+                                            $estadoCertificado = $curso->estado_certificado;
+                                        @endphp
                                         <span class="badge rounded-pill
                                             {{ $estadoCertificado->color() === 'success' ? 'bg-success-soft text-success border border-success' : 'bg-danger text-white' }}
                                             px-3 py-2 fw-bold"
@@ -288,8 +290,74 @@
 
         </div>
     </div>
-</div>
+@if(isset($esGestor) && $esGestor)
+    <!-- Modal Reasignar Facilitador -->
+    <div class="modal fade" id="modalReasignarFacilitador" tabindex="-1" aria-labelledby="modalReasignarFacilitadorLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header border-0 bg-primary py-3 px-4">
+                    <h5 class="modal-title fw-bold text-white" id="modalReasignarFacilitadorLabel">
+                        <i class="fas fa-chalkboard-teacher me-2"></i> Reasignar Facilitador
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body p-4 bg-light bg-opacity-50">
+                    <p class="text-muted small mb-3">
+                        Selecciona el nuevo docente que asumirá la facilitación de <strong>{{ $curso->nombre }}</strong>. Al completar la reasignación, el curso volverá automáticamente al estado <em>"Por Aceptar"</em> para que el facilitador confirme su disponibilidad.
+                    </p>
 
+                    <!-- Buscador -->
+                    <div class="input-group mb-3 shadow-sm">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control border-start-0 py-2" id="filtro_facilitador_modal" onkeyup="filtrarFacilitadoresReasignar()" placeholder="Buscar por nombre o cédula...">
+                    </div>
+
+                    <!-- Lista de Facilitadores -->
+                    <div id="lista-facilitadores-container" class="bg-white rounded-4 border overflow-auto shadow-sm" style="max-height: 320px;">
+                        @forelse($facilitadores ?? [] as $fac)
+                            @php $p = $fac->personalData; @endphp
+                            @if($p)
+                                <div class="facilitador-opcion p-3 border-bottom cursor-pointer transition-all d-flex align-items-center justify-content-between"
+                                     style="cursor: pointer;"
+                                     onclick="seleccionarFacilitadorReasignar('{{ $p->id_persona }}', '{{ addslashes($p->primer_nombre . ' ' . $p->primer_apellido) }}', this)"
+                                     data-name="{{ strtolower($p->primer_nombre . ' ' . $p->primer_apellido) }}"
+                                     data-doc="{{ $p->dni }}">
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            {!! renderAvatar($p, 'avatar-sm') !!}
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0 fw-bold text-dark">{{ $p->primer_nombre }} {{ $p->primer_apellido }}</h6>
+                                            <small class="text-muted d-block"><i class="fas fa-id-card me-1 opacity-50"></i> C.I: {{ $p->dni }}</small>
+                                        </div>
+                                    </div>
+                                    <div class="check-indicator text-primary d-none">
+                                        <i class="fas fa-check-circle fa-lg"></i>
+                                    </div>
+                                </div>
+                            @endif
+                        @empty
+                            <div class="p-4 text-center text-muted">
+                                <i class="fas fa-user-slash fa-2x mb-2 opacity-50"></i>
+                                <p class="mb-0 small">No hay facilitadores activos disponibles para asignar.</p>
+                            </div>
+                        @endforelse
+                    </div>
+
+                    <input type="hidden" id="nuevo_facilitador_id" value="">
+                </div>
+                <div class="modal-footer border-0 p-3 bg-white d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-bold" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="button" id="btn-confirmar-reasignacion" class="btn btn-primary rounded-pill px-4 fw-bold" disabled onclick="ejecutarReasignacion('{{ $curso->crypt_id }}')">
+                        <i class="fas fa-user-check me-1"></i> Asignar y Enviar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
 
 @push('styles')
 <style>
@@ -649,8 +717,8 @@
 
     function rechazarContenido(idCurso, idEstado = 2) {
         Swal.fire({
-            title: idEstado === 3 ? 'Declinar Asignación' : 'Declinar Propuesta',
-            text: idEstado === 3 ? 'Indica el motivo por el cual no puedes asumir la facilitación de este curso:' : 'Indica las observaciones o motivos para declinar esta propuesta:',
+            title: idEstado === 2 ? 'Rechazar Asignación' : 'Declinar Propuesta',
+            text: idEstado === 2 ? 'Indica el motivo por el cual no puedes asumir la facilitación de este curso:' : 'Indica las observaciones o motivos para declinar esta propuesta:',
             input: 'textarea',
             inputPlaceholder: 'Escribe las observaciones aquí...',
             inputValidator: (value) => {
@@ -767,6 +835,89 @@
                     Swal.fire({
                         icon: 'success',
                         title: 'Inscripción Cancelada',
+                        text: data.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => window.location.reload());
+                })
+                .catch(() => {});
+            }
+        });
+    }
+
+    function abrirModalReasignarFacilitador() {
+        const modalEl = document.getElementById('modalReasignarFacilitador');
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+    }
+
+    function filtrarFacilitadoresReasignar() {
+        const query = document.getElementById('filtro_facilitador_modal').value.toLowerCase().trim();
+        const items = document.querySelectorAll('#lista-facilitadores-container .facilitador-opcion');
+        items.forEach(item => {
+            const name = item.getAttribute('data-name') || '';
+            const doc = item.getAttribute('data-doc') || '';
+            if (name.includes(query) || doc.includes(query)) {
+                item.classList.remove('d-none');
+            } else {
+                item.classList.add('d-none');
+            }
+        });
+    }
+
+    let facilitadorSeleccionadoId = null;
+    let facilitadorSeleccionadoNombre = '';
+
+    function seleccionarFacilitadorReasignar(idPersona, nombre, elem) {
+        facilitadorSeleccionadoId = idPersona;
+        facilitadorSeleccionadoNombre = nombre;
+
+        document.querySelectorAll('#lista-facilitadores-container .facilitador-opcion').forEach(el => {
+            el.classList.remove('bg-primary-soft', 'border-primary', 'border-start', 'border-4');
+            const icon = el.querySelector('.check-indicator');
+            if (icon) icon.classList.add('d-none');
+        });
+
+        elem.classList.add('bg-primary-soft', 'border-primary', 'border-start', 'border-4');
+        const icon = elem.querySelector('.check-indicator');
+        if (icon) icon.classList.remove('d-none');
+
+        const btn = document.getElementById('btn-confirmar-reasignacion');
+        if (btn) btn.disabled = false;
+    }
+
+    function ejecutarReasignacion(cursoCryptId) {
+        if (!facilitadorSeleccionadoId) {
+            Swal.fire({ icon: 'warning', text: 'Por favor selecciona un facilitador.' });
+            return;
+        }
+
+        Swal.fire({
+            title: '¿Confirmar reasignación?',
+            text: `Se asignará el curso a ${facilitadorSeleccionadoNombre} y volverá al estado "Por Aceptar".`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#1e3a8a',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, reasignar',
+            cancelButtonText: 'Cancelar'
+        }).then(result => {
+            if (result.isConfirmed) {
+                peticionConFeedback(`{{ url('taller/cursos') }}/${cursoCryptId}/reasignar-facilitador`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ id_persona: facilitadorSeleccionadoId })
+                }, { keepLoader: true })
+                .then(data => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Facilitador Reasignado',
                         text: data.message,
                         timer: 2000,
                         showConfirmButton: false

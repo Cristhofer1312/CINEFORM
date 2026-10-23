@@ -3,13 +3,15 @@
 namespace Modules\Taller\Http\Controllers;
 
 use App\Enums\EstadoCurso;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Modules\Taller\Entities\Inscripcion;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\CursoRequisito;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Modules\Taller\Http\Controllers\BaseController;
+use Modules\Taller\Entities\Inscripcion;
 
 class InscripcionController extends BaseController
 {
@@ -52,7 +54,7 @@ class InscripcionController extends BaseController
         }
 
         // Verificar cupos si es inscripción nueva (una postulación rechazada que se corrige ya fue evaluada)
-        if (!$inscripcionExistente || !$inscripcionExistente->esRechazado()) {
+        if (! $inscripcionExistente || ! $inscripcionExistente->esRechazado()) {
             $inscritos = Inscripcion::activas()->where('id_curso', $curso->id_curso)->count();
             if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
                 return redirect()->route('taller.cursos.show', $curso->id_curso)
@@ -98,12 +100,12 @@ class InscripcionController extends BaseController
             ->first();
 
         // Si ya tiene una postulación y no está en estado rechazado, bloquear duplicados
-        if ($existente && !$existente->esRechazado()) {
+        if ($existente && ! $existente->esRechazado()) {
             return redirect()->route('taller.cursos.show', $curso->id_curso)
                 ->with('error', 'Ya cuentas con una postulación activa en este programa.');
         }
 
-        if (!$existente || !$existente->esRechazado()) {
+        if (! $existente || ! $existente->esRechazado()) {
             $inscritos = Inscripcion::activas()->where('id_curso', $curso->id_curso)->count();
             if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
                 return redirect()->back()->with('error', 'No hay cupos disponibles para este curso.');
@@ -132,7 +134,7 @@ class InscripcionController extends BaseController
                     'id_curso' => $curso->id_curso,
                     'id_persona' => $user->personalData->id_persona,
                     'fecha_inscripcion' => Carbon::now(),
-                    'estado' => Inscripcion::ESTADO_POSTULADO
+                    'estado' => Inscripcion::ESTADO_POSTULADO,
                 ]);
                 $esCorreccion = false;
             }
@@ -148,11 +150,11 @@ class InscripcionController extends BaseController
                     continue;
                 }
 
-                $key = 'req_' . $req->id_requisito;
+                $key = 'req_'.$req->id_requisito;
                 $respPrevia = $respuestasPrevias->get($req->id_requisito);
 
                 if ($req->tipo === 'pregunta') {
-                    if ($req->obligatorio && !$request->filled($key) && (!$respPrevia || empty($respPrevia->respuesta_texto))) {
+                    if ($req->obligatorio && ! $request->filled($key) && (! $respPrevia || empty($respPrevia->respuesta_texto))) {
                         throw new \Exception("La pregunta '{$req->titulo}' es obligatoria.");
                     }
 
@@ -163,30 +165,43 @@ class InscripcionController extends BaseController
                                 'id_requisito' => $req->id_requisito,
                             ],
                             [
-                                'respuesta_texto' => $request->input($key)
+                                'respuesta_texto' => $request->input($key),
                             ]
                         );
                     }
                 } elseif ($req->tipo === 'documento') {
-                    $tieneArchivoPrevio = $respPrevia && !empty($respPrevia->ruta_archivo);
+                    $tieneArchivoPrevio = $respPrevia && ! empty($respPrevia->ruta_archivo);
 
-                    if ($req->obligatorio && !$request->hasFile($key) && !$tieneArchivoPrevio) {
+                    if ($req->obligatorio && ! $request->hasFile($key) && ! $tieneArchivoPrevio) {
                         throw new \Exception("El documento '{$req->titulo}' es obligatorio.");
                     }
 
                     if ($request->hasFile($key)) {
                         $file = $request->file($key);
 
-                        // Validar archivo
-                        if (!$file->isValid()) {
+                        // Validar archivo seguro (RNF-03 / RF-30)
+                        if (! $file->isValid()) {
                             throw new \Exception("El archivo '{$req->titulo}' es inválido o no se pudo cargar.");
                         }
 
-                        $safeFileName = preg_replace('/[^a-zA-Z0-9_.-]+/', '_', $req->titulo);
-                        $extension = $file->getClientOriginalExtension();
-                        $finalFileName = "{$safeFileName}.{$extension}";
+                        $validator = Validator::make(
+                            [$key => $file],
+                            [$key => 'required|file|max:5120|mimes:pdf,jpg,jpeg,png,doc,docx']
+                        );
 
-                        $path = $file->storeAs("public/{$basePath}", $finalFileName);
+                        if ($validator->fails()) {
+                            throw new \Exception("El archivo '{$req->titulo}' es inválido: ".implode(' ', $validator->errors()->all()));
+                        }
+
+                        // Limpiar archivo previo si es corrección y se sube uno nuevo
+                        if ($tieneArchivoPrevio && Storage::disk('public')->exists($respPrevia->ruta_archivo)) {
+                            Storage::disk('public')->delete($respPrevia->ruta_archivo);
+                        }
+
+                        $extension = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension());
+                        $finalFileName = Str::uuid().".{$extension}";
+
+                        $path = $file->storeAs($basePath, $finalFileName, 'public');
 
                         \Modules\Taller\Entities\InscripcionRespuesta::updateOrCreate(
                             [
@@ -194,7 +209,7 @@ class InscripcionController extends BaseController
                                 'id_requisito' => $req->id_requisito,
                             ],
                             [
-                                'ruta_archivo' => str_replace('public/', '', $path)
+                                'ruta_archivo' => $path,
                             ]
                         );
                     }
@@ -212,13 +227,14 @@ class InscripcionController extends BaseController
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
 
     /**
      * Remove the specified resource from storage.
-     * 
+     *
      * Permite cancelar inscripciones en dos contextos:
      * 1. El participante cancela su propia inscripción (solo en estado Inscripción).
      * 2. Un usuario con permiso CANCELAR_INSCRIPCION retira a cualquier participante
@@ -243,7 +259,7 @@ class InscripcionController extends BaseController
                 EstadoCurso::EN_CURSO->value,
             ];
 
-            if (!in_array($estadoActual, $estadosPermitidos)) {
+            if (! in_array($estadoActual, $estadosPermitidos)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'No se pueden retirar participantes en el estado actual del curso.',
@@ -251,15 +267,20 @@ class InscripcionController extends BaseController
             }
 
             $nombreParticipante = $inscripcion->persona
-                ? ($inscripcion->persona->primer_nombre . ' ' . $inscripcion->persona->primer_apellido)
+                ? ($inscripcion->persona->primer_nombre.' '.$inscripcion->persona->primer_apellido)
                 : 'Participante';
 
-            // En lugar de eliminar, marcamos como rechazada
+            // El retiro del gestor exige motivo (RF-27)
+            $data = $request->validate([
+                'motivo' => 'required|string|max:500',
+            ]);
+
+            // En lugar de eliminar, marcamos como denegada (no corregible)
             $inscripcion->update([
-                'estado' => Inscripcion::ESTADO_RECHAZADO,
+                'estado' => Inscripcion::ESTADO_DENEGADO,
                 'rechazada_por' => $user->id,
                 'fecha_rechazo' => Carbon::now(),
-                'motivo_estado' => $request->input('motivo')
+                'motivo_estado' => $data['motivo'],
             ]);
 
             return response()->json([
@@ -267,7 +288,7 @@ class InscripcionController extends BaseController
                 'message' => "La inscripción de {$nombreParticipante} ha sido rechazada/retirada.",
                 'cupos_restantes' => $curso->cantidad_cupos !== null
                     ? max(0, (int) $curso->cantidad_cupos - Inscripcion::activas()->where('id_curso', $curso->id_curso)->count())
-                    : null
+                    : null,
             ]);
         }
 
@@ -276,22 +297,28 @@ class InscripcionController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'El curso ya ha iniciado, no se puede gestionar el cupo.',
-                'data' => $curso
+                'data' => $curso,
             ], 403);
         }
 
         if ($this->usuarioSinDatosPersonales()) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se encontraron los datos personales del usuario. Por favor, complete su perfil primero.'
+                'message' => 'No se encontraron los datos personales del usuario. Por favor, complete su perfil primero.',
             ], 404);
         }
 
         if ($inscripcion->id_persona != $user->personalData->id_persona) {
             return response()->json([
                 'success' => false,
-                'message' => 'No autorizada para cancelar esta inscripción.'
+                'message' => 'No autorizada para cancelar esta inscripción.',
             ], 403);
+        }
+
+        foreach ($inscripcion->respuestas as $resp) {
+            if ($resp->ruta_archivo && Storage::disk('public')->exists($resp->ruta_archivo)) {
+                Storage::disk('public')->delete($resp->ruta_archivo);
+            }
         }
 
         $inscripcion->delete();
@@ -301,7 +328,7 @@ class InscripcionController extends BaseController
             'message' => 'Inscripción cancelada correctamente.',
             'cupos_restantes' => $curso->cantidad_cupos !== null
                 ? max(0, (int) $curso->cantidad_cupos - Inscripcion::activas()->where('id_curso', $curso->id_curso)->count())
-                : null
+                : null,
         ]);
     }
 
@@ -314,10 +341,10 @@ class InscripcionController extends BaseController
         $this->authorize('rehabilitar', $inscripcion);
         $curso = $inscripcion->curso;
 
-        if (!$inscripcion->esRecuperable()) {
+        if (! $inscripcion->esRecuperable()) {
             return response()->json([
                 'success' => false,
-                'message' => 'La inscripción no es recuperable.'
+                'message' => 'La inscripción no es recuperable.',
             ], 400);
         }
 
@@ -326,7 +353,7 @@ class InscripcionController extends BaseController
         if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
             return response()->json([
                 'success' => false,
-                'message' => 'No hay cupos disponibles en el curso para rehabilitar esta inscripción.'
+                'message' => 'No hay cupos disponibles en el curso para rehabilitar esta inscripción.',
             ], 400);
         }
 
@@ -335,11 +362,11 @@ class InscripcionController extends BaseController
             'estado' => Inscripcion::ESTADO_APROBADO,
             'rechazada_por' => null,
             'fecha_rechazo' => null,
-            'motivo_estado' => null
+            'motivo_estado' => null,
         ]);
 
         $nombreParticipante = $inscripcion->persona
-            ? ($inscripcion->persona->primer_nombre . ' ' . $inscripcion->persona->primer_apellido)
+            ? ($inscripcion->persona->primer_nombre.' '.$inscripcion->persona->primer_apellido)
             : 'Participante';
 
         return response()->json([
@@ -347,7 +374,7 @@ class InscripcionController extends BaseController
             'message' => "La inscripción de {$nombreParticipante} ha sido rehabilitada correctamente.",
             'cupos_restantes' => $curso->cantidad_cupos !== null
                 ? max(0, (int) $curso->cantidad_cupos - Inscripcion::activas()->where('id_curso', $curso->id_curso)->count())
-                : null
+                : null,
         ]);
     }
 
@@ -360,10 +387,10 @@ class InscripcionController extends BaseController
         $this->autorizarGestionPostulacion($inscripcion);
         $curso = $inscripcion->curso;
 
-        if (!$inscripcion->esPostulado()) {
+        if (! $inscripcion->esPostulado()) {
             return response()->json([
                 'success' => false,
-                'message' => 'La postulación no está en estado postulado.'
+                'message' => 'La postulación no está en estado postulado.',
             ], 400);
         }
 
@@ -371,12 +398,12 @@ class InscripcionController extends BaseController
         if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
             return response()->json([
                 'success' => false,
-                'message' => 'No hay cupos disponibles para aprobar esta postulación.'
+                'message' => 'No hay cupos disponibles para aprobar esta postulación.',
             ], 409);
         }
 
         $inscripcion->update([
-            'estado'        => Inscripcion::ESTADO_APROBADO,
+            'estado' => Inscripcion::ESTADO_APROBADO,
             'motivo_estado' => null,
             'rechazada_por' => null,
             'fecha_rechazo' => null,
@@ -403,15 +430,22 @@ class InscripcionController extends BaseController
             'motivo' => 'required|string|max:500',
         ]);
 
+        if ($inscripcion->esAprobado()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No se puede rechazar una inscripción aprobada; use la acción de retiro.',
+            ], 400);
+        }
+
         if ($inscripcion->esDenegado()) {
             return response()->json([
                 'success' => false,
-                'message' => 'La postulación está denegada.'
+                'message' => 'La postulación está denegada.',
             ], 400);
         }
 
         $inscripcion->update([
-            'estado'        => Inscripcion::ESTADO_RECHAZADO,
+            'estado' => Inscripcion::ESTADO_RECHAZADO,
             'motivo_estado' => $data['motivo'],
             'rechazada_por' => auth()->id(),
             'fecha_rechazo' => Carbon::now(),
@@ -438,12 +472,12 @@ class InscripcionController extends BaseController
         if ($inscripcion->esAprobado()) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se puede denegar una inscripción aprobada.'
+                'message' => 'No se puede denegar una inscripción aprobada.',
             ], 400);
         }
 
         $inscripcion->update([
-            'estado'        => Inscripcion::ESTADO_DENEGADO,
+            'estado' => Inscripcion::ESTADO_DENEGADO,
             'motivo_estado' => $data['motivo'],
             'rechazada_por' => auth()->id(),
             'fecha_rechazo' => Carbon::now(),
@@ -462,12 +496,12 @@ class InscripcionController extends BaseController
     {
         $respuesta = \Modules\Taller\Entities\InscripcionRespuesta::findOrFail($id_respuesta);
 
-        if (empty($respuesta->ruta_archivo) || !\Illuminate\Support\Facades\Storage::disk('public')->exists($respuesta->ruta_archivo)) {
+        if (empty($respuesta->ruta_archivo) || ! \Illuminate\Support\Facades\Storage::disk('public')->exists($respuesta->ruta_archivo)) {
             abort(404, 'Documento no encontrado.');
         }
 
         $inscripcion = $respuesta->inscripcion;
-        if (!$inscripcion) {
+        if (! $inscripcion) {
             abort(404, 'Inscripción no encontrada.');
         }
 
@@ -499,7 +533,7 @@ class InscripcionController extends BaseController
         $inscripcion = Inscripcion::findOrFail($respuesta->id_inscripcion);
         $this->authorize('verDocumento', $inscripcion);
 
-        if (!$respuesta->ruta_archivo || !\Illuminate\Support\Facades\Storage::disk('public')->exists($respuesta->ruta_archivo)) {
+        if (! $respuesta->ruta_archivo || ! \Illuminate\Support\Facades\Storage::disk('public')->exists($respuesta->ruta_archivo)) {
             abort(404, 'El archivo no existe o fue eliminado.');
         }
 

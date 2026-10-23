@@ -218,20 +218,21 @@
                                 @error('code') <small class="text-danger">{{ $message }}</small> @enderror
                             </div>
 
-                            {{-- Contraseña y confirmación (máx 16 caracteres) --}}
+                            {{-- Contraseña y confirmación (política: 10-72 caracteres, mayúscula, minúscula, número y símbolo) --}}
                             <div class="col-md-6">
                                 <div class="form-floating form-floating-custom mb-2">
-                                    <input id="password" name="password" type="password" maxlength="16" class="form-control"
-                                        placeholder="{{__('Password')}}" required />
+                                    <input id="password" name="password" type="password" maxlength="72" minlength="10" class="form-control"
+                                        placeholder="{{__('Password')}}" autocomplete="new-password" required />
                                     <label for="password">{{__('Contraseña')}} <span class="text-danger">*</span></label>
-                                    @error('password') <small class="text-danger">{{ $message }}</small> @enderror
+                                    <small class="text-muted">Mínimo 10 caracteres, con mayúscula, minúscula, número y símbolo.</small>
+                                    @error('password') <small class="text-danger d-block">{{ $message }}</small> @enderror
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating form-floating-custom mb-2">
                                     {{-- Este campo no se valida en backend; Laravel lo usa para la regla "confirmed" --}}
                                     <input id="password_confirmation" name="password_confirmation" type="password"
-                                        maxlength="16" class="form-control" placeholder="{{__('Confirm Password')}}"
+                                        maxlength="72" class="form-control" placeholder="{{__('Confirm Password')}}" autocomplete="new-password"
                                         required />
                                     <label for="password_confirmation">{{__('Repita Contraseña')}} <span class="text-danger">*</span></label>
                                 </div>

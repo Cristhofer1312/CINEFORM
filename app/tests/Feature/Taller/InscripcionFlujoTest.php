@@ -6,7 +6,9 @@ use App\Constants\Perfil;
 use App\Enums\EstadoCurso;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Modules\Security\Entities\User;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\CursoRequisito;
@@ -23,7 +25,9 @@ class InscripcionFlujoTest extends TestCase
     use DatabaseTransactions;
 
     private User $participante;
+
     private Curso $curso;
+
     private CursoRequisito $requisitoPregunta;
 
     protected function setUp(): void
@@ -41,9 +45,9 @@ class InscripcionFlujoTest extends TestCase
         $idPersonaFacilitador = optional(User::findOrFail(1)->personalData)->id_persona ?? 1;
 
         $this->curso = Curso::withoutEvents(function () use ($idPersonaFacilitador) {
-            $c = new Curso();
+            $c = new Curso;
             $c->nombre = 'Curso Test Flujo Inscripcion';
-            $c->codigo = 'LAB-TEST-INS-2026-' . random_int(1000, 9999);
+            $c->codigo = 'LAB-TEST-INS-2026-'.random_int(1000, 9999);
             $c->id_persona = $idPersonaFacilitador;
             $c->id_actividad_formativa = 1;
             $c->id_aspecto = 1;
@@ -53,6 +57,7 @@ class InscripcionFlujoTest extends TestCase
             $c->fecha_fin = now()->addMonths(1);
             $c->cantidad_cupos = 20;
             $c->save();
+
             return $c;
         });
 
@@ -98,7 +103,7 @@ class InscripcionFlujoTest extends TestCase
                 'session_token' => $this->participante->session_token,
             ])
             ->post(route('taller.inscripciones.procesar', $this->curso->id_curso), [
-                'req_' . $this->requisitoPregunta->id_requisito => 'Mi motivación es aprender producción audiovisual.',
+                'req_'.$this->requisitoPregunta->id_requisito => 'Mi motivación es aprender producción audiovisual.',
             ]);
 
         $response->assertRedirect(route('taller.cursos.show', $this->curso->id_curso));
@@ -168,7 +173,7 @@ class InscripcionFlujoTest extends TestCase
                 'session_token' => $this->participante->session_token,
             ])
             ->post(route('taller.inscripciones.procesar', $this->curso->id_curso), [
-                'req_' . $this->requisitoPregunta->id_requisito => 'Respuesta corregida y detallada.',
+                'req_'.$this->requisitoPregunta->id_requisito => 'Respuesta corregida y detallada.',
             ]);
 
         $response->assertRedirect(route('taller.cursos.show', $this->curso->id_curso));
@@ -201,5 +206,207 @@ class InscripcionFlujoTest extends TestCase
 
         $response->assertRedirect(route('taller.cursos.show', $this->curso->id_curso));
         $response->assertSessionHas('info');
+    }
+
+    /**
+     * RNF-03 / RF-30: Rechazar extensiones no permitidas y archivos que exceden 5MB.
+     */
+    public function test_subida_documento_rechaza_archivo_peligroso_y_archivo_pesado(): void
+    {
+        Storage::fake('public');
+
+        $reqDoc = CursoRequisito::create([
+            'id_curso' => $this->curso->id_curso,
+            'titulo' => 'Documento de Identidad',
+            'tipo' => 'documento',
+            'obligatorio' => true,
+        ]);
+
+        // 1. Archivo con extensión ejecutable/peligrosa
+        $archivoPhp = UploadedFile::fake()->create('script.php', 10, 'application/x-php');
+
+        $respPeligroso = $this->actingAs($this->participante)
+            ->withSession([
+                'profile_id' => Perfil::PARTICIPANTE,
+                'session_token' => $this->participante->session_token,
+            ])
+            ->post(route('taller.inscripciones.procesar', $this->curso->id_curso), [
+                'req_'.$this->requisitoPregunta->id_requisito => 'Mi respuesta',
+                'req_'.$reqDoc->id_requisito => $archivoPhp,
+            ]);
+
+        $respPeligroso->assertSessionHas('error');
+        $this->assertDatabaseMissing('taller.inscripcion_respuestas', [
+            'id_requisito' => $reqDoc->id_requisito,
+        ]);
+
+        // 2. Archivo que supera los 5MB (5120 KB)
+        $archivoPesado = UploadedFile::fake()->create('documento_gigante.pdf', 6000, 'application/pdf');
+
+        $respPesado = $this->actingAs($this->participante)
+            ->withSession([
+                'profile_id' => Perfil::PARTICIPANTE,
+                'session_token' => $this->participante->session_token,
+            ])
+            ->post(route('taller.inscripciones.procesar', $this->curso->id_curso), [
+                'req_'.$this->requisitoPregunta->id_requisito => 'Mi respuesta',
+                'req_'.$reqDoc->id_requisito => $archivoPesado,
+            ]);
+
+        $respPesado->assertSessionHas('error');
+    }
+
+    /**
+     * RNF-03 / RF-30: Archivo válido se almacena con UUID y limpia el previo al actualizar.
+     */
+    public function test_subida_documento_valido_guarda_con_nombre_uuid_y_limpia_previo(): void
+    {
+        Storage::fake('public');
+
+        $reqDoc = CursoRequisito::create([
+            'id_curso' => $this->curso->id_curso,
+            'titulo' => 'Copia de DNI',
+            'tipo' => 'documento',
+            'obligatorio' => true,
+        ]);
+
+        $pdfValido = UploadedFile::fake()->create('mi_dni.pdf', 500, 'application/pdf');
+
+        $response = $this->actingAs($this->participante)
+            ->withSession([
+                'profile_id' => Perfil::PARTICIPANTE,
+                'session_token' => $this->participante->session_token,
+            ])
+            ->post(route('taller.inscripciones.procesar', $this->curso->id_curso), [
+                'req_'.$this->requisitoPregunta->id_requisito => 'Respuesta inicial',
+                'req_'.$reqDoc->id_requisito => $pdfValido,
+            ]);
+
+        $response->assertSessionHas('success');
+
+        $respuesta = \Modules\Taller\Entities\InscripcionRespuesta::where('id_requisito', $reqDoc->id_requisito)->first();
+        $this->assertNotNull($respuesta);
+        $this->assertNotNull($respuesta->ruta_archivo);
+
+        // El nombre debe terminar en .pdf y no contener el nombre original del cliente
+        $this->assertStringEndsWith('.pdf', $respuesta->ruta_archivo);
+        $this->assertStringNotContainsString('mi_dni', $respuesta->ruta_archivo);
+        Storage::disk('public')->assertExists($respuesta->ruta_archivo);
+
+        $primerRuta = $respuesta->ruta_archivo;
+
+        // Rechazar postulación para permitir corrección
+        $inscripcion = $respuesta->inscripcion;
+        $inscripcion->update(['estado' => Inscripcion::ESTADO_RECHAZADO]);
+
+        // Reenviar corrección con un nuevo PDF
+        $nuevoPdf = UploadedFile::fake()->create('mi_dni_corregido.pdf', 600, 'application/pdf');
+
+        $respCorregida = $this->actingAs($this->participante)
+            ->withSession([
+                'profile_id' => Perfil::PARTICIPANTE,
+                'session_token' => $this->participante->session_token,
+            ])
+            ->post(route('taller.inscripciones.procesar', $this->curso->id_curso), [
+                'req_'.$this->requisitoPregunta->id_requisito => 'Respuesta corregida',
+                'req_'.$reqDoc->id_requisito => $nuevoPdf,
+            ]);
+
+        $respCorregida->assertSessionHas('success');
+
+        $respuestaFresca = $respuesta->fresh();
+        $this->assertNotSame($primerRuta, $respuestaFresca->ruta_archivo);
+
+        // El archivo anterior debe haber sido eliminado del disco
+        Storage::disk('public')->assertMissing($primerRuta);
+        Storage::disk('public')->assertExists($respuestaFresca->ruta_archivo);
+    }
+
+    /**
+     * RF-26: El participante postulado puede ver su estado en el detalle del curso
+     * y retirar (cancelar) su postulación, limpiando registros y archivos.
+     */
+    public function test_participante_postulado_puede_ver_estado_y_retirar_postulacion(): void
+    {
+        Storage::fake('public');
+
+        $reqDoc = CursoRequisito::create([
+            'id_curso' => $this->curso->id_curso,
+            'titulo' => 'Comprobante',
+            'tipo' => 'documento',
+            'obligatorio' => false,
+        ]);
+
+        $pdf = UploadedFile::fake()->create('comprobante.pdf', 200, 'application/pdf');
+
+        // Postularse
+        $this->actingAs($this->participante)
+            ->withSession([
+                'profile_id' => Perfil::PARTICIPANTE,
+                'session_token' => $this->participante->session_token,
+            ])
+            ->post(route('taller.inscripciones.procesar', $this->curso->id_curso), [
+                'req_'.$this->requisitoPregunta->id_requisito => 'Mi respuesta',
+                'req_'.$reqDoc->id_requisito => $pdf,
+            ])
+            ->assertSessionHas('success');
+
+        $inscripcion = Inscripcion::where('id_curso', $this->curso->id_curso)
+            ->where('id_persona', $this->participante->personalData->id_persona)
+            ->first();
+        $this->assertNotNull($inscripcion);
+        $this->assertTrue($inscripcion->esPostulado());
+
+        $respuestaDoc = $inscripcion->respuestas->where('id_requisito', $reqDoc->id_requisito)->first();
+        $this->assertNotNull($respuestaDoc);
+        $rutaDoc = $respuestaDoc->ruta_archivo;
+        Storage::disk('public')->assertExists($rutaDoc);
+
+        // Ver detalle del curso: debe mostrar estado en revisión y botón para retirar
+        $showResponse = $this->actingAs($this->participante)
+            ->withSession([
+                'profile_id' => Perfil::PARTICIPANTE,
+                'session_token' => $this->participante->session_token,
+            ])
+            ->get(route('taller.cursos.show', $this->curso->id_curso));
+
+        $showResponse->assertStatus(200);
+        $showResponse->assertSee('Postulación en Revisión');
+        $showResponse->assertSee('Retirar Postulación');
+        $showResponse->assertDontSee('Ver contenidos del programa');
+
+        // Cancelar postulación
+        $deleteResponse = $this->actingAs($this->participante)
+            ->withSession([
+                'profile_id' => Perfil::PARTICIPANTE,
+                'session_token' => $this->participante->session_token,
+            ])
+            ->deleteJson(route('taller.inscripciones.destroy', $inscripcion->id_inscripcion));
+
+        $deleteResponse->assertStatus(200);
+        $deleteResponse->assertJson(['success' => true]);
+
+        // La inscripción y sus respuestas deben haber sido eliminadas
+        $this->assertDatabaseMissing('taller.inscripciones', [
+            'id_inscripcion' => $inscripcion->id_inscripcion,
+        ]);
+        $this->assertDatabaseMissing('taller.inscripcion_respuestas', [
+            'id_inscripcion' => $inscripcion->id_inscripcion,
+        ]);
+
+        // El archivo debe haber sido eliminado del disco
+        Storage::disk('public')->assertMissing($rutaDoc);
+
+        // Al visitar nuevamente el curso, ya no está en revisión y puede volver a postularse
+        $showAfter = $this->actingAs($this->participante)
+            ->withSession([
+                'profile_id' => Perfil::PARTICIPANTE,
+                'session_token' => $this->participante->session_token,
+            ])
+            ->get(route('taller.cursos.show', $this->curso->id_curso));
+
+        $showAfter->assertStatus(200);
+        $showAfter->assertDontSee('Postulación en Revisión');
+        $showAfter->assertSee('Postularme al Programa');
     }
 }

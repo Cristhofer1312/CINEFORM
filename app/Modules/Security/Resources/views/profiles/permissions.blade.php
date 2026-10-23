@@ -120,7 +120,7 @@
 
                                                         <!-- Detalle de Lista: Sub-permisos -->
                                                         <div class="ps-0 ps-md-4 ms-md-4">
-                                                            {!!showActions($value3->actions, $value3->crypt_id, $actions)!!}
+                                                            {!!showActions($value3->permissions, $value3->crypt_id, $actions)!!}
                                                         </div>
 
                                                     </div>

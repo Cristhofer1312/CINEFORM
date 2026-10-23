@@ -2,22 +2,17 @@
 
 namespace Modules\Taller\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Modules\Taller\Entities\Curso;
-use Modules\Taller\Entities\ContenidoCurso;
-use Modules\Taller\Entities\Inscripcion;
-use Modules\Taller\Entities\Asistencia;
-use Modules\Taller\Entities\AsistenciaToken;
-use Modules\Taller\Entities\Estado;
-use Modules\Comun\Entities\PersonalData;
-use Modules\Security\Entities\User;
-use App\Constants\SecurityAction;
-use App\Enums\EstadoCurso;
 use BaconQrCode\Renderer\Image\ImagickImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
+use Illuminate\Http\Request;
+use Modules\Comun\Entities\PersonalData;
+use Modules\Taller\Entities\Asistencia;
+use Modules\Taller\Entities\AsistenciaToken;
+use Modules\Taller\Entities\ContenidoCurso;
+use Modules\Taller\Entities\Curso;
+use Modules\Taller\Entities\Inscripcion;
 
 class AsistenciaController extends BaseController
 {
@@ -29,8 +24,8 @@ class AsistenciaController extends BaseController
         $curso = Curso::with([
             'contenidos' => function ($q) {
                 $q->where('es_evaluacion', false)
-                  ->orderBy('fecha_contenido', 'asc')
-                  ->orderBy('id_contenido_curso', 'asc');
+                    ->orderBy('fecha_contenido', 'asc')
+                    ->orderBy('id_contenido_curso', 'asc');
             },
             'inscripciones.persona',
         ])->findOrFail($curso_id);
@@ -46,7 +41,7 @@ class AsistenciaController extends BaseController
 
                 ->where('activa', true)
                 ->get()
-                ->keyBy(fn ($a) => $a->id_contenido_curso . '_' . $a->id_persona);
+                ->keyBy(fn ($a) => $a->id_contenido_curso.'_'.$a->id_persona);
 
             $asistenciasMap = $asistencias->toArray();
         }
@@ -104,6 +99,7 @@ class AsistenciaController extends BaseController
 
         $request->validate([
             'contenido_id' => 'required|integer',
+            'duracion_minutos' => 'nullable|integer|min:1|max:1440',
         ]);
 
         $contenido = ContenidoCurso::where('id_contenido_curso', $request->contenido_id)
@@ -116,6 +112,7 @@ class AsistenciaController extends BaseController
             if ($request->ajax()) {
                 return response()->json(['success' => false, 'message' => 'No se pueden generar tokens de asistencia para evaluaciones.'], 422);
             }
+
             return back()->with('error', 'No se pueden generar tokens de asistencia para evaluaciones.');
         }
 
@@ -148,7 +145,7 @@ class AsistenciaController extends BaseController
                 ->with('token_expira', $tokenExistente->fecha_expiracion->format('d/m/Y H:i'));
         }
 
-        $duracion = $request->input('duracion_minutos', 30);
+        $duracion = (int) $request->input('duracion_minutos', 30);
 
         // Crear nuevo token
         $token = AsistenciaToken::create([
@@ -195,6 +192,7 @@ class AsistenciaController extends BaseController
         $request->validate(['token_id' => 'required|integer']);
 
         $token = AsistenciaToken::where('id_token', $request->token_id)
+            ->whereHas('actividad', fn ($q) => $q->where('id_curso', $curso->id_curso))
             ->where('activo', true)->firstOrFail();
 
         $token->update(['activo' => false]);
@@ -214,15 +212,15 @@ class AsistenciaController extends BaseController
         $curso = Curso::findOrFail($curso_id);
         $this->verificarPermisoGestion($curso);
 
-        $tokensActivos = AsistenciaToken::whereHas('actividad', function($q) use ($curso_id) {
-                $q->where('id_curso', $curso_id);
-            })
+        $tokensActivos = AsistenciaToken::whereHas('actividad', function ($q) use ($curso_id) {
+            $q->where('id_curso', $curso_id);
+        })
             ->where('activo', true)
             ->where('fecha_expiracion', '>', now())
             ->orderByDesc('fecha_expiracion')
             ->get();
 
-        $resultados = $tokensActivos->map(function($token) use ($curso) {
+        $resultados = $tokensActivos->map(function ($token) use ($curso) {
             $urlAsistencia = route('taller.asistencia.confirmar', [
                 'curso' => $curso->crypt_id,
                 'token' => $token->token,
@@ -242,7 +240,7 @@ class AsistenciaController extends BaseController
 
         return response()->json([
             'success' => true,
-            'tokens' => $resultados
+            'tokens' => $resultados,
         ]);
     }
 
@@ -251,7 +249,10 @@ class AsistenciaController extends BaseController
      */
     public function qrImage($token)
     {
-        $tokenRecord = AsistenciaToken::where('token', $token)->firstOrFail();
+        $tokenRecord = AsistenciaToken::where('token', $token)
+            ->where('activo', true)
+            ->where('fecha_expiracion', '>', now())
+            ->firstOrFail();
         $curso = Curso::findOrFail($tokenRecord->actividad->id_curso);
 
         $urlAsistencia = route('taller.asistencia.confirmar', [
@@ -261,7 +262,7 @@ class AsistenciaController extends BaseController
 
         $renderer = new ImageRenderer(
             new RendererStyle(250, 4),
-            new ImagickImageBackEnd()
+            new ImagickImageBackEnd
         );
         $writer = new Writer($renderer);
         $imagenQR = $writer->writeString($urlAsistencia);
@@ -277,14 +278,19 @@ class AsistenciaController extends BaseController
         $curso = Curso::findOrFail($curso_id);
         $this->verificarPermisoGestion($curso);
 
+        $data = request()->validate([
+            'motivo' => 'required|string|max:500',
+        ]);
+
         $asistencia = Asistencia::where('id_asistencia', $asistencia_id)
+            ->whereHas('actividad', fn ($q) => $q->where('id_curso', $curso->id_curso))
             ->firstOrFail();
 
         $asistencia->update([
             'activa' => false,
             'anulada_por' => auth()->id(),
             'fecha_anulacion' => now(),
-            'motivo_anulacion' => request('motivo', 'Anulación manual'),
+            'motivo_anulacion' => $data['motivo'],
         ]);
 
         if (request()->ajax()) {
@@ -303,6 +309,7 @@ class AsistenciaController extends BaseController
         $this->verificarPermisoGestion($curso);
 
         $asistencia = Asistencia::where('id_asistencia', $asistencia_id)
+            ->whereHas('actividad', fn ($q) => $q->where('id_curso', $curso->id_curso))
             ->firstOrFail();
 
         $asistencia->update([
@@ -340,7 +347,7 @@ class AsistenciaController extends BaseController
         }
 
         $persona = PersonalData::find($request->id_persona);
-        if (!$persona) {
+        if (! $persona) {
             return back()->with('error', 'Participante no encontrado.');
         }
 
@@ -348,8 +355,12 @@ class AsistenciaController extends BaseController
             ->where('id_persona', $persona->id_persona)
             ->first();
 
-        if (!$inscripcion) {
+        if (! $inscripcion) {
             return back()->with('error', 'El participante no está inscrito en este curso.');
+        }
+
+        if (! $inscripcion->esAprobado()) {
+            return back()->with('error', 'El participante no está formalmente inscrito y admitido en este curso.');
         }
 
         // Verificar si ya existe asistencia
@@ -384,7 +395,7 @@ class AsistenciaController extends BaseController
             return response()->json(['success' => true, 'message' => 'Asistencia registrada correctamente.']);
         }
 
-        return back()->with('success', 'Asistencia de ' . $persona->nombre_completo . ' registrada correctamente.');
+        return back()->with('success', 'Asistencia de '.$persona->nombre_completo.' registrada correctamente.');
     }
 
     /**
@@ -399,7 +410,7 @@ class AsistenciaController extends BaseController
             ->where('activo', true)
             ->first();
 
-        if (!$tokenRecord) {
+        if (! $tokenRecord) {
             return view('taller::a.AsistenciaExpirada', [
                 'mensaje' => 'El enlace de asistencia no es válido o ya fue desactivado.',
                 'curso' => $curso,
@@ -414,7 +425,7 @@ class AsistenciaController extends BaseController
         }
 
         $contenido = $tokenRecord->actividad;
-        if (!$contenido || (int) $contenido->id_curso !== (int) $curso->id_curso) {
+        if (! $contenido || (int) $contenido->id_curso !== (int) $curso->id_curso) {
             return view('taller::a.AsistenciaExpirada', [
                 'mensaje' => 'El enlace de asistencia no corresponde a este curso.',
                 'curso' => $curso,
@@ -422,7 +433,7 @@ class AsistenciaController extends BaseController
         }
 
         $persona = $this->getUsuarioAutenticado()->personalData;
-        if (!$persona) {
+        if (! $persona) {
             return view('taller::a.AsistenciaExpirada', [
                 'mensaje' => 'No se encontraron los datos personales del usuario.',
                 'curso' => $curso,
@@ -434,7 +445,7 @@ class AsistenciaController extends BaseController
             ->where('id_persona', $persona->id_persona)
             ->first();
 
-        if (!$inscripcion || !$inscripcion->esAprobado()) {
+        if (! $inscripcion || ! $inscripcion->esAprobado()) {
             return view('taller::a.AsistenciaExpirada', [
                 'mensaje' => 'Debes estar formalmente inscrito y admitido en este curso para registrar asistencia.',
                 'curso' => $curso,
@@ -468,7 +479,7 @@ class AsistenciaController extends BaseController
             ->where('activo', true)
             ->first();
 
-        if (!$tokenRecord) {
+        if (! $tokenRecord) {
             return back()->with('error', 'Token no válido.');
         }
 
@@ -477,12 +488,12 @@ class AsistenciaController extends BaseController
         }
 
         $contenido = $tokenRecord->actividad;
-        if (!$contenido || (int) $contenido->id_curso !== (int) $curso->id_curso) {
+        if (! $contenido || (int) $contenido->id_curso !== (int) $curso->id_curso) {
             return back()->with('error', 'El enlace de asistencia no corresponde a este curso.');
         }
 
         $persona = $this->getUsuarioAutenticado()->personalData;
-        if (!$persona) {
+        if (! $persona) {
             return back()->with('error', 'No se encontraron los datos personales del usuario.');
         }
 
@@ -490,7 +501,7 @@ class AsistenciaController extends BaseController
             ->where('id_persona', $persona->id_persona)
             ->first();
 
-        if (!$inscripcion || !$inscripcion->esAprobado()) {
+        if (! $inscripcion || ! $inscripcion->esAprobado()) {
             return back()->with('error', 'Debes estar formalmente inscrito y admitido en este curso para registrar asistencia.');
         }
 

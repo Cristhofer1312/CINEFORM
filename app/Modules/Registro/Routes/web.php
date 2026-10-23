@@ -16,8 +16,12 @@ Route::prefix('registro')->group(function() {
     
     // Rutas para el registro de usuarios (públicas)
     Route::get('/usuario', [\Modules\Registro\Http\Controllers\RegisterController::class, 'index'])->name('registro.usuario');
-    Route::post('/usuario', [\Modules\Registro\Http\Controllers\RegisterController::class, 'store'])->name('registro.usuario.store');
-    Route::put('/usuario/enviar-codigo', [\Modules\Registro\Http\Controllers\RegisterController::class, 'sendCode'])->name('registro.usuario.enviar_codigo');
+    Route::post('/usuario', [\Modules\Registro\Http\Controllers\RegisterController::class, 'store'])
+        ->name('registro.usuario.store')
+        ->middleware('throttle:10,1');
+    Route::put('/usuario/enviar-codigo', [\Modules\Registro\Http\Controllers\RegisterController::class, 'sendCode'])
+        ->name('registro.usuario.enviar_codigo')
+        ->middleware('throttle:10,1');
     
     // Endpoints AJAX para selects dependientes
     Route::get('/ajax/estados', [\Modules\Registro\Http\Controllers\RegisterController::class, 'getEstados'])->name('registro.ajax.estados');

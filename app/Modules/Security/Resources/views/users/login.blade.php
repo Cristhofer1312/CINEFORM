@@ -182,8 +182,6 @@
 
             @endif
 
-            setInterval(function () { $("#reload-img").click(); }, 120000);
-
         });
 
     </script>

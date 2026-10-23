@@ -24,7 +24,12 @@ class CatalogoController extends BaseController
         $actividades = ActividadFormativa::withCount('cursos')->orderBy('status', 'desc')->orderBy('nombre')->get();
         $aspectos    = Aspecto::withCount('cursos')->orderBy('status', 'desc')->orderBy('nombre')->get();
 
-        return view('taller::a.Catalogos', compact('actividades', 'aspectos'));
+        // Mismos permisos que exigen las rutas: la vista solo muestra lo que el backend acepta.
+        $autorizacion = app(\App\Services\Security\Autorizacion::class);
+        $puedeCrear  = $autorizacion->puede('taller.catalogos.index', SecurityAction::CREAR);
+        $puedeEditar = $autorizacion->puede('taller.catalogos.index', SecurityAction::EDITAR);
+
+        return view('taller::a.Catalogos', compact('actividades', 'aspectos', 'puedeCrear', 'puedeEditar'));
     }
 
     // =========================================================================

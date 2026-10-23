@@ -11,7 +11,6 @@ use Modules\Comun\Entities\PersonalData;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\ContenidoCurso;
 use Modules\Taller\Entities\CursoRequisito;
-use App\Constants\SecurityAction;
 use Modules\Taller\Http\Requests\UpdateCursoRequest;
 
 class EditarCursoController extends BaseController
@@ -34,7 +33,7 @@ class EditarCursoController extends BaseController
         // VALIDACIÓN DE ESTADOS EDITABLES
         $estadoActual = $curso->estado_actual->id_estado ?? null;
         $estadosEditablesFacilitador = [EstadoCurso::DECLINADO->value, EstadoCurso::EDICION->value]; 
-        $estadosEditablesCoordinador = [EstadoCurso::DECLINADO->value, EstadoCurso::EDICION->value, EstadoCurso::EN_CURSO->value];
+        $estadosEditablesCoordinador = [EstadoCurso::RECHAZADO->value, EstadoCurso::DECLINADO->value, EstadoCurso::EDICION->value, EstadoCurso::EN_CURSO->value];
 
         $estadosPermitidos = $esCoordinador ? $estadosEditablesCoordinador : $estadosEditablesFacilitador;
 
@@ -58,9 +57,9 @@ class EditarCursoController extends BaseController
         $contenidos = $curso->contenidos()->orderBy('fecha_contenido', 'asc')->orderBy('id_contenido_curso', 'asc')->get();
         $esFacilitador = $idPersona && $curso->id_persona == $idPersona;
 
-        $facilitadores = \Modules\Security\Entities\User::whereHas('perfiles.permissions', function ($q) {
-            $q->where('security.permissions.slug', SecurityAction::dbString(SecurityAction::EDITAR_CURSO));
-        })->with(['personalData.especializaciones'])->get()->filter(fn($u) => $u->personalData != null);
+        $facilitadores = app(\App\Services\Security\Autorizacion::class)
+            ->consultaElegiblesFacilitador()
+            ->with(['personalData.especializaciones'])->get()->filter(fn($u) => $u->personalData != null);
 
         $especializaciones = \Modules\Comun\Entities\Especializacion::where('status', 'Activo')->get();
 

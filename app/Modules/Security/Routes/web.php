@@ -43,7 +43,7 @@ Route::prefix('security')->group(function () {
         Route::get('/usuario/cambiar-perfil', [Modules\Security\Http\Controllers\SecurityController::class, 'showSwitchProfile'])->name('usuario.cambiar_perfil');
 
         Route::get('home', [Modules\Security\Http\Controllers\SecurityController::class, 'home'])->name('home');
-        Route::get('logout', [Modules\Security\Http\Controllers\SecurityController::class, 'logout'])->name('logout');
+        Route::post('logout', [Modules\Security\Http\Controllers\SecurityController::class, 'logout'])->name('logout');
         // COMENTADO 2026-04-24: Ruta de selección de módulos eliminada del sidebar
         // Route::get('set-module/{id}', [Modules\Security\Http\Controllers\SecurityController::class, 'set_module'])->name('set_module');
 
@@ -54,12 +54,12 @@ Route::prefix('security')->group(function () {
 
         Route::get('show-pdf/{pdf}/{page?}', [Modules\Security\Http\Controllers\SecurityController::class, 'show_pdf'])->name('show_pdf');
 
-        Route::get('profiles', [Modules\Security\Http\Controllers\ProfilesController::class, 'index'])->name('profiles')->middleware('permiso:profiles,1');
-        Route::get('profiles-list', [Modules\Security\Http\Controllers\ProfilesController::class, 'list'])->name('profiles.list')->middleware('permiso:profiles,1');
-        Route::match(['get', 'post'], 'profiles-create', [Modules\Security\Http\Controllers\ProfilesController::class, 'create'])->name('profiles.create')->middleware('permiso:profiles,2');
-        Route::match(['get', 'post'], 'profiles-update/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'update'])->name('profiles.update')->middleware('permiso:profiles,10');
-        Route::match(['get', 'post'], 'profiles-disabled/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'disabled'])->name('profiles.disabled')->middleware('permiso:profiles,10');
-        Route::match(['get', 'post'], 'profiles-permissions/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'permissions'])->name('profiles.permissions')->middleware('permiso:profiles,11');
+        Route::get('profiles', [Modules\Security\Http\Controllers\ProfilesController::class, 'index'])->name('profiles')->middleware('permiso:profiles,'.\App\Constants\SecurityAction::VER);
+        Route::get('profiles-list', [Modules\Security\Http\Controllers\ProfilesController::class, 'list'])->name('profiles.list')->middleware('permiso:profiles,'.\App\Constants\SecurityAction::VER);
+        Route::match(['get', 'post'], 'profiles-create', [Modules\Security\Http\Controllers\ProfilesController::class, 'create'])->name('profiles.create')->middleware('permiso:profiles,'.\App\Constants\SecurityAction::CREAR);
+        Route::match(['get', 'post'], 'profiles-update/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'update'])->name('profiles.update')->middleware('permiso:profiles,'.\App\Constants\SecurityAction::EDITAR);
+        Route::match(['get', 'post'], 'profiles-disabled/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'disabled'])->name('profiles.disabled')->middleware('permiso:profiles,'.\App\Constants\SecurityAction::EDITAR);
+        Route::match(['get', 'post'], 'profiles-permissions/{id}', [Modules\Security\Http\Controllers\ProfilesController::class, 'permissions'])->name('profiles.permissions')->middleware('permiso:profiles,'.\App\Constants\SecurityAction::GESTIONAR_PERMISOS);
 
         //Route::get('users', [Modules\Security\Http\Controllers\UsersController::class, 'index'])->name('users');
         Route::get('users-list', [Modules\Security\Http\Controllers\UsersController::class, 'list'])->name('users.list');

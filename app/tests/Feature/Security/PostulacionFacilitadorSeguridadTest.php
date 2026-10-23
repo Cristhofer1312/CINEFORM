@@ -3,9 +3,7 @@
 namespace Tests\Feature\Security;
 
 use App\Constants\Perfil;
-use App\Constants\SecurityAction;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Support\Facades\DB;
 use Modules\Security\Entities\User;
 use Modules\Taller\Entities\PostulacionFacilitador;
 use Tests\TestCase;
@@ -21,6 +19,7 @@ class PostulacionFacilitadorSeguridadTest extends TestCase
     use DatabaseTransactions;
 
     private User $participanteUser;
+
     private User $coordinadorUser;
 
     protected function setUp(): void
@@ -28,9 +27,12 @@ class PostulacionFacilitadorSeguridadTest extends TestCase
         parent::setUp();
 
         // Buscar usuarios de prueba sembrados
+        // Participante "puro": el usuario 1 es la cuenta raíz y tiene bypass de RBAC.
         $this->participanteUser = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::PARTICIPANTE);
-        })->first() ?? User::findOrFail(2);
+        })->whereDoesntHave('perfiles', function ($q) {
+            $q->whereIn('security.profiles.id', [Perfil::ADMINISTRADOR, Perfil::FACILITADOR, Perfil::COORDINADOR]);
+        })->where('id', '>', 1)->first() ?? User::findOrFail(7);
 
         $this->coordinadorUser = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::COORDINADOR);

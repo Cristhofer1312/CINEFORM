@@ -15,12 +15,19 @@ class InscripcionPolicyTest extends TestCase
     use DatabaseTransactions;
 
     private User $admin;
+
     private User $coordinador;
+
     private User $facilitadorDuenio;
+
     private User $facilitadorAjeno;
+
     private User $participanteTitular;
+
     private User $participanteAjeno;
+
     private Curso $curso;
+
     private Inscripcion $inscripcion;
 
     protected function setUp(): void
@@ -33,19 +40,26 @@ class InscripcionPolicyTest extends TestCase
             $q->where('security.profiles.id', Perfil::COORDINADOR);
         })->first() ?? User::findOrFail(1);
 
+        // Facilitadores "puros": sin perfil Administrador ni Coordinador, para
+        // que la jerarquía no los convierta en gestores.
         $facilitadores = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::FACILITADOR);
-        })->get();
+        })->whereDoesntHave('perfiles', function ($q) {
+            $q->whereIn('security.profiles.id', [Perfil::ADMINISTRADOR, Perfil::COORDINADOR]);
+        })->where('id', '>', 1)->orderBy('id')->get();
 
-        $this->facilitadorDuenio = $facilitadores->first() ?? User::findOrFail(2);
-        $this->facilitadorAjeno = $facilitadores->skip(1)->first() ?? User::findOrFail(3);
+        $this->facilitadorDuenio = $facilitadores->first() ?? User::findOrFail(5);
+        $this->facilitadorAjeno = $facilitadores->skip(1)->first() ?? User::findOrFail(6);
 
+        // Participantes "puros": sin perfiles de mayor jerarquía.
         $participantes = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::PARTICIPANTE);
-        })->get();
+        })->whereDoesntHave('perfiles', function ($q) {
+            $q->whereIn('security.profiles.id', [Perfil::ADMINISTRADOR, Perfil::FACILITADOR, Perfil::COORDINADOR]);
+        })->where('id', '>', 1)->orderBy('id')->get();
 
-        $this->participanteTitular = $participantes->first() ?? User::findOrFail(2);
-        $this->participanteAjeno = $participantes->skip(1)->first() ?? User::findOrFail(3);
+        $this->participanteTitular = $participantes->first() ?? User::findOrFail(3);
+        $this->participanteAjeno = $participantes->skip(1)->first() ?? User::findOrFail(7);
 
         $idPersonaFacilitador = optional($this->facilitadorDuenio->personalData)->id_persona;
         $idPersonaTitular = optional($this->participanteTitular->personalData)->id_persona;
@@ -53,28 +67,30 @@ class InscripcionPolicyTest extends TestCase
         $this->assertNotNull($idPersonaFacilitador, 'facilitadorDuenio debe tener personalData.');
         $this->assertNotNull($idPersonaTitular, 'participanteTitular debe tener personalData.');
 
-        $this->curso = Curso::first();
-        if (!$this->curso) {
+        $cursoExistente = Curso::first();
+        if (! $cursoExistente) {
             $this->curso = Curso::withoutEvents(function () use ($idPersonaFacilitador) {
-                $c = new Curso();
+                $c = new Curso;
                 $c->nombre = 'Curso Inscripcion Policy';
                 $c->codigo = 'LAB-I1001-A-O-G-2026';
                 $c->id_persona = $idPersonaFacilitador;
-                $c->id_actividad = 1;
+                $c->id_actividad_formativa = 1;
                 $c->id_aspecto = 1;
                 $c->id_modalidad = 1;
                 $c->id_modalidad_especial = 1;
                 $c->fecha_inicio = now();
                 $c->fecha_fin = now()->addMonths(1);
                 $c->save();
+
                 return $c;
             });
         } else {
+            $this->curso = $cursoExistente;
             $this->curso->id_persona = $idPersonaFacilitador;
             $this->curso->saveQuietly();
         }
 
-        $this->inscripcion = new Inscripcion();
+        $this->inscripcion = new Inscripcion;
         $this->inscripcion->id_curso = $this->curso->id_curso;
         $this->inscripcion->id_persona = $idPersonaTitular;
         $this->inscripcion->estado = 'pendiente';

@@ -57,6 +57,7 @@ class RutasProtegidasTest extends TestCase
      * @var array<int, string>
      */
     private const ABIERTAS_A_AUTENTICADOS = [
+        'logout',
         'taller.asistencia.confirmar-marcar',
         'taller.certificados.prueba.wizard',
         'taller.cursos.satisfaccion.store',

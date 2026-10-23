@@ -10,6 +10,8 @@ use DataTables;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\Encryptor;
 use App\Constants\SecurityAction;
+use App\Services\Security\Auditoria;
+use App\Services\Security\Autorizacion;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -65,7 +67,7 @@ class ProfilesController extends Controller {
                     })
                     ->addColumn('action', function ($row) {
                         // El perfil Administrador (ID 1) es crítico y no debe ser alterado
-                        if ($row->id == 1) {
+                        if ((int) $row->id === \App\Constants\Perfil::ADMINISTRADOR) {
                             return '<div class="text-center"><span class="badge badge-secondary">Perfil Principal del Sistema</span></div>';
                         }
 
@@ -127,8 +129,10 @@ class ProfilesController extends Controller {
             return to_route('profiles')->withErrors(['error-message' => __('Main System Profile permissions cannot be modified')]);
         }
 
+        $autorizacion = app(Autorizacion::class);
+
         // Bloquear autopromoción: no permitir modificar el perfil activo propio
-        if (session('profile_id') == $profileId && auth()->id() !== 1) {
+        if (session('profile_id') == $profileId && ! $autorizacion->esRaiz()) {
             return to_route('profiles')->withErrors(['error-message' => __('You cannot modify the permissions of your currently active profile')]);
         }
 
@@ -138,7 +142,7 @@ class ProfilesController extends Controller {
                 if (!$profile) {
                     abort(404, 'Perfil no encontrado');
                 }
-                $MODULES = \Modules\Security\Entities\Modulo::with('getMenus.getProcess')->get();
+                $MODULES = \Modules\Security\Entities\Modulo::with('getMenus.getProcess.permissions')->get();
 
                 return view('security::profiles.permissions', ['id' => Encryptor::encrypt($profileId), 'profile' => $profile, 'MODULES' => $MODULES]);
             } else {
@@ -147,79 +151,88 @@ class ProfilesController extends Controller {
                     abort(404, 'Perfil no encontrado');
                 }
 
-                // Misma regla que disabled(): un no-raíz no puede activar/desactivar
-                // perfiles base desde el formulario de permisos.
-                $perfilesBase = [
-                    \App\Constants\Perfil::ADMINISTRADOR,
-                    \App\Constants\Perfil::FACILITADOR,
-                    \App\Constants\Perfil::PARTICIPANTE,
-                    \App\Constants\Perfil::COORDINADOR,
-                ];
-                if ($request->has('active')
-                    && in_array($profileId, $perfilesBase, true)
-                    && auth()->id() !== 1
-                    && (bool) $request->input('active') !== (bool) $Profile->active) {
-                    return to_route('profiles')->withErrors([
-                        'error-message' => __('Only the system administrator can activate or deactivate base profiles'),
-                    ]);
-                }
+                // ----- LÓGICA DE RBAC: GUARDADO DE PERMISOS -----
+                // Quien llega aquí tiene GESTIONAR_PERMISOS (middleware de la ruta) y puede
+                // configurar cualquier perfil salvo el Administrador y su propio perfil activo.
+                // Catálogo de permisos existentes: [permission_id => (proceso, slug)].
+                // Los permisos se definen en migraciones/seeders; aquí nunca se crean.
+                $catalogo = DB::table('security.permissions as p')
+                    ->join('security.processes as pr', 'pr.id', '=', 'p.process_id')
+                    ->get(['p.id', 'p.process_id', 'p.slug', 'pr.codigo'])
+                    ->keyBy('id');
 
-                if ($request->has('name')) $Profile->name = Upper($request->name);
-                if ($request->has('description')) $Profile->description = $request->description;
-                if ($request->has('active')) $Profile->active = $request->active;
-                $Profile->save();
+                // Permisos marcados en el formulario.
+                $solicitados = [];
+                foreach ((array) $request->input('permissions', []) as $processId => $acciones) {
+                    // La vista envía el crypt_id del proceso: DecryptIds no desencripta las llaves.
+                    $pId = (int) Encryptor::decrypt($processId);
 
-                // ----- LÓGICA DE RBAC: GUARDADO DE PERMISOS PIVOT -----
-                // Limpiar asginaciones antiguas para este perfil
-                \Illuminate\Support\Facades\DB::table('security.profile_permissions')
-                    ->where('profile_id', $profileId)
-                    ->delete();
+                    // Si llega la casilla raíz sin acciones, el valor es un string ("on").
+                    if (! is_array($acciones)) {
+                        continue;
+                    }
 
-                if ($request->has('permissions') && is_array($request->permissions)) {
-                    foreach ($request->permissions as $processId => $actionsIdsArray) {
-                        // Fix #4: Siempre desencriptar — la vista siempre envía el crypt_id
-                        // (DecryptIds no desencripta las llaves de los arreglos).
-                        $pId = Encryptor::decrypt($processId);
-
-                        // Fix #13: Si el checkbox raíz se marcó sin acciones, $actionsIdsArray
-                        // será un string ("on"), no un array. Ignoraremos ese caso.
-                        if (!is_array($actionsIdsArray)) {
-                            continue;
-                        }
-
-                        foreach (array_keys($actionsIdsArray) as $numId) {
-                            // Resolver slug: si es numérico, usar el mapa de SecurityAction;
-                            // si ya es string (slug directo), tomarlo tal cual.
-                            $slug = is_numeric($numId)
-                                ? \App\Constants\SecurityAction::dbString((int)$numId)
-                                : $numId;
-
-                            if (!empty($slug)) {
-                                // Fix #3: Solo buscar el permiso existente, NUNCA crear uno nuevo.
-                                // Los permisos se definen en migraciones / SecurityAction, no aquí.
-                                $perm = \Illuminate\Support\Facades\DB::table('security.permissions')
-                                    ->where('process_id', $pId)
-                                    ->where('slug', $slug)
-                                    ->first();
-
-                                if ($perm) {
-                                    \Illuminate\Support\Facades\DB::table('security.profile_permissions')->insert([
-                                        'profile_id'    => $profileId,
-                                        'permission_id' => $perm->id,
-                                        'created_at'    => now(),
-                                        'updated_at'    => now(),
-                                    ]);
-                                }
-                            }
+                    foreach (array_keys($acciones) as $accion) {
+                        $slug = is_numeric($accion) ? SecurityAction::dbString((int) $accion) : $accion;
+                        $permiso = $catalogo->first(fn ($p) => (int) $p->process_id === $pId && $p->slug === $slug);
+                        if ($permiso) {
+                            $solicitados[(int) $permiso->id] = true;
                         }
                     }
                 }
 
-                // Limpiar Caché Local de Permisos
-                app(\App\Services\Security\Autorizacion::class)->invalidar();
-                if (session()->get('profile_id') == $profileId) {
-                    session()->forget("permisos_perfil_" . $profileId);
-                }
+                $actuales = DB::table('security.profile_permissions')
+                    ->where('profile_id', $profileId)
+                    ->pluck('permission_id')
+                    ->map(fn ($id) => (int) $id)
+                    ->all();
+                $finales = array_keys($solicitados);
+
+                $aQuitar = array_values(array_diff($actuales, $finales));
+                $aAgregar = array_values(array_diff($finales, $actuales));
+                $describir = fn (array $ids) => collect($ids)
+                    ->filter(fn ($id) => isset($catalogo[$id]))
+                    ->map(fn ($id) => $catalogo[$id]->codigo.':'.$catalogo[$id]->slug)
+                    ->sort()->values()->all();
+
+                DB::transaction(function () use ($Profile, $request, $profileId, $aQuitar, $aAgregar, $actuales, $finales, $describir) {
+                    $antesPerfil = ['name' => $Profile->name, 'description' => $Profile->description, 'active' => (bool) $Profile->active];
+
+                    if ($request->has('name')) $Profile->name = Upper($request->name);
+                    if ($request->has('description')) $Profile->description = $request->description;
+                    if ($request->has('active')) $Profile->active = $request->active;
+                    $Profile->save();
+
+                    if (! empty($aQuitar)) {
+                        DB::table('security.profile_permissions')
+                            ->where('profile_id', $profileId)
+                            ->whereIn('permission_id', $aQuitar)
+                            ->delete();
+                    }
+
+                    if (! empty($aAgregar)) {
+                        DB::table('security.profile_permissions')->insert(array_map(fn ($id) => [
+                            'profile_id' => $profileId,
+                            'permission_id' => $id,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ], $aAgregar));
+                    }
+
+                    $despuesPerfil = ['name' => $Profile->name, 'description' => $Profile->description, 'active' => (bool) $Profile->active];
+
+                    if (! empty($aQuitar) || ! empty($aAgregar) || $antesPerfil !== $despuesPerfil) {
+                        app(Auditoria::class)->registrar(
+                            'perfil.permisos.actualizar',
+                            'perfil',
+                            $profileId,
+                            $antesPerfil + ['permisos' => $describir($actuales)],
+                            $despuesPerfil + ['permisos' => $describir($finales)]
+                        );
+                    }
+                });
+
+                $autorizacion->invalidar();
 
                 return to_route('profiles')->withSuccess(__('Successfully Updated Profile Permissions'));
             }
@@ -274,42 +287,48 @@ class ProfilesController extends Controller {
             return to_route('profiles')->withErrors(['error-message' => __('Main System Profile cannot be deactivated')]);
         }
 
-        // Bloquear desactivación de perfiles base (1–4) para no-admin.
-        // Un Coordinador con EDITAR (10) podría ejecutar un DoS global desactivando
-        // Facilitador/Participante/Coordinador. Solo el usuario raíz puede hacerlo.
-        $perfilesBase = [
-            \App\Constants\Perfil::ADMINISTRADOR,
-            \App\Constants\Perfil::FACILITADOR,
-            \App\Constants\Perfil::PARTICIPANTE,
-            \App\Constants\Perfil::COORDINADOR,
-        ];
-        if (in_array($profileId, $perfilesBase, true) && auth()->id() !== 1) {
-            return to_route('profiles')->withErrors(['error-message' => __('Only the system administrator can activate or deactivate base profiles')]);
-        }
+        // Quien tiene EDITAR sobre perfiles (middleware de la ruta) puede activar o
+        // desactivar cualquier perfil, igual que el administrador; desactivar un perfil
+        // cierra la sesión de todos sus usuarios y queda auditado.
+        $esRaiz = app(Autorizacion::class)->esRaiz();
 
         // Bloquear desactivación del perfil activo propio (no-admin)
-        if (session('profile_id') == $profileId && auth()->id() !== 1) {
+        if (session('profile_id') == $profileId && ! $esRaiz) {
             return to_route('profiles')->withErrors(['error-message' => __('You cannot deactivate your currently active profile')]);
         }
 
         if (!\Request::ajax()) {
             $Profile = Profile::find($profileId);
-            $Profile->active = !$Profile->active;
-            $Profile->save();
-
-            // Terminar la sesión de todos los usuarios con este perfil.
-            // Se regenera el session_token de cada usuario (driver de sesión File);
-            // el middleware Authenticate detecta la diferencia y cierra la sesión.
-            // Usamos DB::table porque session_token no está en User::$fillable.
-            $userIds = DB::table('security.profiles_users')
-                ->where('id_rol', $profileId)
-                ->pluck('id_users');
-
-            if ($userIds->isNotEmpty()) {
-                DB::table('security.users')
-                    ->whereIn('id', $userIds)
-                    ->update(['session_token' => Str::random(40)]);
+            if (! $Profile) {
+                abort(404, 'Perfil no encontrado');
             }
+
+            DB::transaction(function () use ($Profile, $profileId) {
+                $Profile->active = !$Profile->active;
+                $Profile->save();
+
+                // Terminar la sesión de todos los usuarios con este perfil.
+                // Se regenera el session_token de cada usuario (driver de sesión File);
+                // el middleware Authenticate detecta la diferencia y cierra la sesión.
+                // Usamos DB::table porque session_token no está en User::$fillable.
+                $userIds = DB::table('security.profiles_users')
+                    ->where('id_rol', $profileId)
+                    ->pluck('id_users');
+
+                if ($userIds->isNotEmpty()) {
+                    DB::table('security.users')
+                        ->whereIn('id', $userIds)
+                        ->update(['session_token' => Str::random(40)]);
+                }
+
+                app(Auditoria::class)->registrar(
+                    $Profile->active ? 'perfil.activar' : 'perfil.desactivar',
+                    'perfil',
+                    $profileId,
+                    ['active' => ! $Profile->active],
+                    ['active' => (bool) $Profile->active, 'sesiones_cerradas' => $userIds->count()]
+                );
+            });
 
             $message = $Profile->active
                 ? __('Profile Activated Successfully')

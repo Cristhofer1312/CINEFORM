@@ -114,7 +114,10 @@
                                 href="{{route('usuario.cambiar_perfil')}}">{{__('Switch Profile')}}</a>
 
                             <div class="dropdown-divider"></div>
-                            <a class="dropdown-item" href="{{route('logout')}}">{{__('Logout')}}</a>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit" class="dropdown-item w-100 text-start">{{__('Logout')}}</button>
+                            </form>
                         </li>
                     </div>
                 </ul>

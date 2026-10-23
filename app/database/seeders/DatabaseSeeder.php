@@ -44,6 +44,9 @@ class DatabaseSeeder extends Seeder
 
             // Permisos de la interfaz de Estadísticas
             EstadisticasPermissionsSeeder::class,
+
+            // Descripciones de permisos (RF-83): al final, cuando ya existen todos
+            PermisosDescripcionesSeeder::class,
         ]);
     }
 }

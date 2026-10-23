@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use App\Constants\SecurityAction;
 
 class EstadisticasPermissionsSeeder extends Seeder
 {
@@ -16,7 +15,7 @@ class EstadisticasPermissionsSeeder extends Seeder
             'description' => 'Indicadores y gráficos sobre los cursos del sistema',
             'icon' => 'fas fa-chart-bar',
             'route' => 'taller.estadisticas.index',
-            'actions' => 'view|view_statistics',
+            'codigo' => 'taller.estadisticas.index',
             'order' => 5,
             'active' => true,
             'menu_id' => 3, // 3 = Administración
@@ -25,7 +24,7 @@ class EstadisticasPermissionsSeeder extends Seeder
         // 2. Crear permisos asociados al proceso
         $permissionsToInsert = [
             ['process_id' => $processEstadisticasId, 'slug' => 'view', 'name' => 'Acceso a la Sección', 'created_at' => now(), 'updated_at' => now()],
-            ['process_id' => $processEstadisticasId, 'slug' => 'view_statistics', 'name' => SecurityAction::labels()[SecurityAction::VER_ESTADISTICAS], 'created_at' => now(), 'updated_at' => now()],
+            ['process_id' => $processEstadisticasId, 'slug' => 'view_statistics', 'name' => 'Consultar Estadísticas de Cursos', 'created_at' => now(), 'updated_at' => now()],
         ];
 
         DB::table('security.permissions')->insert($permissionsToInsert);

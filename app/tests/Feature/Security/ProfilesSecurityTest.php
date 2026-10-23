@@ -100,19 +100,41 @@ class ProfilesSecurityTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_coordinador_no_puede_otorgar_perfil_administrador_o_coordinador(): void
+    /**
+     * RF-82 (decisión 1b): quien tiene ASIGNAR_PERFIL puede otorgar cualquier
+     * perfil, igual que el administrador. No hay jerarquía fija de perfiles.
+     */
+    public function test_quien_tiene_permiso_de_asignar_puede_otorgar_cualquier_perfil(): void
     {
         $idPersonaTarget = $this->participante->personalData?->id_persona;
         $this->assertNotNull($idPersonaTarget, 'Target debe tener personalData.');
 
         $response = $this->actingAs($this->coordinador)
-            ->withSession(['profile_id' => Perfil::COORDINADOR])
+            ->withSession(['profile_id' => Perfil::COORDINADOR, 'session_token' => $this->coordinador->session_token])
             ->post(route('users.assign_profiles'), [
                 'id_persona' => $idPersonaTarget,
+                'perfiles' => [Perfil::ADMINISTRADOR, Perfil::PARTICIPANTE],
+            ]);
+
+        $response->assertJson(['success' => true]);
+        $this->assertTrue(
+            DB::table('security.profiles_users')
+                ->where('id_users', $this->participante->id)
+                ->where('id_rol', Perfil::ADMINISTRADOR)
+                ->exists()
+        );
+    }
+
+    public function test_sin_permiso_de_asignar_perfiles_recibe_403(): void
+    {
+        $response = $this->actingAs($this->participante)
+            ->withSession(['profile_id' => Perfil::PARTICIPANTE, 'session_token' => $this->participante->session_token])
+            ->post(route('users.assign_profiles'), [
+                'id_persona' => $this->coordinador->personalData?->id_persona,
                 'perfiles' => [Perfil::ADMINISTRADOR],
             ]);
 
-        $response->assertStatus(403);
+        $response->assertForbidden();
     }
 
     public function test_coordinador_puede_otorgar_perfil_facilitador_o_participante(): void
@@ -151,21 +173,36 @@ class ProfilesSecurityTest extends TestCase
             ->assertStatus(200);
     }
 
-    public function test_coordinador_no_puede_desactivar_perfiles_base(): void
+    /**
+     * RF-82 (decisión 1b): quien tiene EDITAR sobre perfiles puede activar o
+     * desactivar perfiles base, igual que el administrador, y queda auditado.
+     */
+    public function test_quien_tiene_permiso_de_editar_perfiles_puede_desactivar_un_perfil_base(): void
     {
         $facilitador = Profile::findOrFail(Perfil::FACILITADOR);
         $this->assertTrue((bool) $facilitador->active);
 
         $response = $this->actingAs($this->coordinador)
-            ->withSession(['profile_id' => Perfil::COORDINADOR])
+            ->withSession(['profile_id' => Perfil::COORDINADOR, 'session_token' => $this->coordinador->session_token])
             ->get(route('profiles.disabled', ['id' => Encryptor::encrypt(Perfil::FACILITADOR)]));
 
         $response->assertRedirect(route('profiles'));
-        $response->assertSessionHasErrors('error-message');
+        $response->assertSessionHasNoErrors();
+        $this->assertFalse((bool) $facilitador->fresh()->active);
+        $this->assertDatabaseHas('security.auditoria', [
+            'accion' => 'perfil.desactivar',
+            'entidad_id' => (string) Perfil::FACILITADOR,
+        ]);
+    }
 
-        $this->assertTrue(
-            (bool) $facilitador->fresh()->active,
-            'El perfil Facilitador no debe quedar desactivado por un Coordinador.'
-        );
+    public function test_el_perfil_administrador_no_se_puede_desactivar(): void
+    {
+        $response = $this->actingAs($this->coordinador)
+            ->withSession(['profile_id' => Perfil::COORDINADOR, 'session_token' => $this->coordinador->session_token])
+            ->get(route('profiles.disabled', ['id' => Encryptor::encrypt(Perfil::ADMINISTRADOR)]));
+
+        $response->assertRedirect(route('profiles'));
+        $response->assertSessionHasErrors('error-message');
+        $this->assertTrue((bool) Profile::findOrFail(Perfil::ADMINISTRADOR)->active);
     }
 }

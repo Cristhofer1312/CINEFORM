@@ -30,6 +30,7 @@ class CondicionalEstadoCurso
         ],
         2 => [ // Rechazado
             'reasignar_facilitador' => 'gestion',
+            'ver_motivo' => 'gestion',
             'gestionar' => 'gestion',
         ],
         3 => [ // Declinado
@@ -55,11 +56,13 @@ class CondicionalEstadoCurso
             'inscribirse' => 'publico',
             'cancelar_inscripcion' => 'participante',
             'acceder_contenido' => 'participante',
+            'reasignar_facilitador' => 'gestion',
             'finalizar_inscripciones' => 'gestion',
             'gestionar' => 'gestion',
         ],
         7 => [ // En Progreso
             'acceder_contenido' => 'participante',
+            'reasignar_facilitador' => 'gestion',
             'gestionar' => 'gestion',
             'finalizar_curso' => 'gestion',
             'gestionar_asistencia' => 'operativo',
@@ -193,6 +196,11 @@ class CondicionalEstadoCurso
         // Capacidad de ajustar la plantilla del certificado (solo Gestión)
         if ($this->puedeAjustarCertificado($estadoId, $esGestor)) {
             $misCapacidades[] = 'ajustar_certificado';
+        }
+
+        // Gestor y operativo pueden ver observaciones/motivo en Rechazado (2) y Declinado (3)
+        if (($esGestor || $esOperativo) && in_array((int) $estadoId, [2, 3])) {
+            $misCapacidades[] = 'ver_motivo';
         }
 
         // Capacidad de gestionar certificación y ver satisfacción (Solo Gestor y Operativo, en Finalizado o Cerrado)

@@ -2,11 +2,12 @@
 
 namespace Modules\Taller\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
+use Illuminate\Support\Str;
 use Modules\Taller\Entities\PostulacionFacilitador;
 use Modules\Taller\Entities\PostulacionRespuesta;
 use Modules\Taller\Entities\RequisitoFacilitador;
@@ -92,6 +93,7 @@ class PostulacionFacilitadorController extends BaseController
 
             if ($existente) {
                 DB::rollBack();
+
                 return redirect()->back()->withInput()->with('error', 'Ya tienes una postulación pendiente.');
             }
 
@@ -105,7 +107,7 @@ class PostulacionFacilitadorController extends BaseController
             $requisitos = RequisitoFacilitador::activos()->get();
 
             foreach ($requisitos as $req) {
-                $key = 'req_' . $req->id_requisito_facilitador;
+                $key = 'req_'.$req->id_requisito_facilitador;
 
                 if ($req->tipo === 'recurso') {
                     // Los recursos son informativos, no requieren respuesta
@@ -113,7 +115,7 @@ class PostulacionFacilitadorController extends BaseController
                 }
 
                 if ($req->tipo === 'pregunta') {
-                    if ($req->obligatorio && !$request->filled($key)) {
+                    if ($req->obligatorio && ! $request->filled($key)) {
                         throw new \Exception("La pregunta '{$req->titulo}' es obligatoria.");
                     }
 
@@ -125,20 +127,19 @@ class PostulacionFacilitadorController extends BaseController
                         ]);
                     }
                 } elseif ($req->tipo === 'documento') {
-                    if ($req->obligatorio && !$request->hasFile($key)) {
+                    if ($req->obligatorio && ! $request->hasFile($key)) {
                         throw new \Exception("El documento '{$req->titulo}' es obligatorio.");
                     }
 
                     if ($request->hasFile($key)) {
                         $file = $request->file($key);
 
-                        if (!$file->isValid()) {
+                        if (! $file->isValid()) {
                             throw new \Exception("El archivo '{$req->titulo}' es inválido o no se pudo cargar.");
                         }
 
-                        $safeFileName = preg_replace('/[^a-zA-Z0-9_.-]+/', '_', $req->titulo);
-                        $extension = $file->getClientOriginalExtension();
-                        $finalFileName = "{$safeFileName}.{$extension}";
+                        $extension = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension());
+                        $finalFileName = Str::uuid().".{$extension}";
 
                         $basePath = "postulaciones_facilitador/{$cedula}";
                         $path = $file->storeAs("public/{$basePath}", $finalFileName);
@@ -156,7 +157,7 @@ class PostulacionFacilitadorController extends BaseController
             try {
                 Mail::send('taller::emails.postulacion_facilitador_recibida', [
                     'postulacion' => $postulacion,
-                ], function ($email) use ($postulacion, $user) {
+                ], function ($email) use ($user) {
                     $email->subject('Postulación como Facilitador - Recibida');
                     $email->to($user->email);
                 });
@@ -171,6 +172,7 @@ class PostulacionFacilitadorController extends BaseController
 
         } catch (\Exception $e) {
             DB::rollBack();
+
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
@@ -234,10 +236,10 @@ class PostulacionFacilitadorController extends BaseController
     public function toggleRequisito($id)
     {
         $requisito = RequisitoFacilitador::findOrFail($id);
-        $requisito->update(['activo' => !$requisito->activo]);
+        $requisito->update(['activo' => ! $requisito->activo]);
 
         return redirect()->route('taller.postulacion-facilitador.admin')
-            ->with('success', 'Requisito ' . ($requisito->activo ? 'activado' : 'desactivado') . ' exitosamente.');
+            ->with('success', 'Requisito '.($requisito->activo ? 'activado' : 'desactivado').' exitosamente.');
     }
 
     /**
@@ -249,7 +251,7 @@ class PostulacionFacilitadorController extends BaseController
 
         $this->impedirResolverPropiaPostulacion($postulacion);
 
-        if (!$postulacion->esPendiente()) {
+        if (! $postulacion->esPendiente()) {
             return back()->with('error', 'Solo se pueden aprobar postulaciones pendientes.');
         }
 
@@ -257,13 +259,15 @@ class PostulacionFacilitadorController extends BaseController
         try {
             // Verificar que el usuario NO tenga ya el perfil Facilitador
             $user = $postulacion->persona->user;
-            if (!$user) {
+            if (! $user) {
                 DB::rollBack();
+
                 return back()->with('error', 'No se encontró el usuario asociado a esta postulación.');
             }
 
             if ($user->perfiles()->where('security.profiles.id', \App\Constants\Perfil::FACILITADOR)->exists()) {
                 DB::rollBack();
+
                 return back()->with('error', 'Este usuario ya tiene el perfil de Facilitador.');
             }
 
@@ -303,7 +307,8 @@ class PostulacionFacilitadorController extends BaseController
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al aprobar: ' . $e->getMessage());
+
+            return back()->with('error', 'Error al aprobar: '.$e->getMessage());
         }
     }
 
@@ -320,7 +325,7 @@ class PostulacionFacilitadorController extends BaseController
     }
 
     /**
-     * Rechazar postulación con motivo → eliminar documentos
+     * Rechazar postulación con motivo. Los documentos se conservan como evidencia.
      */
     public function rechazar(Request $request, $id)
     {
@@ -332,7 +337,7 @@ class PostulacionFacilitadorController extends BaseController
 
         $this->impedirResolverPropiaPostulacion($postulacion);
 
-        if (!$postulacion->esPendiente()) {
+        if (! $postulacion->esPendiente()) {
             return back()->with('error', 'Solo se pueden rechazar postulaciones pendientes.');
         }
 
@@ -345,16 +350,6 @@ class PostulacionFacilitadorController extends BaseController
                 'revisada_por' => auth()->id(),
                 'fecha_revision' => Carbon::now(),
             ]);
-
-            // Eliminar documentos del storage
-            $postulacion->respuestas->each(function ($respuesta) {
-                if ($respuesta->ruta_archivo) {
-                    $filePath = storage_path('app/public/' . $respuesta->ruta_archivo);
-                    if (file_exists($filePath)) {
-                        @unlink($filePath);
-                    }
-                }
-            });
 
             // Enviar email de rechazo
             try {
@@ -374,7 +369,8 @@ class PostulacionFacilitadorController extends BaseController
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al rechazar: ' . $e->getMessage());
+
+            return back()->with('error', 'Error al rechazar: '.$e->getMessage());
         }
     }
 
@@ -387,7 +383,7 @@ class PostulacionFacilitadorController extends BaseController
 
         // Verificar propiedad o permiso
         $user = $this->getUsuarioAutenticado();
-        if ($user->personalData->id_persona !== $postulacion->id_persona && !hasPermissionRoute('taller.postulacion-facilitador.admin', \App\Constants\SecurityAction::GESTIONAR_POSTULACIONES_FACILITADOR)) {
+        if ($user->personalData->id_persona !== $postulacion->id_persona && ! hasPermissionRoute('taller.postulacion-facilitador.admin', \App\Constants\SecurityAction::GESTIONAR_POSTULACIONES_FACILITADOR)) {
             abort(403, 'No autorizado para ver estos documentos.');
         }
 
@@ -404,17 +400,17 @@ class PostulacionFacilitadorController extends BaseController
 
         // Verificar propiedad o permiso
         $user = $this->getUsuarioAutenticado();
-        if ($user->personalData->id_persona !== $postulacion->id_persona && !hasPermissionRoute('taller.postulacion-facilitador.admin', \App\Constants\SecurityAction::GESTIONAR_POSTULACIONES_FACILITADOR)) {
+        if ($user->personalData->id_persona !== $postulacion->id_persona && ! hasPermissionRoute('taller.postulacion-facilitador.admin', \App\Constants\SecurityAction::GESTIONAR_POSTULACIONES_FACILITADOR)) {
             abort(403, 'No autorizado para descargar este documento.');
         }
 
-        if (!$respuesta->ruta_archivo) {
+        if (! $respuesta->ruta_archivo) {
             abort(404, 'Archivo no encontrado.');
         }
 
-        $filePath = storage_path('app/public/' . $respuesta->ruta_archivo);
+        $filePath = storage_path('app/public/'.$respuesta->ruta_archivo);
 
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             abort(404, 'Archivo no encontrado en el servidor.');
         }
 

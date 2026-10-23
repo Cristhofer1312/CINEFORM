@@ -113,9 +113,12 @@
                     <i class="icon-close"></i> {{ __('Cancel') }}
                 </a>
             @else
-                <a href="{{ route('logout') }}" class="btn btn-border btn-danger w-100">
-                    <i class="icon-logout"></i> {{ __('Cancel and Logout') }}
-                </a>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-border btn-danger w-100">
+                        <i class="icon-logout"></i> {{ __('Cancel and Logout') }}
+                    </button>
+                </form>
             @endif
         </div>
 

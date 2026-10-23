@@ -14,10 +14,15 @@ class CursoPolicyTest extends TestCase
     use DatabaseTransactions;
 
     private User $admin;
+
     private User $coordinador;
+
     private User $facilitadorDuenio;
+
     private User $facilitadorAjeno;
+
     private User $participante;
+
     private Curso $curso;
 
     protected function setUp(): void
@@ -26,10 +31,12 @@ class CursoPolicyTest extends TestCase
 
         $this->admin = User::findOrFail(1);
 
-        // Coordinador (no superadmin)
+        // Coordinador (no superadmin, sin perfil Administrador)
         $this->coordinador = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::COORDINADOR);
-        })->where('id', '>', 1)->first() ?? User::findOrFail(2);
+        })->whereDoesntHave('perfiles', function ($q) {
+            $q->where('security.profiles.id', Perfil::ADMINISTRADOR);
+        })->where('id', '>', 1)->orderBy('id')->first() ?? User::findOrFail(2);
 
         // Facilitadores "puros": sin perfil Administrador ni Coordinador, para
         // que la resolución por jerarquía no los convierta en gestores.
@@ -60,17 +67,18 @@ class CursoPolicyTest extends TestCase
             $this->curso->saveQuietly();
         } else {
             $this->curso = Curso::withoutEvents(function () use ($idPersonaFacilitador) {
-                $c = new Curso();
+                $c = new Curso;
                 $c->nombre = 'Curso Test Policy';
                 $c->codigo = 'LAB-F1001-A-O-G-2026';
                 $c->id_persona = $idPersonaFacilitador;
-                $c->id_actividad = 1;
+                $c->id_actividad_formativa = 1;
                 $c->id_aspecto = 1;
                 $c->id_modalidad = 1;
                 $c->id_modalidad_especial = 1;
                 $c->fecha_inicio = now();
                 $c->fecha_fin = now()->addMonths(1);
                 $c->save();
+
                 return $c;
             });
         }
@@ -238,9 +246,13 @@ class CursoPolicyTest extends TestCase
 
     public function test_facilitador_ajeno_recibe_403_al_intentar_editar_curso(): void
     {
-        // Asegurar que taller.cursos.update lanza 403 limpio y no se convierte en 302
+        $session = ['profile_id' => Perfil::FACILITADOR];
+        if (!empty($this->facilitadorAjeno->session_token)) {
+            $session['session_token'] = $this->facilitadorAjeno->session_token;
+        }
+
         $response = $this->actingAs($this->facilitadorAjeno)
-            ->withSession(['profile_id' => Perfil::FACILITADOR])
+            ->withSession($session)
             ->put(route('taller.cursos.update', ['curso' => $this->curso->id_curso]), [
                 'nombre' => 'Intento de edicion no autorizada',
             ]);

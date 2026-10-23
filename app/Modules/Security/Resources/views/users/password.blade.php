@@ -92,7 +92,7 @@
                                     <i class="fas fa-lock me-2 opacity-50 text-primary"></i> {{__('New Password')}} <span class="text-danger ms-1">*</span>
                                 </label>
                                 <div class="position-relative">
-                                    <input id="new_password" name="new_password" type="password" maxlength="16" class="form-control shadow-none rounded-3 border-light-2 py-2" autofocus required>
+                                    <input id="new_password" name="new_password" type="password" maxlength="72" minlength="10" autocomplete="new-password" class="form-control shadow-none rounded-3 border-light-2 py-2" autofocus required>
                                     <div class="show-password position-absolute top-50 end-0 translate-middle-y me-3"><i class="icon-eye"></i></div>
                                 </div>
                                 @error('new_password')
@@ -104,7 +104,7 @@
                                     <i class="fas fa-lock me-2 opacity-50 text-primary"></i> {{__('Repeat your Password')}} <span class="text-danger ms-1">*</span>
                                 </label>
                                 <div class="position-relative">
-                                    <input id="re_password" name="re_password" type="password" maxlength="16" class="form-control shadow-none rounded-3 border-light-2 py-2" required>
+                                    <input id="re_password" name="re_password" type="password" maxlength="72" autocomplete="new-password" class="form-control shadow-none rounded-3 border-light-2 py-2" required>
                                     <div class="show-password position-absolute top-50 end-0 translate-middle-y me-3"><i class="icon-eye"></i></div>
                                 </div>
                                 @error('re_password')

@@ -185,7 +185,8 @@ class User extends Authenticatable
         $Menu = \Modules\Security\Entities\Menu::orderBy('order')
             ->where('active', true)
             ->with(['processes' => function($q) {
-                $q->where('active', true)->orderBy('order');
+                // en_menu = false: procesos que solo agrupan permisos (RF-83)
+                $q->where('active', true)->where('en_menu', true)->orderBy('order');
             }])
             ->get()
             ->toArray();
@@ -217,32 +218,5 @@ class User extends Authenticatable
     {
         $nameParts = explode(' ', $this->full_name);
         return ucwords(strtolower(implode(' ', array_slice($nameParts, 0, 2))));
-    }
-
-    public function verifyPermission($route = null)
-    {
-        $profileId = session()->get('profile_id');
-        if (!$profileId) return false;
-
-        $position_point = strpos($route, '.');
-        if ($position_point === false) {
-            $routeFather = $route;
-            $routeSon = "";
-        } else {
-            $nameRoute = explode(".", $route);
-            $routeFather = $nameRoute[1];
-            $routeSon = $nameRoute[0];
-        }
-
-        $query = Process::join('security.permissions', 'security.permissions.process_id', '=', 'security.processes.id')
-            ->join('security.profile_permissions', 'security.profile_permissions.permission_id', '=', 'security.permissions.id')
-            ->where('security.processes.route', $routeFather)
-            ->where('security.profile_permissions.profile_id', $profileId);
-
-        if (!empty($routeSon)) {
-            $query->where('security.permissions.slug', $routeSon);
-        }
-
-        return $query->exists();
     }
 }

@@ -23,8 +23,13 @@ class CondicionalEditarCurso
             'facilitador' => 'partials.editar-actions.Editar-Facilitador',
         ],
 
+        EstadoCurso::RECHAZADO->value => [
+            'coordinador' => 'partials.editar-actions.Editar-Coordinador',
+        ],
+
         EstadoCurso::DECLINADO->value => [
             'facilitador' => 'partials.editar-actions.Editar-Facilitador',
+            'coordinador' => 'partials.editar-actions.Editar-Coordinador',
         ],
 
         EstadoCurso::EDICION->value => [

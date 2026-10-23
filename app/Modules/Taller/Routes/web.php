@@ -219,21 +219,26 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
             ->withoutMiddleware(['auth', 'decrypt_id']);
 
         // ── Gestión de Catálogos: Agregar Tipo de Actividad ──────────────────
-        Route::middleware('permiso:taller.catalogos.index,'.SecurityAction::VER)->group(function () {
-            Route::get('/catalogos', [CatalogoController::class, 'index'])
-                ->name('taller.catalogos.index');
+        // Ver no implica modificar: crear exige CREAR; editar y activar/desactivar, EDITAR.
+        Route::get('/catalogos', [CatalogoController::class, 'index'])
+            ->name('taller.catalogos.index')
+            ->middleware('permiso:taller.catalogos.index,'.SecurityAction::VER);
 
-            // Actividades Formativas
+        Route::middleware('permiso:taller.catalogos.index,'.SecurityAction::CREAR)->group(function () {
             Route::post('/catalogos/actividades', [CatalogoController::class, 'storeActividad'])
                 ->name('taller.catalogos.actividades.store');
+            Route::post('/catalogos/aspectos', [CatalogoController::class, 'storeAspecto'])
+                ->name('taller.catalogos.aspectos.store');
+        });
+
+        Route::middleware('permiso:taller.catalogos.index,'.SecurityAction::EDITAR)->group(function () {
+            // Actividades Formativas
             Route::put('/catalogos/actividades/{actividad}', [CatalogoController::class, 'updateActividad'])
                 ->name('taller.catalogos.actividades.update');
             Route::patch('/catalogos/actividades/{actividad}/toggle', [CatalogoController::class, 'toggleActividad'])
                 ->name('taller.catalogos.actividades.toggle');
 
             // Aspectos de Formación
-            Route::post('/catalogos/aspectos', [CatalogoController::class, 'storeAspecto'])
-                ->name('taller.catalogos.aspectos.store');
             Route::put('/catalogos/aspectos/{aspecto}', [CatalogoController::class, 'updateAspecto'])
                 ->name('taller.catalogos.aspectos.update');
             Route::patch('/catalogos/aspectos/{aspecto}/toggle', [CatalogoController::class, 'toggleAspecto'])

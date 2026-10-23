@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use App\Constants\SecurityAction;
 
 class PostulacionFacilitadorPermissionsSeeder extends Seeder
 {
@@ -17,7 +16,7 @@ class PostulacionFacilitadorPermissionsSeeder extends Seeder
             'description' => 'Postulación para ser facilitador de CINEFORM',
             'icon' => 'fas fa-chalkboard-teacher',
             'route' => 'taller.postulacion-facilitador.landing',
-            'actions' => 'view|apply_facilitator',
+            'codigo' => 'taller.postulacion-facilitador.landing',
             'order' => 4,
             'active' => true,
             'menu_id' => 2, // 2 = Formación
@@ -29,7 +28,7 @@ class PostulacionFacilitadorPermissionsSeeder extends Seeder
             'description' => 'Gestión de requisitos y postulaciones a facilitador',
             'icon' => 'fas fa-tasks',
             'route' => 'taller.postulacion-facilitador.admin',
-            'actions' => 'view|manage_facilitator_applications',
+            'codigo' => 'taller.postulacion-facilitador.admin',
             'order' => 4,
             'active' => true,
             'menu_id' => 3, // 3 = Administración
@@ -39,11 +38,11 @@ class PostulacionFacilitadorPermissionsSeeder extends Seeder
         $permissionsToInsert = [
             // Permisos para "Ser Facilitador"
             ['process_id' => $processSerFacilitadorId, 'slug' => 'view', 'name' => 'Acceso a la Sección', 'created_at' => now(), 'updated_at' => now()],
-            ['process_id' => $processSerFacilitadorId, 'slug' => 'apply_facilitator', 'name' => SecurityAction::labels()[SecurityAction::POSTULARSE_FACILITADOR], 'created_at' => now(), 'updated_at' => now()],
+            ['process_id' => $processSerFacilitadorId, 'slug' => 'apply_facilitator', 'name' => 'Postularse a Facilitador', 'created_at' => now(), 'updated_at' => now()],
             
             // Permisos para "Requisitos Facilitador"
             ['process_id' => $processRequisitosFacilitadorId, 'slug' => 'view', 'name' => 'Acceso a la Sección', 'created_at' => now(), 'updated_at' => now()],
-            ['process_id' => $processRequisitosFacilitadorId, 'slug' => 'manage_facilitator_applications', 'name' => SecurityAction::labels()[SecurityAction::GESTIONAR_POSTULACIONES_FACILITADOR], 'created_at' => now(), 'updated_at' => now()],
+            ['process_id' => $processRequisitosFacilitadorId, 'slug' => 'manage_facilitator_applications', 'name' => 'Gestionar Postulaciones a Facilitador', 'created_at' => now(), 'updated_at' => now()],
         ];
 
         DB::table('security.permissions')->insert($permissionsToInsert);
