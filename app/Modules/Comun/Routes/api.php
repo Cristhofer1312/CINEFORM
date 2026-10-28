@@ -1,18 +1,4 @@
 <?php
 
-use Illuminate\Http\Request;
-
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| is assigned the "api" middleware group. Enjoy building your API!
-|
-*/
-
-Route::middleware('auth:api')->get('/comun', function (Request $request) {
-    return $request->user();
-});
+// Este módulo no expone API. Las rutas de ejemplo de nwidart (auth:api) se
+// quitaron: el guard 'api' no existe y respondían 500 con detalle del error.

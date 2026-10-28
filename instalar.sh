@@ -190,6 +190,8 @@ crear_env() {
         set_env APP_DEBUG false
         set_env APP_URL "$APP_URL"
         set_env LOG_LEVEL warning
+        # Con HTTPS la cookie de sesión solo viaja cifrada (bandera Secure).
+        case "$APP_URL" in https://*) set_env SESSION_SECURE_COOKIE true ;; esac
         set_env DB_CONNECTION pgsql
         set_env DB_HOST db
         set_env DB_PORT 5432

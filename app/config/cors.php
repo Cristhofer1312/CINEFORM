@@ -15,19 +15,21 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    // El sistema no tiene API pública ni frontend en otro dominio: solo el
+    // propio sitio (APP_URL) puede llamar a /api/* desde un navegador.
+    'paths' => ['api/*'],
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['GET', 'POST'],
 
-    'allowed_origins' => ['*'],
+    'allowed_origins' => array_values(array_filter([rtrim((string) env('APP_URL'), '/')])),
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['*'],
+    'allowed_headers' => ['Content-Type', 'X-Requested-With', 'X-CSRF-TOKEN', 'Accept'],
 
     'exposed_headers' => [],
 
-    'max_age' => 0,
+    'max_age' => 3600,
 
     'supports_credentials' => false,
 
