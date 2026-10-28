@@ -22,6 +22,24 @@ services:
     networks:
       - app-network
 
+  # Ejecuta las tareas programadas de app/Console/Kernel.php (p. ej. taller:limpiar-wizards).
+  # Misma imagen y código que `app`; schedule:work revisa la agenda cada minuto.
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work"]
+    # Mismo usuario que los workers de php-fpm: si no, storage/logs quedaría de root.
+    user: www-data
+    volumes:
+      - ./app:/var/www/html
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+
   webserver:
     image: nginx:latest
     restart: unless-stopped
@@ -36,7 +54,8 @@ services:
       - app-network
 
   db:
-    image: postgres:17
+    # Versión fijada. Subir de versión mayor exige pg_dumpall + restaurar en un volumen nuevo.
+    image: postgres:18.6
     restart: unless-stopped
     environment:
       POSTGRES_USER: laravel
@@ -45,7 +64,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # Desde la imagen 18 el volumen se monta en /var/lib/postgresql (los datos van en 18/docker).
+      - pgdata18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U laravel -d cineform"]
       interval: 10s
@@ -68,7 +88,9 @@ services:
       - app-network
 
 volumes:
+  # pgdata: datos de PostgreSQL 17, conservados como respaldo hasta confirmar la migración a 18.
   pgdata:
+  pgdata18:
 
 networks:
   app-network:

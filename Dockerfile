@@ -1,6 +1,7 @@
 # Dockerfile ejemplo para PHP-FPM (Laravel dev)
 
-FROM php:8.2-fpm
+# Versión fijada: subir el parche a propósito (docker run --rm php:8.5-fpm php -v para ver la última).
+FROM php:8.5.12-fpm
 
 # Herramientas del sistema y librerías para las extensiones PHP
 RUN apt-get update && apt-get install -y \

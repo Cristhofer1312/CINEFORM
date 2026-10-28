@@ -5,6 +5,8 @@ namespace Modules\Taller\Services;
 use Illuminate\Http\UploadedFile;
 use Intervention\Image\Drivers\Gd\Driver as GdDriver;
 use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
+use Intervention\Image\Encoders\JpegEncoder;
+use Intervention\Image\Encoders\PngEncoder;
 use Intervention\Image\ImageManager;
 
 /**
@@ -197,18 +199,17 @@ final class ImagenCertificadoService
     private function reencodear(string $origen, string $destino, string $mime, ?array $ajuste = null): void
     {
         try {
+            // Intervention Image 4: read() → decodePath(), pad() → containDown()
+            // (encaja sin agrandar y centra sobre el fondo, como pad() en la v3).
             $manager = new ImageManager($this->resolverDriver());
-            $imagen = $manager->read($origen);
+            $imagen = $manager->decodePath($origen);
 
             if ($ajuste !== null) {
-                $imagen->pad($ajuste['lienzoW'], $ajuste['lienzoH'], 'ffffff');
+                $imagen->containDown($ajuste['lienzoW'], $ajuste['lienzoH'], '#ffffff');
             }
 
-            if ($mime === 'image/png') {
-                $imagen->toPng()->save($destino);
-            } else {
-                $imagen->toJpeg(85)->save($destino);
-            }
+            $encoder = $mime === 'image/png' ? new PngEncoder : new JpegEncoder(quality: 85);
+            $imagen->encode($encoder)->save($destino);
         } catch (\RuntimeException $e) {
             throw $e;
         } catch (\Throwable $e) {
