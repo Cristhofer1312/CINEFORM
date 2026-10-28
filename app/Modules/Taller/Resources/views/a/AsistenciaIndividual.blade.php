@@ -7,7 +7,7 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card bg-white border-0 shadow-card overflow-hidden" style="border-radius: 1rem;">
+            <div class="card bg-white border-0 shadow-card overflow-hidden">
                 <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div>
                         <div class="d-flex align-items-center mb-1">
@@ -38,25 +38,25 @@
     <!-- Resumen -->
     <div class="row g-3 mb-4">
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center py-4" style="border-radius: 1rem;">
+            <div class="card border-0 shadow-sm text-center py-4">
                 <div class="display-6 fw-bold text-primary mb-1">{{ $totalAsistencias }}</div>
                 <div class="text-muted small fw-bold">Asistencias</div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center py-4" style="border-radius: 1rem;">
+            <div class="card border-0 shadow-sm text-center py-4">
                 <div class="display-6 fw-bold text-dark mb-1">{{ $totalActividades }}</div>
                 <div class="text-muted small fw-bold">Actividades Totales</div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center py-4" style="border-radius: 1rem;">
+            <div class="card border-0 shadow-sm text-center py-4">
                 <div class="display-6 fw-bold {{ asistenciaColorTexto($porcentajeAsistencia) }} mb-1">{{ $porcentajeAsistencia }}%</div>
                 <div class="text-muted small fw-bold">Porcentaje de Asistencia</div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm text-center py-4" style="border-radius: 1rem;">
+            <div class="card border-0 shadow-sm text-center py-4">
                 <div class="display-6 fw-bold text-info mb-1">{{ $totalActividades - $totalAsistencias }}</div>
                 <div class="text-muted small fw-bold">Ausencias</div>
             </div>
@@ -64,7 +64,7 @@
     </div>
 
     <!-- Detalle por actividad -->
-    <div class="card border-0 shadow-sm" style="border-radius: 1rem;">
+    <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom py-3">
             <h5 class="fw-bold text-dark mb-0"><i class="fas fa-calendar-check me-2 text-primary"></i> Detalle por Actividad</h5>
         </div>
@@ -140,8 +140,8 @@ function anularAsistencia(url, titulo) {
         inputPlaceholder: 'Ej. Error de marcado, retiro temporal...',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#6c757d',
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
         confirmButtonText: 'Sí, anular',
         cancelButtonText: 'Cancelar',
         inputValidator: (value) => {
@@ -175,7 +175,7 @@ function restaurarAsistencia(url, titulo) {
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#198754',
-        cancelButtonColor: '#6c757d',
+        cancelButtonColor: '#64748b',
         confirmButtonText: 'Sí, restaurar',
         cancelButtonText: 'Cancelar'
     }).then((result) => {
@@ -202,8 +202,8 @@ function marcarManual(url, idPersona, titulo) {
         text: `Se registrará la asistencia para "${titulo}".`,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#0d6efd',
-        cancelButtonColor: '#6c757d',
+        confirmButtonColor: '#1572e8',
+        cancelButtonColor: '#64748b',
         confirmButtonText: 'Sí, marcar',
         cancelButtonText: 'Cancelar'
     }).then((result) => {

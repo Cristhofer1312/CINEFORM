@@ -3,8 +3,11 @@
 namespace Modules\Taller\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\Inscripcion;
+use Modules\Taller\Exports\ReporteSatisfaccionExport;
 use Modules\Taller\Services\SatisfaccionCursoService;
 
 class SatisfaccionCursoController extends BaseController
@@ -64,6 +67,24 @@ class SatisfaccionCursoController extends BaseController
             'curso'        => $curso,
             'estadisticas' => $estadisticas,
         ]);
+    }
+
+    public function reporte($id_curso)
+    {
+        $curso = Curso::findOrFail($id_curso);
+        $this->authorize('reporteSatisfaccion', $curso);
+
+        $estadisticas = $this->satisfaccion->estadisticas($curso);
+
+        if ($estadisticas === null) {
+            return redirect()->route('taller.cursos.satisfaccion.resultados', $curso->crypt_id)
+                ->with('info', 'Aún no hay respuestas para generar el reporte.');
+        }
+
+        return Excel::download(
+            new ReporteSatisfaccionExport($curso, $estadisticas),
+            'satisfaccion-'.Str::slug($curso->codigo ?: $curso->nombre).'.xlsx'
+        );
     }
 
     private function contexto($id_curso): array

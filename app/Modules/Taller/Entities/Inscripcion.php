@@ -32,6 +32,8 @@ class Inscripcion extends Model
     const ESTADO_APROBADO  = 'aprobado';
     const ESTADO_RECHAZADO = 'rechazado';
     const ESTADO_DENEGADO  = 'denegado';
+    // Retiro del gestor durante el curso (D6): distinto de "denegado en revisión".
+    const ESTADO_RETIRADO  = 'retirado';
 
     protected $casts = [
         'fecha_inscripcion' => 'datetime',
@@ -62,6 +64,16 @@ class Inscripcion extends Model
     public function esAprobado()  { return $this->estado === self::ESTADO_APROBADO; }
     public function esRechazado() { return $this->estado === self::ESTADO_RECHAZADO; }
     public function esDenegado()  { return $this->estado === self::ESTADO_DENEGADO; }
+    public function esRetirado()  { return $this->estado === self::ESTADO_RETIRADO; }
+
+    /**
+     * Denegación y retiro son definitivos para el participante (no puede
+     * volver a postularse), pero quien gestiona puede revertirlos (D6).
+     */
+    public function esRevertible(): bool
+    {
+        return $this->esDenegado() || $this->esRetirado();
+    }
 
     public function esRecuperable()
     {
@@ -73,7 +85,7 @@ class Inscripcion extends Model
      */
     public function esRechazada()
     {
-        return in_array($this->estado, [self::ESTADO_RECHAZADO, self::ESTADO_DENEGADO, 'rechazada']);
+        return in_array($this->estado, [self::ESTADO_RECHAZADO, self::ESTADO_DENEGADO, self::ESTADO_RETIRADO, 'rechazada']);
     }
 
     /**

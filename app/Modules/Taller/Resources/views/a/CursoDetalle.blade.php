@@ -37,7 +37,7 @@
                                         <span class="badge rounded-pill
                                             {{ $estadoCertificado->color() === 'success' ? 'bg-success-soft text-success border border-success' : 'bg-danger text-white' }}
                                             px-3 py-2 fw-bold"
-                                              style="font-size: 0.7rem;"
+                                              style="font-size: 0.75rem;"
                                               title="{{ $estadoCertificado->detalle() }}">
                                             <i class="fas {{ $estadoCertificado->icono() }} me-1"></i>
                                             {{ $estadoCertificado->label() }}
@@ -49,7 +49,7 @@
                             @if(isset($inscripcion) && $inscripcion && $debeMostrarPromedio)
                                 <div class="d-flex align-items-center bg-light p-2 px-3 rounded-pill border shadow-xs animate__animated animate__fadeInRight">
                                         <div class="text-end me-3">
-                                            <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.6rem; letter-spacing: 0.5px;">Tu Promedio</small>
+                                            <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">Tu Promedio</small>
                                             <span class="fw-bold text-primary fs-5">{{ number_format($promedioEstudiante, 2) }}</span><small class="text-muted">/100</small>
                                         </div>
                                         <div class="icon-box {{ $promedioEstudiante >= 80 ? 'bg-success' : 'bg-warning' }} text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
@@ -79,7 +79,7 @@
                                             <i class="fas fa-clock text-primary fs-4"></i>
                                         </div>
                                         <div>
-                                            <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.65rem;">Duración</small>
+                                            <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.75rem;">Duración</small>
                                             <h6 class="mb-0 fw-bold text-dark">{{ $curso->duracion }} Días</h6>
                                         </div>
                                     </div>
@@ -90,7 +90,7 @@
                                             <i class="fas fa-hourglass-half text-success fs-4"></i>
                                         </div>
                                         <div>
-                                            <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.65rem;">Intensidad</small>
+                                            <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.75rem;">Intensidad</small>
                                             <h6 class="mb-0 fw-bold text-dark">{{ $curso->horas }} Horas</h6>
                                         </div>
                                     </div>
@@ -101,7 +101,7 @@
                                             <i class="fas fa-laptop text-info fs-4"></i>
                                         </div>
                                         <div>
-                                            <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.65rem;">Modalidad</small>
+                                            <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.75rem;">Modalidad</small>
                                             <h6 class="mb-0 fw-bold text-dark text-truncate">{{ $curso->modalidad->nombre_modalidad ?? 'No especificada' }}</h6>
                                         </div>
                                     </div>
@@ -143,9 +143,9 @@
                                                             <div class="d-flex align-items-center mb-1">
                                                                 <h6 class="mb-0 fw-bold text-dark fs-5 text-truncate">{{ $contenido->titulo }}</h6>
                                                                 @if($contenido->es_evaluacion)
-                                                                    <span class="badge bg-success text-white rounded-pill scale-80 ms-2 px-2" style="font-size: 0.6rem;">EVAL</span>
+                                                                    <span class="badge bg-success text-white rounded-pill scale-80 ms-2 px-2" style="font-size: 0.75rem;">EVAL</span>
                                                                 @else
-                                                                    <span class="badge bg-primary text-white rounded-pill scale-80 ms-2 px-2" style="font-size: 0.6rem;">CONTENIDO</span>
+                                                                    <span class="badge bg-primary text-white rounded-pill scale-80 ms-2 px-2" style="font-size: 0.75rem;">CONTENIDO</span>
                                                                 @endif
                                                             </div>
                                                             <p class="mb-0 text-muted small opacity-75" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5;">
@@ -361,20 +361,14 @@
 
 @push('styles')
 <style>
-    .bg-primary-soft { background-color: rgba(30, 58, 138, 0.05); }
-    .bg-success-soft { background-color: rgba(16, 185, 129, 0.05); }
     .bg-info-soft { background-color: rgba(14, 165, 233, 0.05); }
     .bg-danger-soft { background-color: rgba(239, 68, 68, 0.1); }
-    .border-bottom-light { border-bottom: 1px solid #f1f5f9; }
+    .border-bottom-light { border-bottom: 1px solid var(--cf-app-bg); }
     .hover-bg-light:hover { background-color: #fafbfc; }
     
-    .shadow-card { box-shadow: 0 10px 40px rgba(0,0,0,0.06); }
-    .shadow-xs { box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
     
-    .hvr-push { transition: transform 0.2s; }
-    .hvr-push:active { transform: scale(0.97); }
     
-    .hvr-underline-from-left:hover { color: #1e3a8a !important; }
+    .hvr-underline-from-left:hover { color: var(--cf-navy) !important; }
     
     .hover-translate:hover { transform: translateX(8px); background-color: #fff !important; box-shadow: 0 5px 15px rgba(0,0,0,0.08) !important; }
     .scale-80 { transform: scale(0.85); transform-origin: left; }
@@ -393,7 +387,7 @@
     /* ── Modal Contacto Facilitador (SweetAlert2) ── */
     .swal-wide-card {
         padding: 0 !important;
-        border-radius: 20px !important;
+        border-radius: var(--cf-radius-card) !important;
         overflow: visible !important;
         background: transparent !important;
         box-shadow: none !important;
@@ -455,16 +449,16 @@
                 <div class="obs-card d-flex align-items-center p-3 mb-2 rounded-3 border bg-white text-start" 
                      style="cursor: pointer; transition: all 0.2s ease;" 
                      onclick="mostrarDetalleObservacion(${i})"
-                     onmouseenter="this.style.transform='translateX(6px)'; this.style.boxShadow='0 4px 15px rgba(30,58,138,0.12)'; this.style.borderColor='#2563eb';"
-                     onmouseleave="this.style.transform='none'; this.style.boxShadow='none'; this.style.borderColor='#dee2e6';">
+                     onmouseenter="this.style.transform='translateX(6px)'; this.style.boxShadow='0 4px 15px rgba(30,58,138,0.12)'; this.style.borderColor='#1572e8';"
+                     onmouseleave="this.style.transform='none'; this.style.boxShadow='none'; this.style.borderColor='#e2e8f0';">
                     <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center fw-bold me-3 flex-shrink-0" style="width: 34px; height: 34px; font-size: 0.75rem;">
                         ${i + 1}
                     </div>
                     <div class="flex-grow-1 overflow-hidden">
                         <p class="mb-0 text-dark small fw-semibold text-truncate" style="line-height: 1.4;">${preview}</p>
-                        <small class="text-muted" style="font-size: 0.7rem;"><i class="far fa-clock me-1"></i>${fecha}</small>
+                        <small class="text-muted" style="font-size: 0.75rem;"><i class="far fa-clock me-1"></i>${fecha}</small>
                     </div>
-                    <i class="fas fa-chevron-right text-muted ms-2 opacity-50" style="font-size: 0.7rem;"></i>
+                    <i class="fas fa-chevron-right text-muted ms-2 opacity-50" style="font-size: 0.75rem;"></i>
                 </div>`;
         }).join('');
 
@@ -502,7 +496,7 @@
                     <small class="text-muted"><i class="far fa-clock me-1"></i>${fecha}</small>
                     ${autor ? `<small class="text-muted"><i class="far fa-user me-1"></i>${autor}</small>` : ''}
                 </div>
-                <div class="text-start bg-light p-4 rounded-4 mt-2" style="border: 1px solid #eee;">
+                <div class="text-start bg-light p-4 rounded-4 mt-2" style="border: 1px solid var(--cf-border);">
                     <p class="mb-0 text-dark" style="line-height: 1.7; font-size: 0.95rem;">${obs.observacion}</p>
                 </div>
             </div>`,
@@ -510,7 +504,7 @@
             confirmButtonText: 'Cerrar',
             cancelButtonText: '<i class="fas fa-arrow-left me-1"></i> Volver al listado',
             confirmButtonColor: '#1e3a8a',
-            cancelButtonColor: '#6c757d',
+            cancelButtonColor: '#64748b',
             customClass: { popup: 'rounded-4' },
             width: 500
         }).then((result) => {
@@ -526,7 +520,7 @@
             html: `<div class="p-2">
                 <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
                 <h4 class="fw-bold text-dark">Propuesta Declinada</h4>
-                <div class="text-start bg-light p-3 rounded-4 mt-3" style="border: 1px solid #eee;">
+                <div class="text-start bg-light p-3 rounded-4 mt-3" style="border: 1px solid var(--cf-border);">
                     <small class="text-muted fw-bold d-block mb-1">OBSERVACIÓN:</small>
                     <p class="mb-0 text-secondary">${motivo || 'No se suministró motivo.'}</p>
                 </div>
@@ -559,10 +553,10 @@
         allowOutsideClick: true,
         allowEscapeKey: true,
         html: `
-            <div style="border-radius: 24px; overflow: hidden; font-family: 'Inter', -apple-system, sans-serif; background: #fff; box-shadow: 0 30px 70px rgba(0,0,0,0.2); width: 100%; position: relative; max-height: 90vh; overflow-y: auto;">
+            <div style="border-radius: var(--cf-radius-card); overflow: hidden; font-family: inherit; background: #fff; box-shadow: 0 30px 70px rgba(0,0,0,0.2); width: 100%; position: relative; max-height: 90vh; overflow-y: auto;">
 
                 <!-- Header con gradiente + Avatar integrado -->
-                <div style="background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); padding: 35px 24px 40px; text-align: center;">
+                <div style="background: var(--cf-gradient-brand); padding: 35px 24px 40px; text-align: center;">
                     <p style="color: rgba(255,255,255,0.8); font-size: 0.75rem; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; margin: 0 0 6px;">Información de Contacto</p>
                     <h4 style="color: #fff; font-weight: 800; margin: 0 0 20px; font-size: 1.2rem;">Facilitador del Curso</h4>
 
@@ -574,31 +568,31 @@
 
                 <!-- Nombre y título -->
                 <div style="text-align: center; padding: 20px 24px 15px;">
-                    <h5 style="font-weight: 800; color: #0f172a; margin: 0 0 6px; font-size: 1.3rem;">${nombre}</h5>
-                    <span style="background: #eff6ff; color: #2563eb; border-radius: 25px; font-size: 0.75rem; font-weight: 700; padding: 4px 16px; letter-spacing: 0.5px;">INSTRUCTOR TITULAR</span>
+                    <h5 style="font-weight: 800; color: var(--cf-ink); margin: 0 0 6px; font-size: 1.3rem;">${nombre}</h5>
+                    <span style="background: #eff6ff; color: var(--cf-blue); border-radius: 25px; font-size: 0.75rem; font-weight: 700; padding: 4px 16px; letter-spacing: 0.5px;">INSTRUCTOR TITULAR</span>
                 </div>
 
                 <!-- Datos de contacto -->
                 <div style="padding: 0 30px 30px;">
 
                     <!-- Email -->
-                    <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 20px; margin-bottom: 12px; transition: all 0.2s;">
+                    <div style="display: flex; align-items: center; background: var(--cf-surface-subtle); border: 1px solid var(--cf-border); border-radius: var(--cf-radius-card); padding: 16px 20px; margin-bottom: 12px; transition: all 0.2s;">
                         <div style="width: 44px; height: 44px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 15px;">
-                            <i class="fas fa-envelope" style="color: #2563eb; font-size: 1rem;"></i>
+                            <i class="fas fa-envelope" style="color: var(--cf-blue); font-size: 1rem;"></i>
                         </div>
                         <div style="overflow: hidden; flex: 1; text-align: left;">
-                            <div style="font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Correo electrónico</div>
+                            <div style="font-size: 0.75rem; font-weight: 700; color: var(--cf-muted); text-transform: uppercase; letter-spacing: 1px;">Correo electrónico</div>
                             <div style="font-weight: 600; color: #1e293b; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${email}</div>
                         </div>
                     </div>
 
                     <!-- Teléfono -->
-                    <div style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px 20px; margin-bottom: 5px; transition: all 0.2s;">
+                    <div style="display: flex; align-items: center; background: var(--cf-surface-subtle); border: 1px solid var(--cf-border); border-radius: var(--cf-radius-card); padding: 16px 20px; margin-bottom: 5px; transition: all 0.2s;">
                         <div style="width: 44px; height: 44px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 15px; font-size: 1.3rem;">
                             📱
                         </div>
                         <div style="flex: 1; text-align: left;">
-                            <div style="font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Teléfono de Contacto</div>
+                            <div style="font-size: 0.75rem; font-weight: 700; color: var(--cf-muted); text-transform: uppercase; letter-spacing: 1px;">Teléfono de Contacto</div>
                             <div style="font-weight: 600; color: #1e293b; font-size: 1.15rem;">${telefono}</div>
                         </div>
                     </div>
@@ -637,7 +631,7 @@
             icon: confirmOptions.icon || 'warning',
             showCancelButton: true,
             confirmButtonColor: btnColor,
-            cancelButtonColor: '#6c757d',
+            cancelButtonColor: '#64748b',
             confirmButtonText: confirmBtn,
             cancelButtonText: 'Cancelar'
         }).then((result) => {
@@ -659,7 +653,7 @@
             title: '¿Aprobar propuesta de curso?',
             text: 'El curso será visible públicamente y comenzará el período de inscripciones.',
             btnText: 'Sí, aprobar propuesta',
-            btnColor: '#28a745',
+            btnColor: '#198754',
             icon: 'question'
         });
     }
@@ -679,7 +673,7 @@
             title: '¿Cerrar inscripciones e iniciar curso?',
             text: 'No se permitirán más postulaciones y el curso quedará en estado de dictado.',
             btnText: 'Sí, cerrar inscripciones',
-            btnColor: '#f0a500',
+            btnColor: '#f59e0b',
             icon: 'warning'
         });
     }
@@ -689,7 +683,7 @@
             title: '¿Finalizar el curso?',
             text: 'Se dará por concluido el dictado para proceder con las evaluaciones finales y certificación.',
             btnText: 'Sí, finalizar curso',
-            btnColor: '#dc3545',
+            btnColor: '#dc2626',
             icon: 'warning'
         });
     }
@@ -699,7 +693,7 @@
             title: '¿Archivar definitivamente este curso?',
             text: '¡Atención! Esta acción es irreversible. El curso se marcará como cerrado y no admitirá más cambios de estado.',
             btnText: 'Sí, archivar definitivamente',
-            btnColor: '#212529',
+            btnColor: '#0f172a',
             icon: 'warning'
         });
     }
@@ -710,7 +704,7 @@
             title: '¿Aceptar asignación?',
             text: 'Podrás gestionar los contenidos y participantes asignados a este curso.',
             btnText: 'Sí, aceptar asignación',
-            btnColor: '#28a745',
+            btnColor: '#198754',
             icon: 'question'
         });
     }
@@ -725,8 +719,8 @@
                 if (!value || !value.trim()) return '¡Debe ingresar un motivo u observaciones!';
             },
             showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
             confirmButtonText: 'Confirmar',
             cancelButtonText: 'Cancelar',
             showLoaderOnConfirm: true,
@@ -765,7 +759,7 @@
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#1e3a8a',
-            cancelButtonColor: '#6c757d',
+            cancelButtonColor: '#64748b',
             confirmButtonText: 'Sí, inscribirme',
             cancelButtonText: 'Cancelar'
         }).then((result) => {
@@ -819,7 +813,7 @@
             text: "Podrás inscribirte de nuevo si aún hay cupos disponibles.",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#dc3545',
+            confirmButtonColor: '#dc2626',
             confirmButtonText: 'Sí, cancelar',
             cancelButtonText: 'Mantener'
         }).then((result) => {
@@ -900,7 +894,7 @@
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#1e3a8a',
-            cancelButtonColor: '#6c757d',
+            cancelButtonColor: '#64748b',
             confirmButtonText: 'Sí, reasignar',
             cancelButtonText: 'Cancelar'
         }).then(result => {

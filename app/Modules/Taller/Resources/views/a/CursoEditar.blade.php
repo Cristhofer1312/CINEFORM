@@ -34,15 +34,8 @@
 
 @push('styles')
 <style>
-    .bg-primary-soft { background-color: rgba(30, 58, 138, 0.1); }
-    .border-light-2 { border: 1.5px solid #d1d5db !important; }
-    .shadow-xs { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .uppercase { text-transform: uppercase; letter-spacing: 0.5px; }
     
     /* Custom Scrollbar */
-    .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #999; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--cf-muted); }
 </style>
 @endpush

@@ -25,7 +25,7 @@
         </div>
 
         <div class="card border-0 shadow-card rounded-4 mb-5 overflow-hidden">
-            <div class="card-header text-white border-bottom py-3" style="background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);">
+            <div class="card-header text-white border-bottom py-3" style="background: var(--cf-gradient-brand);">
                 <h5 class="mb-0 fw-bold"><i class="fas fa-tasks text-white me-2"></i> Requisitos Presentados para: {{ $curso->nombre }}</h5>
             </div>
             <div class="card-body bg-light bg-opacity-50 p-4">
@@ -107,7 +107,7 @@
 <div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width: 90vw; width: 90vw;">
         <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg">
-            <div class="modal-header border-0 py-3 px-4" style="background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);">
+            <div class="modal-header border-0 py-3 px-4" style="background: var(--cf-gradient-brand);">
                 <h5 class="modal-title text-white fw-bold" id="previewModalLabel">
                     <i class="fas fa-eye me-2"></i> <span id="preview-title">Vista Previa</span>
                 </h5>
@@ -127,8 +127,6 @@
 
 @push('styles')
 <style>
-    .border-light-2 { border: 1px solid #e2e8f0; }
-    .shadow-card { box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
     #previewModal .modal-body {
         background: #1a1a2e;
     }

@@ -358,7 +358,7 @@ class CertificadoController extends BaseController
     private function autorizarVistaPrevia(Curso $curso): void
     {
         $user = Auth::user();
-        $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
+        $esGestor = supervisaTodosLosCursos();
         $personaId = $user->personalData->id_persona ?? null;
         $esFacilitador = $personaId !== null && (int) $curso->id_persona === (int) $personaId;
         $esInscrito = $personaId !== null && Inscripcion::where('id_curso', $curso->id_curso)

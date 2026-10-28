@@ -181,13 +181,6 @@
 
     @push('styles')
         <style>
-            .bg-primary-soft {
-                background-color: rgba(13, 110, 253, 0.1);
-            }
-
-            .bg-success-soft {
-                background-color: rgba(25, 135, 84, 0.1);
-            }
         </style>
     @endpush
 

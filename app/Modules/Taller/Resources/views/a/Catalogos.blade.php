@@ -160,10 +160,10 @@
             SECCIÓN 2: ASPECTOS DE FORMACIÓN
             ════════════════════════════════════════════════════════════ --}}
             <div class="card border-0 shadow-card rounded-4 mb-5 overflow-hidden border-top border-4"
-                style="border-color: #0891b2 !important;">
+                style="border-color: var(--cf-cyan-ink) !important;">
                 <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <div class="d-flex align-items-center">
-                        <div class="icon-box text-white rounded-3 me-3 p-2 shadow-sm" style="background:#0891b2;">
+                        <div class="icon-box text-white rounded-3 me-3 p-2 shadow-sm" style="background:var(--cf-cyan-ink);">
                             <i class="fas fa-film fs-5"></i>
                         </div>
                         <div>
@@ -173,7 +173,7 @@
                     </div>
                     @if($puedeCrear)
                     <button type="button" class="btn rounded-pill px-4 shadow-sm fw-bold text-white"
-                        style="background:#0891b2;" data-bs-toggle="modal" data-bs-target="#modalCrearAspecto">
+                        style="background:var(--cf-cyan-ink);" data-bs-toggle="modal" data-bs-target="#modalCrearAspecto">
                         <i class="fas fa-plus me-2"></i> Agregar
                     </button>
                     @endif
@@ -200,7 +200,7 @@
                                         </td>
                                         <td class="text-center">
                                             <span class="badge fw-bold rounded-pill px-3 py-1"
-                                                style="background:rgba(8,145,178,0.12); color:#0891b2;">
+                                                style="background:rgba(8,145,178,0.12); color:var(--cf-cyan-ink);">
                                                 {{ $asp->abreviatura }}
                                             </span>
                                         </td>
@@ -223,7 +223,7 @@
                                                 data-abreviatura="{{ $asp->abreviatura }}"
                                                 data-url="{{ route('taller.catalogos.aspectos.update', $asp->crypt_id) }}"
                                                 data-bs-toggle="modal" data-bs-target="#modalEditarAspecto" title="Editar">
-                                                <i class="fas fa-pen" style="color:#0891b2;"></i>
+                                                <i class="fas fa-pen" style="color:var(--cf-cyan-ink);"></i>
                                             </button>
                                             {{-- Toggle --}}
                                             <form method="POST"
@@ -354,7 +354,7 @@
     <div class="modal fade" id="modalCrearAspecto" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-                <div class="modal-header border-0 py-4 px-4 text-white" style="background:#0891b2;">
+                <div class="modal-header border-0 py-4 px-4 text-white" style="background:var(--cf-cyan-ink);">
                     <h5 class="modal-title fw-bold"><i class="fas fa-plus-circle me-2"></i> Nuevo Aspecto de Formación</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
@@ -385,7 +385,7 @@
                         <button type="button" class="btn btn-light rounded-pill px-4"
                             data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn rounded-pill px-5 fw-bold shadow-sm text-white"
-                            style="background:#0891b2;">
+                            style="background:var(--cf-cyan-ink);">
                             <i class="fas fa-save me-2"></i> Guardar
                         </button>
                     </div>
@@ -398,7 +398,7 @@
     <div class="modal fade" id="modalEditarAspecto" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-                <div class="modal-header border-0 py-4 px-4 text-white" style="background:#0891b2;">
+                <div class="modal-header border-0 py-4 px-4 text-white" style="background:var(--cf-cyan-ink);">
                     <h5 class="modal-title fw-bold"><i class="fas fa-pen me-2"></i> Editar Aspecto de Formación</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
@@ -423,7 +423,7 @@
                         <button type="button" class="btn btn-light rounded-pill px-4"
                             data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn rounded-pill px-5 fw-bold shadow-sm text-white"
-                            style="background:#0891b2;">
+                            style="background:var(--cf-cyan-ink);">
                             <i class="fas fa-save me-2"></i> Actualizar
                         </button>
                     </div>
@@ -434,10 +434,6 @@
 
     @push('styles')
         <style>
-            .bg-primary-soft {
-                background-color: rgba(30, 58, 138, 0.1);
-            }
-
             .bg-info-light {
                 background-color: rgba(8, 145, 178, 0.12);
             }
@@ -446,24 +442,12 @@
                 background-color: rgba(16, 185, 129, 0.1);
             }
 
-            .border-light-2 {
-                border: 1.5px solid #d1d5db !important;
-            }
-
-            .shadow-xs {
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-            }
-
-            .shadow-card {
-                box-shadow: 0 12px 35px rgba(0, 0, 0, 0.09);
-            }
-
             .catalogo-row {
                 transition: background 0.2s ease;
             }
 
             .catalogo-row:hover {
-                background-color: #f8fafc !important;
+                background-color: var(--cf-surface-subtle) !important;
             }
 
             .icon-box {
@@ -485,7 +469,7 @@
             .table thead th {
                 font-size: 0.82rem;
                 letter-spacing: 0.05em;
-                border-bottom: 1px solid #e2e8f0;
+                border-bottom: 1px solid var(--cf-border);
                 padding-top: 0.85rem;
                 padding-bottom: 0.85rem;
             }
@@ -534,8 +518,8 @@
                     showCancelButton: true,
                     confirmButtonText: activando ? 'Sí, activar' : 'Sí, desactivar',
                     cancelButtonText: 'Cancelar',
-                    confirmButtonColor: activando ? '#10b981' : '#ef4444',
-                    cancelButtonColor: '#6b7280',
+                    confirmButtonColor: activando ? '#198754' : '#dc2626',
+                    cancelButtonColor: '#64748b',
                     reverseButtons: true,
                 }).then(result => {
                     if (result.isConfirmed) formEl.submit();

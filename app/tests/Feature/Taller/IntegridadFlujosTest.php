@@ -40,15 +40,27 @@ class IntegridadFlujosTest extends TestCase
 
         $this->facilitador = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::FACILITADOR);
-        })->where('id', '>', 1)->first() ?? User::findOrFail(5);
+        })->whereDoesntHave('perfiles', fn ($q) => $q->whereIn('security.profiles.id', [Perfil::ADMINISTRADOR, Perfil::COORDINADOR]))
+            ->where('id', '>', 1)->first() ?? User::findOrFail(5);
 
         $this->coordinador = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::COORDINADOR);
         })->where('id', '>', 1)->first() ?? User::find(2);
+        // Los permisos suman perfiles: cada actor es una persona distinta con un solo perfil.
+        $this->soloConPerfiles($this->coordinador, Perfil::COORDINADOR);
 
         $this->participante = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::PARTICIPANTE);
-        })->where('id', '>', 1)->first() ?? User::findOrFail(7);
+        })->whereDoesntHave('perfiles', fn ($q) => $q->where('security.profiles.id', '!=', Perfil::PARTICIPANTE))
+            ->where('id', '>', 1)->first() ?? User::findOrFail(7);
+
+        // Estas pruebas no envían session_token: se quita para que Authenticate no cierre la sesión.
+        DB::table('security.users')->whereIn('id', [$this->facilitador->id, $this->coordinador->id, $this->participante->id])
+            ->update(['session_token' => null]);
+        // actingAs() usa estas instancias: también se limpia el atributo en memoria.
+        foreach ([$this->facilitador, $this->coordinador, $this->participante] as $actor) {
+            $actor->session_token = null;
+        }
 
         $this->curso = Curso::withoutEvents(function () {
             $c = new Curso;
@@ -93,7 +105,11 @@ class IntegridadFlujosTest extends TestCase
         $this->assertSame(Inscripcion::ESTADO_APROBADO, $inscripcion->fresh()->estado);
     }
 
-    public function test_retiro_de_gestor_queda_denegado_y_no_recuperable(): void
+    /**
+     * D6 (26/10): el retiro tiene estado propio ("retirado"), distinto de la
+     * denegación en revisión; sigue sin ser corregible por el participante.
+     */
+    public function test_retiro_de_gestor_queda_retirado_y_no_recuperable(): void
     {
         $inscripcion = $this->crearInscripcion(Inscripcion::ESTADO_APROBADO);
 
@@ -105,7 +121,7 @@ class IntegridadFlujosTest extends TestCase
             ->assertOk();
 
         $retirada = $inscripcion->fresh();
-        $this->assertSame(Inscripcion::ESTADO_DENEGADO, $retirada->estado);
+        $this->assertSame(Inscripcion::ESTADO_RETIRADO, $retirada->estado);
         $this->assertFalse($retirada->esRecuperable());
     }
 
@@ -166,13 +182,17 @@ class IntegridadFlujosTest extends TestCase
         $this->assertTrue((bool) $asistencia->fresh()->activa);
     }
 
-    public function test_no_se_modifican_calificaciones_con_curso_finalizado(): void
+    /**
+     * E5 (decisión del 26/10): en Finalizado se califica; solo Cerrado congela
+     * las notas. El caso Finalizado se prueba en CalificacionPorEstadoTest.
+     */
+    public function test_no_se_modifican_calificaciones_con_curso_cerrado(): void
     {
         $this->crearInscripcion(Inscripcion::ESTADO_APROBADO);
 
         DB::table('taller.curso_estado')->insert([
             'id_curso' => $this->curso->id_curso,
-            'id_estado' => EstadoCurso::FINALIZADO->value,
+            'id_estado' => EstadoCurso::CERRADO->value,
             'created_at' => now()->addMinute(),
             'updated_at' => now()->addMinute(),
         ]);

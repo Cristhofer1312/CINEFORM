@@ -41,7 +41,7 @@
     @endif
     <div class="row">
         <div class="col-12">
-            <div class="card shadow-sm mb-4" style="border-radius: 15px;">
+            <div class="card shadow-sm mb-4">
                 <div class="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h5 class="mb-0"><i class="fas fa-arrows-alt me-2"></i> @if(!empty($esWizard)) Paso 4: Calibración de Certificado @else Calibración de Certificado @endif</h5>
                     <div class="d-flex align-items-center gap-3">
@@ -87,7 +87,7 @@
                                         <span class="fw-bold text-dark small text-uppercase tracking-wider">
                                             <i class="fas fa-sliders-h text-primary me-2"></i> Calibración Visual
                                         </span>
-                                        <span class="badge bg-light text-muted border px-2 py-1 small" style="font-size: 0.68rem;">A4 Horizontal</span>
+                                        <span class="badge bg-light text-muted border px-2 py-1 small" style="font-size: 0.75rem;">A4 Horizontal</span>
                                     </div>
 
                                     <div class="card-body p-3">
@@ -104,7 +104,7 @@
                                                         <i class="far fa-image text-primary me-2"></i> Imagen de Fondo
                                                     </label>
                                                     @if(!empty($plantillaUrl))
-                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-0" style="font-size:0.68rem;">
+                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-0" style="font-size: 0.75rem;">
                                                             <i class="fas fa-check me-1"></i> Cargada
                                                         </span>
                                                     @endif
@@ -122,7 +122,7 @@
                                                         <i class="fas fa-signature text-primary me-2"></i> Firma Digital
                                                     </label>
                                                     @if(!empty($firmaUrl))
-                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-0" style="font-size:0.68rem;">
+                                                        <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle px-2 py-0" style="font-size: 0.75rem;">
                                                             <i class="fas fa-check me-1"></i> Cargada
                                                         </span>
                                                     @endif
@@ -140,7 +140,7 @@
                                                 @if(!empty($firmaUrl))
                                                 <div class="text-center p-2 rounded bg-white border mt-2">
                                                     <img src="{{ $firmaUrl }}" alt="Firma guardada" class="img-fluid" style="max-height:42px;">
-                                                    <div class="text-muted small mt-1" style="font-size:0.7rem;">Firma guardada actualmente</div>
+                                                    <div class="text-muted small mt-1" style="font-size: 0.75rem;">Firma guardada actualmente</div>
                                                 </div>
                                                 @endif
                                             </div>
@@ -165,7 +165,7 @@
                                                     </span>
                                                 </div>
                                                 <input type="range" class="form-range font-slider mt-1" min="10" max="60" step="1" data-key="nombre" value="{{ $coords['nombre']['size'] ?? 24 }}" oninput="updateFontSize(this)">
-                                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.68rem;">
+                                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
                                                     <span>10 pt</span>
                                                     <span>60 pt</span>
                                                 </div>
@@ -182,7 +182,7 @@
                                                     </span>
                                                 </div>
                                                 <input type="range" class="form-range font-slider mt-1" min="8" max="30" step="1" data-key="dni" value="{{ $coords['dni']['size'] ?? 12 }}" oninput="updateFontSize(this)">
-                                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.68rem;">
+                                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
                                                     <span>8 pt</span>
                                                     <span>30 pt</span>
                                                 </div>
@@ -199,7 +199,7 @@
                                                     </span>
                                                 </div>
                                                 <input type="range" class="form-range font-slider mt-1" min="6" max="20" step="1" data-key="code" value="{{ $coords['code']['size'] ?? 8 }}" oninput="updateFontSize(this)">
-                                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.68rem;">
+                                                <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
                                                     <span>6 pt</span>
                                                     <span>20 pt</span>
                                                 </div>
@@ -332,9 +332,9 @@
                                         @else
                                         <span id="firma-canvas-placeholder" style="font-size:0.7em; color:#888; pointer-events:none;"><i class="fas fa-signature me-1"></i>Firma</span>
                                         @endif
-                                        <div class="field-label" style="background:#dc3545;">Firma Prof.</div>
+                                        <div class="field-label" style="background:var(--cf-danger);">Firma Prof.</div>
                                         {{-- Handle derecho: solo ancho --}}
-                                        <div class="resize-handle" data-key="firma" data-dir="right" style="background:#dc3545;"></div>
+                                        <div class="resize-handle" data-key="firma" data-dir="right" style="background:var(--cf-danger);"></div>
                                         {{-- Handle inferior: solo alto --}}
                                         <div class="resize-handle-bottom" data-key="firma" data-dir="bottom"></div>
                                         {{-- Handle esquina: proporcional --}}
@@ -345,8 +345,8 @@
                             </div>
                             <div class="mt-2 text-center small text-muted">
                                 <i class="fas fa-arrows-alt me-1"></i> Mover &nbsp;·&nbsp;
-                                <i class="fas fa-arrows-alt-h me-1"></i> Cuadrito <span style="color:#0d6efd;"><b>azul</b></span> = extender ancho &nbsp;·&nbsp;
-                                <i class="fas fa-signature me-1" style="color:#dc3545;"></i> Cuadrito <span style="color:#dc3545;"><b>rojo</b></span> = redimensionar firma
+                                <i class="fas fa-arrows-alt-h me-1"></i> Cuadrito <span style="color:var(--cf-blue);"><b>azul</b></span> = extender ancho &nbsp;·&nbsp;
+                                <i class="fas fa-signature me-1" style="color:var(--cf-danger);"></i> Cuadrito <span style="color:var(--cf-danger);"><b>rojo</b></span> = redimensionar firma
                             </div>
                         </div>
                     </div>
@@ -384,24 +384,24 @@
         pointer-events: auto !important;
     }
     .draggable-field:hover {
-        border-color: #0d6efd !important;
+        border-color: var(--cf-blue) !important;
         background-color: rgba(13, 110, 253, 0.1);
         z-index: 20;
     }
     .draggable-field.dragging {
-        border-color: #0d6efd !important;
+        border-color: var(--cf-blue) !important;
         background-color: rgba(13, 110, 253, 0.15);
         box-shadow: 0 4px 16px rgba(13,110,253,0.35);
         cursor: grabbing !important;
         z-index: 1000;
-        outline: 2px solid #0d6efd;
+        outline: 2px solid var(--cf-blue);
     }
     .draggable-field .field-label {
         position: absolute;
         top: -18px;
         left: 0;
         font-size: 10px;
-        background: #0d6efd;
+        background: var(--cf-blue);
         color: white;
         padding: 0 4px;
         border-radius: 2px;
@@ -422,7 +422,7 @@
         transform: translateY(-50%);
         width: 12px;
         height: 22px;
-        background: #0d6efd;
+        background: var(--cf-blue);
         border-radius: 3px;
         cursor: ew-resize;
         z-index: 30;
@@ -450,7 +450,7 @@
         transform: translateX(-50%);
         width: 22px;
         height: 12px;
-        background: #dc3545;
+        background: var(--cf-danger);
         border-radius: 3px;
         cursor: ns-resize;
         z-index: 30;
@@ -504,12 +504,12 @@
     }
     
     .draggable-field.resizing {
-        border-color: #198754 !important;
+        border-color: var(--cf-success) !important;
         background-color: rgba(25,135,84,0.1);
         box-shadow: 0 4px 16px rgba(25,135,84,0.3);
         cursor: ew-resize !important;
         z-index: 1000;
-        outline: 2px solid #198754;
+        outline: 2px solid var(--cf-success);
     }
     
     .firma-field {
@@ -518,22 +518,22 @@
     }
     .firma-field:hover {
         background-color: rgba(220, 53, 69, 0.07) !important;
-        border-color: #dc3545 !important;
+        border-color: var(--cf-danger) !important;
     }
     .firma-field.dragging {
-        outline-color: #dc3545 !important;
-        border-color: #dc3545 !important;
+        outline-color: var(--cf-danger) !important;
+        border-color: var(--cf-danger) !important;
         box-shadow: 0 4px 16px rgba(220,53,69,0.3) !important;
     }
 
     /* Elemento seleccionado con clic o con el panel de precisión */
     .draggable-field.selected {
-        outline: 2px solid #198754;
+        outline: 2px solid var(--cf-success);
         z-index: 25;
     }
     .draggable-field.selected .field-label {
         display: block;
-        background: #198754;
+        background: var(--cf-success);
     }
 
     /* Rejilla de 5 mm (snap visual). 5mm en % del lienzo A4. */
@@ -576,11 +576,11 @@
         display: flex;
         justify-content: space-between;
         padding: 4px 0;
-        border-bottom: 1px solid #eee;
+        border-bottom: 1px solid var(--cf-border);
     }
     .accordion-button:not(.collapsed) {
-        background-color: #f8f9fa;
-        color: #0d6efd;
+        background-color: var(--cf-surface-subtle);
+        color: var(--cf-blue);
     }
 </style>
 
@@ -1071,7 +1071,7 @@
                 icon: 'warning',
                 title: titulo,
                 text: texto,
-                confirmButtonColor: '#f0a500',
+                confirmButtonColor: '#f59e0b',
                 confirmButtonText: 'Entendido'
             });
         } else {

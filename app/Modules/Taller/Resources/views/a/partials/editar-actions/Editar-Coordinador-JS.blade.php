@@ -43,7 +43,7 @@
                         icon: 'question',
                         showCancelButton: true,
                         confirmButtonColor: '#1572e8',
-                        cancelButtonColor: '#6c757d',
+                        cancelButtonColor: '#64748b',
                         confirmButtonText: '<i class="fas fa-save me-1"></i> Sí, guardar',
                         cancelButtonText: 'Cancelar',
                         reverseButtons: true
@@ -88,15 +88,11 @@
 
     @push('styles')
         <style>
-            .bg-primary-soft { background-color: rgba(30, 58, 138, 0.1); }
             .bg-success-light { background-color: rgba(16, 185, 129, 0.1); }
-            .border-light-2 { border-color: #f1f4f8 !important; }
-            .shadow-xs { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-            .shadow-card { box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
             
             .content-card-edit {
-                border: 1px solid #e2e8f0;
-                border-left: 5px solid #1e3a8a;
+                border: 1px solid var(--cf-border);
+                border-left: 5px solid var(--cf-navy);
                 transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
                 box-shadow: 0 4px 10px rgba(0,0,0,0.03);
             }
@@ -108,18 +104,10 @@
             
             .focus-none:focus { outline: none; border: none; box-shadow: none; }
             .hover-opacity-100:hover { opacity: 1 !important; }
-            .hvr-push { transition: transform 0.2s; }
-            .hvr-push:active { transform: scale(0.98); }
-            .transition-hover { transition: all 0.2s ease; }
-            .transition-hover:hover { background-color: #f1f5f9; transform: translateY(-1px); }
-            .uppercase { text-transform: uppercase; letter-spacing: 0.5px; }
             .progress-bar { transition: width 0.6s cubic-bezier(0.65, 0, 0.35, 1); }
 
             /* Custom Scrollbar */
-            .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-            .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-            .custom-scrollbar::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
-            .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #999; }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--cf-muted); }
         </style>
     @endpush
 

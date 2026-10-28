@@ -7,7 +7,7 @@
         <!-- Header & Filters Card -->
         <div class="row">
             <div class="col-12">
-                <div class="card mb-3 shadow-sm overflow-hidden" style="border-radius: 15px;">
+                <div class="card mb-3 shadow-sm overflow-hidden">
                     <div class="card-header bg-gradient-primary text-white py-3">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                             <h5><i class="fas fa-chalkboard-teacher me-2"></i>Cursos disponibles</h5>
@@ -47,7 +47,7 @@
         <!-- Courses Grid Container with White Background -->
         <div class="row">
             <div class="col-12">
-                <div class="card shadow-sm overflow-hidden" style="border-radius: 15px;">
+                <div class="card shadow-sm overflow-hidden">
                     <div class="card-body pb-0">
                         <div class="row">
                             @forelse($cursos as $curso)
@@ -146,17 +146,9 @@
     @endpush
 
     <style>
-        .hover-shadow:hover {
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-            transform: translateY(-3px);
-        }
-
         .transition-all {
             transition: all 0.3s ease;
         }
 
-        .bg-gradient-primary {
-            background: linear-gradient(135deg, #1572e8 0%, #0b5ed7 100%);
-        }
     </style>
 @endsection

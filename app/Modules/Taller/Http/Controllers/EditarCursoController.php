@@ -28,7 +28,7 @@ class EditarCursoController extends BaseController
         $curso = Curso::with(['estados', 'observaciones.autor'])->findOrFail($id);
         $this->authorize('editar', $curso);
 
-        $esCoordinador = Auth::user()->can('reasignarFacilitador', $curso);
+        $esCoordinador = Auth::user()->can('gestionar', $curso);
 
         // VALIDACIÓN DE ESTADOS EDITABLES
         $estadoActual = $curso->estado_actual->id_estado ?? null;
@@ -55,6 +55,7 @@ class EditarCursoController extends BaseController
 
         $curso->load('modalidad');
         $contenidos = $curso->contenidos()->orderBy('fecha_contenido', 'asc')->orderBy('id_contenido_curso', 'asc')->get();
+        $idPersona = optional(Auth::user()->personalData)->id_persona;
         $esFacilitador = $idPersona && $curso->id_persona == $idPersona;
 
         $facilitadores = app(\App\Services\Security\Autorizacion::class)
@@ -85,7 +86,7 @@ class EditarCursoController extends BaseController
         $validatedData = $request->validated();
         $curso = Curso::findOrFail($id);
         $this->authorize('editar', $curso);
-        $esCoordinador = $request->user()->can('reasignarFacilitador', $curso);
+        $esCoordinador = $request->user()->can('gestionar', $curso);
 
         try {
             // ── Validación server-side: ponderación total = 100% ──
@@ -132,6 +133,20 @@ class EditarCursoController extends BaseController
 
             // Bloquear cambio de facilitador si el curso está en estado >= 6 (Inscripción en adelante)
             if (isset($updateData['id_persona']) && (int) $updateData['id_persona'] !== (int) $curso->id_persona) {
+                // Cambiar el facilitador es reasignar: misma regla que la acción
+                // propia (antes el facilitador podía reasignar su curso desde aquí).
+                $nuevo = \Modules\Comun\Entities\PersonalData::find((int) $updateData['id_persona']);
+                $autorizacion = app(\App\Services\Security\Autorizacion::class);
+                if (! $request->user()->can('reasignarFacilitador', $curso)
+                    || ! $nuevo || ! $autorizacion->esElegibleFacilitador($nuevo->user)
+                    || ((int) $nuevo->user_id === (int) $request->user()->id && ! $autorizacion->esRaiz())) {
+                    DB::rollBack();
+
+                    return back()->withInput()->withErrors([
+                        'id_persona' => 'No puedes asignar ese facilitador a este curso.',
+                    ]);
+                }
+
                 $estadoActual = $curso->estado_actual->id_estado ?? 0;
                 if ($estadoActual >= EstadoCurso::INSCRIPCION->value) {
                     DB::rollBack();
@@ -238,7 +253,7 @@ class EditarCursoController extends BaseController
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error al actualizar curso: ' . $e->getMessage());
-            return back()->withInput()->withErrors(['error' => 'Error al guardar cambios: ' . $e->getMessage()]);
+            return back()->withInput()->withErrors(['error' => 'Error al guardar cambios: ' . (config('app.debug') ? $e->getMessage() : 'intente nuevamente o contacte al administrador.')]);
         }
     }
 

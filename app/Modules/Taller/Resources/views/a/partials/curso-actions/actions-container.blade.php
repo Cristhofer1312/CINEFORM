@@ -3,7 +3,7 @@
 @php
     // Categorización de capacidades para organizar la interfaz
     $principales = ['inscribirse', 'cancelar_inscripcion', 'acceder_contenido', 'emitir_certificado', 'ver_archivo'];
-    $gestion = ['ver_participantes', 'reasignar_facilitador', 'ajustar_certificado', 'aceptar_asignacion', 'rechazar_asignacion', 'editar', 'enviar_aprobacion', 'aprobar', 'rechazar', 'finalizar_inscripciones', 'finalizar_curso', 'cerrar_curso', 'ver_motivo', 'en_revision', 'gestionar_certificacion', 'ver_satisfaccion'];
+    $gestion = ['ver_participantes', 'reasignar_facilitador', 'ajustar_certificado', 'aceptar_asignacion', 'rechazar_asignacion', 'editar', 'enviar_aprobacion', 'aprobar', 'rechazar', 'finalizar_inscripciones', 'finalizar_curso', 'cerrar_curso', 'ver_motivo', 'en_revision', 'gestionar_certificacion', 'ver_satisfaccion', 'gestionar_asistencia', 'consultar_asistencia'];
     
     // Filtrar qué capacidades tiene el usuario en cada categoría
     $capsPrincipales = array_intersect($capacidades, $principales);
@@ -19,15 +19,17 @@
                 {{ $inscripcion->esPostulado() ? 'border-primary bg-primary-soft' : '' }}
                 {{ $inscripcion->esAprobado() ? 'border-success bg-success-soft' : '' }}
                 {{ $inscripcion->esRechazado() ? 'border-warning bg-warning-soft' : '' }}
-                {{ $inscripcion->esDenegado() ? 'border-danger bg-danger-soft' : '' }}">
+                {{ $inscripcion->esDenegado() ? 'border-danger bg-danger-soft' : '' }}
+                {{ $inscripcion->esRetirado() ? 'border-secondary bg-light' : '' }}">
                 <div class="card-body p-3">
                     <div class="d-flex align-items-center">
                         <div class="flex-shrink-0 me-3">
-                            <i class="fas 
+                            <i class="fas
                                 {{ $inscripcion->esPostulado() ? 'fa-hourglass-half text-primary' : '' }}
                                 {{ $inscripcion->esAprobado() ? 'fa-check-circle text-success' : '' }}
                                 {{ $inscripcion->esRechazado() ? 'fa-exclamation-triangle text-warning' : '' }}
                                 {{ $inscripcion->esDenegado() ? 'fa-times-circle text-danger' : '' }}
+                                {{ $inscripcion->esRetirado() ? 'fa-user-minus text-secondary' : '' }}
                                 fa-2x"></i>
                         </div>
                         <div>
@@ -37,12 +39,14 @@
                                 {{ $inscripcion->esAprobado() ? 'Inscrito Formalmente' : '' }}
                                 {{ $inscripcion->esRechazado() ? 'Postulación con Observaciones' : '' }}
                                 {{ $inscripcion->esDenegado() ? 'Postulación Denegada' : '' }}
+                                {{ $inscripcion->esRetirado() ? 'Retirado del Curso' : '' }}
                             </h6>
                             <p class="mb-0 text-muted small">
                                 {{ $inscripcion->esPostulado() ? 'Tu solicitud está siendo evaluada por la coordinación.' : '' }}
                                 {{ $inscripcion->esAprobado() ? '¡Felicidades! Ya puedes acceder a los contenidos.' : '' }}
                                 {{ $inscripcion->esRechazado() ? 'Debes corregir los documentos o respuestas indicadas.' : '' }}
                                 {{ $inscripcion->esDenegado() ? 'Lo sentimos, no has sido admitido en este programa.' : '' }}
+                                {{ $inscripcion->esRetirado() ? 'La coordinación te retiró de este curso.' : '' }}
                             </p>
                         </div>
                     </div>
@@ -135,115 +139,41 @@
         </div>
     @endif
 
-    <!-- ZONA 2: HERRAMIENTAS DE GESTIÓN (Administración / Operación) -->
-    @if(count($capsGestion) > 0)
-        <div class="management-zone p-4 bg-light rounded-4 border shadow-xs">
-            <small class="text-muted fw-bold d-block mb-4 text-uppercase text-center" style="font-size: 0.65rem; letter-spacing: 1.5px; opacity: 0.8;">
-                <i class="fas fa-shield-alt me-1"></i> Panel de Administración
+    <!-- ZONA 2: PANEL POR PAPEL. Con perfiles sumados una persona puede ser
+         coordinación y facilitador del mismo curso: cada bloque solo muestra
+         las acciones de ese papel. -->
+    @php
+        $bloques = [
+            ['titulo' => 'Coordinación', 'icono' => 'fa-shield-alt', 'caps' => $capsCoordinacion ?? null],
+            ['titulo' => 'Como facilitador', 'icono' => 'fa-chalkboard-teacher', 'caps' => $capsFacilitador ?? null],
+        ];
+        // Sin desglose (otras vistas que incluyen este parcial): un solo bloque.
+        if ($bloques[0]['caps'] === null && $bloques[1]['caps'] === null) {
+            $bloques = [['titulo' => 'Panel de Administración', 'icono' => 'fa-shield-alt', 'caps' => $capsGestion]];
+        }
+        $esPropioYCoordina = ! empty($capsCoordinacion) && ! empty($capsFacilitador);
+    @endphp
+
+    @foreach($bloques as $bloque)
+        @php($capsBloque = array_values(array_intersect($bloque['caps'] ?? [], $gestion)))
+        @continue(count($capsBloque) === 0)
+        @php($botones = trim(view('taller::a.partials.curso-actions.boton-gestion-lista', ['caps' => $capsBloque, 'curso' => $curso])->render()))
+        @continue($botones === '' && ! ($esPropioYCoordina && $loop->first))
+        <div class="management-zone p-4 bg-light rounded-4 border shadow-xs {{ $loop->last ? '' : 'mb-3' }}">
+            <small class="text-muted fw-bold d-block mb-4 text-uppercase text-center" style="font-size: 0.75rem; letter-spacing: 1.5px; opacity: 0.8;">
+                <i class="fas {{ $bloque['icono'] }} me-1"></i> {{ $bloque['titulo'] }}
             </small>
-            
             <div class="d-grid gap-3">
-                @foreach($capsGestion as $cap)
-                    @switch($cap)   
-                        @case('ver_participantes')
-                            <a href="{{ route('taller.cursos.participantes', $curso->crypt_id) }}" class="btn btn-secondary btn-sm py-2 fw-bold border shadow-xs rounded-pill">
-                                <i class="fas fa-users-cog me-1"></i> Postulados y Participantes
-                            </a>
-                            @break
-                        @case('reasignar_facilitador')
-                            <button type="button" class="btn btn-warning btn-sm py-2 fw-bold rounded-pill shadow-xs text-dark" onclick="abrirModalReasignarFacilitador()">
-                                <i class="fas fa-user-edit me-1"></i> Reasignar Facilitador
-                            </button>
-                            @break
-                        @case('ajustar_certificado')
-                            <a href="{{ route('taller.cursos.certificado.edit', $curso->crypt_id) }}" class="btn btn-outline-primary btn-sm py-2 fw-bold border shadow-xs rounded-pill">
-                                <i class="fas fa-certificate me-1"></i> Ajustar Certificado
-                            </a>
-                            @break
-                        @case('aceptar_asignacion')
-                            <button class="btn btn-success btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="aceptarCursoFacilitador('{{ $curso->crypt_id }}', this)">
-                                <i class="fas fa-check-circle me-1"></i> Aceptar Asignación
-                            </button>
-                            @break
-                        @case('rechazar_asignacion')
-                             <button class="btn btn-outline-danger btn-sm py-2 fw-bold rounded-pill" onclick="rechazarContenido('{{ $curso->crypt_id }}', 2)">
-                                 <i class="fas fa-times-circle me-1"></i> Rechazar Asignación
-                             </button>
-                             @break
-                        @case('editar')
-                            <a href="{{ route('taller.cursos.edit', $curso->crypt_id) }}" class="btn btn-white btn-sm py-2 fw-bold border shadow-xs rounded-pill">
-                                <i class="fas fa-edit me-1 text-primary"></i> Editar Programa
-                            </a>
-                            <a href="{{ route('taller.cursos.requisitos.edit', $curso->id_curso) }}" class="btn btn-white btn-sm py-2 fw-bold border shadow-xs rounded-pill mt-2">
-                                <i class="fas fa-list-check me-1 text-info"></i> Editar Requisitos
-                            </a>
-                            @break
-                        @case('enviar_aprobacion')
-                            <button class="btn btn-primary btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="finalizarEdicion('{{ $curso->crypt_id }}')">
-                                <i class="fas fa-paper-plane me-1"></i> Enviar a Revisión
-                            </button>
-                            @break
-                        @case('aprobar')
-                            <button class="btn btn-success btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="aprobarCurso('{{ $curso->crypt_id }}')">
-                                <i class="fas fa-check-double me-1"></i> Aprobar Propuesta
-                            </button>
-                            @break
-                        @case('rechazar')
-                            <button class="btn btn-danger btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="rechazarContenido('{{ $curso->crypt_id }}', 3)">
-                                <i class="fas fa-ban me-1"></i> Declinar Propuesta
-                            </button>
-                            @break
-                        @case('finalizar_inscripciones')
-                            <button class="btn btn-warning btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="finalizarInscripciones('{{ $curso->crypt_id }}')">
-                                <i class="fas fa-user-lock me-1"></i> Cerrar Inscripciones
-                            </button>
-                            @break
-                        @case('finalizar_curso')
-                            <button class="btn btn-danger btn-sm py-2 fw-bold rounded-pill shadow-xs" onclick="finalizarCurso('{{ $curso->crypt_id }}')">
-                                <i class="fas fa-stop-circle me-1"></i> Finalizar Curso
-                            </button>
-                            @break
-                        @case('cerrar_curso')
-                            <button class="btn btn-dark btn-sm py-2 fw-bold rounded-pill shadow-sm" onclick="cerrarCurso('{{ $curso->crypt_id }}')">
-                                <i class="fas fa-archive me-1"></i> Archivar Definitivamente
-                            </button>
-                            @break
-                        @case('en_revision')
-                            <div class="alert alert-info text-center small p-3 mb-0 rounded-4 border-0">
-                                <i class="fas fa-hourglass-half fa-2x mb-2 d-block text-info opacity-60"></i>
-                                <strong class="d-block mb-1">Propuesta en Evaluación</strong>
-                                <p class="mb-0 opacity-75">Tu propuesta está siendo revisada por la coordinación. Recibirás una notificación cuando sea procesada.</p>
-                            </div>
-                            @break
-                        @case('ver_motivo')
-                            <div class="d-flex align-items-center justify-content-center mb-2">
-                                <i class="fas fa-exclamation-triangle me-2 text-danger"></i>
-                                <span class="fw-bold text-danger small">
-                                    {{ ($curso->estado_actual->id_estado ?? 0) == 2 ? 'Asignación Rechazada' : 'Propuesta Declinada' }}
-                                </span>
-                            </div>
-                            <button class="btn btn-info btn-sm py-2 fw-bold rounded-pill shadow-xs text-white w-100"
-                                    onclick="verObservaciones('{{ $curso->crypt_id }}')">
-                                <i class="fas fa-clipboard-list me-1"></i> Ver Observaciones
-                            </button>
-                            @break
-                        @case('gestionar_certificacion')
-                            <a href="{{ route('taller.certificacion.panel', $curso->crypt_id) }}" class="btn btn-outline-success btn-sm py-2 fw-bold border shadow-xs rounded-pill">
-                                <i class="fas fa-clipboard-check me-1"></i> Panel de Certificación
-                            </a>
-                            @break
-                        @case('ver_satisfaccion')
-                            @can('verSatisfaccion', $curso)
-                                <a href="{{ route('taller.cursos.satisfaccion.resultados', $curso->crypt_id) }}" class="btn btn-outline-info btn-sm py-2 fw-bold border shadow-xs rounded-pill">
-                                    <i class="fas fa-poll me-1"></i> Resultados de Encuesta
-                                </a>
-                            @endcan
-                            @break
-                    @endswitch
-                @endforeach
+                {!! $botones !!}
+                @if($esPropioYCoordina && $loop->first)
+                    <p class="small text-muted text-center mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Eres el facilitador de este curso: revisarlo, aprobarlo o reasignarlo corresponde a otra persona de coordinación.
+                    </p>
+                @endif
             </div>
         </div>
-    @endif
+    @endforeach
 
     <!-- AVISO SIN CAPACIDADES (GUEST / SIN CUPOS) -->
     @if(count($capacidades) == 0)

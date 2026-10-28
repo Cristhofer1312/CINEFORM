@@ -7,7 +7,7 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card bg-white border-0 shadow-card overflow-hidden" style="border-radius: 1rem;">
+            <div class="card bg-white border-0 shadow-card overflow-hidden">
                 <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div>
                         <div class="d-flex align-items-center mb-1">
@@ -20,6 +20,7 @@
                     </div>
                     <div class="d-flex gap-2 flex-wrap">
                         @php
+                            $asistenciaCerrada = (int) ($curso->estado_actual->id_estado ?? 0) === \App\Enums\EstadoCurso::CERRADO->value;
                             $col = collect($resumenParticipantes);
                             $totalP = $col->count();
                             $aprobados = $col->filter(fn($item) => $item['inscripcion']->certificado_aprobado === true)->count();
@@ -62,7 +63,7 @@
     </div>
 
     <!-- Tabla de Participantes -->
-    <div class="card border-0 shadow-sm" style="border-radius: 1rem;">
+    <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom py-3">
             <h5 class="fw-bold text-dark mb-0"><i class="fas fa-list-alt me-2 text-success"></i> Participantes ({{ $totalP }})</h5>
         </div>
@@ -109,7 +110,17 @@
                                         <div class="progress-bar {{ asistenciaColorBg($pct) }}" 
                                              style="width: {{ $pct }}%; border-radius: 3px;"></div>
                                     </div>
-                                    <small class="text-muted mt-1" style="font-size:0.75rem;">{{ $item['asistencias'] }}/{{ $item['totalActividades'] }}</small>
+                                    <small class="text-muted mt-1" style="font-size:0.75rem;">
+                                        {{ $item['asistencias'] }}/{{ $item['totalActividades'] }}
+                                        @if($item['justificadas']->count() > 0)
+                                            · {{ $item['justificadas']->count() }} {{ $item['justificadas']->count() === 1 ? 'justificada' : 'justificadas' }}
+                                        @endif
+                                    </small>
+                                    @if(! $item['cumpleAsistencia'])
+                                        <small class="text-danger fw-bold" style="font-size:0.75rem;">
+                                            {{ $item['faltas']->count() }} {{ $item['faltas']->count() === 1 ? 'falta' : 'faltas' }} sin justificar
+                                        </small>
+                                    @endif
                                 </div>
                             </td>
                             <td class="text-center py-3">
@@ -133,7 +144,14 @@
                             <td class="text-center py-3">
                                 <div class="d-flex gap-1 justify-content-center flex-wrap">
                                     {{-- Aprobar: disponible cuando NO está aprobado (pendiente o denegado) --}}
-                                    @if($estadoCert !== true)
+                                    @if($estadoCert !== true && ! $item['cumpleAsistencia'])
+                                        {{-- D3: sin el 100 % de asistencia (contando justificadas) no se aprueba --}}
+                                        <span class="d-inline-block" tabindex="0" title="Justifique las faltas para aprobar: se exige el 100 % de asistencia">
+                                            <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-2" disabled aria-label="Aprobar (requiere justificar las faltas)">
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        </span>
+                                    @elseif($estadoCert !== true)
                                         <form action="{{ route('taller.certificacion.aprobar', ['curso' => $curso->crypt_id, 'inscripcion' => $insc->crypt_id]) }}" method="POST" class="d-inline" 
                                               onsubmit="return confirmarAprobar('{{ addslashes($insc->persona->nombre_completo) }}')">
                                             @csrf
@@ -172,11 +190,29 @@
                                                                 {{ $actividad->fecha_contenido ? \Carbon\Carbon::parse($actividad->fecha_contenido)->format('d/m/Y') : 'S/F' }}
                                                                 — {{ $actividad->titulo }}
                                                             </td>
-                                                            <td class="py-1 px-2 text-center" style="width:50px;">
+                                                            @php $justificacion = $item['justificadas']->get($actividad->id_contenido_curso); @endphp
+                                                            <td class="py-1 px-2 text-end text-nowrap">
                                                                 @if($clasesAsistidas->contains($actividad->id_contenido_curso))
-                                                                    <span class="badge bg-success rounded-pill"><i class="fas fa-check"></i></span>
+                                                                    <span class="badge bg-success rounded-pill"><i class="fas fa-check me-1"></i> Asistió</span>
+                                                                @elseif($justificacion)
+                                                                    <span class="badge bg-info text-dark rounded-pill" title="{{ $justificacion->motivo }}"><i class="fas fa-file-signature me-1"></i> Justificada</span>
+                                                                    @if(! $asistenciaCerrada && $estadoCert !== true)
+                                                                        <form action="{{ route('taller.asistencia.quitar-justificacion', ['curso' => $curso->crypt_id, 'inscripcion' => $insc->crypt_id, 'contenido' => $actividad->id_contenido_curso]) }}" method="POST" class="d-inline"
+                                                                              onsubmit="return confirm('¿Quitar la justificación de esta falta?')">
+                                                                            @csrf
+                                                                            <button type="submit" class="btn btn-link btn-sm text-danger p-0 ms-1" title="Quitar justificación" aria-label="Quitar justificación">
+                                                                                <i class="fas fa-undo"></i>
+                                                                            </button>
+                                                                        </form>
+                                                                    @endif
                                                                 @else
-                                                                    <span class="badge bg-danger rounded-pill"><i class="fas fa-times"></i></span>
+                                                                    <span class="badge bg-danger rounded-pill"><i class="fas fa-times me-1"></i> Falta</span>
+                                                                    @if(! $asistenciaCerrada)
+                                                                        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill py-0 px-2 ms-1"
+                                                                                onclick="abrirModalJustificar('{{ route('taller.asistencia.justificar', ['curso' => $curso->crypt_id, 'inscripcion' => $insc->crypt_id, 'contenido' => $actividad->id_contenido_curso]) }}', '{{ addslashes($insc->persona->nombre_completo) }}', '{{ addslashes($actividad->titulo) }}')">
+                                                                            Justificar
+                                                                        </button>
+                                                                    @endif
                                                                 @endif
                                                             </td>
                                                         </tr>
@@ -185,9 +221,10 @@
                                                 </table>
                                             </div>
                                             <p class="mt-2 mb-0 fw-bold small">
-                                                Asistencia: {{ $item['asistencias'] }}/{{ $item['totalActividades'] }} = 
-                                                <span class="{{ $pct >= 75 ? 'text-success' : ($pct >= 50 ? 'text-warning' : 'text-danger') }}">{{ $pct }}%</span>
+                                                Asistencia: {{ $item['asistencias'] }} asistidas + {{ $item['justificadas']->count() }} justificadas de {{ $item['totalActividades'] }} =
+                                                <span class="{{ asistenciaColorTexto($pct) }}">{{ $pct }}%</span>
                                             </p>
+                                            <p class="mb-0 text-muted small">Para certificar se exige el 100 %: cada falta debe estar justificada.</p>
                                         </div>
                                         <!-- Evaluaciones -->
                                         <div class="col-md-5">
@@ -272,6 +309,30 @@
     </div>
 </div>
 
+<!-- Modal de Justificación de falta (D3) -->
+<div class="modal fade" id="modalJustificar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-primary"><i class="fas fa-file-signature me-2"></i> Justificar falta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formJustificar" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <p class="text-muted">Falta de <strong id="justificarNombre"></strong> a la clase <strong id="justificarClase"></strong>. La falta justificada cuenta para el 100 % de asistencia.</p>
+                    <label for="justificarMotivo" class="form-label fw-bold small">Motivo</label>
+                    <textarea id="justificarMotivo" name="motivo" class="form-control" rows="3" required maxlength="500" placeholder="Ej.: reposo médico presentado el 12/10"></textarea>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill fw-bold px-4"><i class="fas fa-check me-1"></i> Justificar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -291,6 +352,14 @@
 
     function confirmarAprobar(nombre) {
         return confirm('¿Aprobar la certificación de ' + nombre + '?');
+    }
+
+    function abrirModalJustificar(accion, nombre, clase) {
+        document.getElementById('justificarNombre').textContent = nombre;
+        document.getElementById('justificarClase').textContent = clase;
+        document.getElementById('justificarMotivo').value = '';
+        document.getElementById('formJustificar').action = accion;
+        new bootstrap.Modal(document.getElementById('modalJustificar')).show();
     }
 
     function abrirModalDenegar(cursoCrypt, inscripcionCrypt, nombre) {

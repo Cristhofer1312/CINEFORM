@@ -198,6 +198,14 @@ class CondicionalEstadoCurso
             $misCapacidades[] = 'ajustar_certificado';
         }
 
+        // La coordinación también gestiona la asistencia (En Curso) y la consulta (Finalizado).
+        if ($esGestor && (int) $estadoId === 7) {
+            $misCapacidades[] = 'gestionar_asistencia';
+        }
+        if ($esGestor && (int) $estadoId === 8) {
+            $misCapacidades[] = 'consultar_asistencia';
+        }
+
         // Gestor y operativo pueden ver observaciones/motivo en Rechazado (2) y Declinado (3)
         if (($esGestor || $esOperativo) && in_array((int) $estadoId, [2, 3])) {
             $misCapacidades[] = 'ver_motivo';

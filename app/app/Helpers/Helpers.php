@@ -238,6 +238,28 @@ if (! function_exists('hasPermissionRoute')) {
     }
 }
 
+if (! function_exists('supervisaTodosLosCursos')) {
+    /**
+     * D7: alcance global sobre los cursos (ver todos, sin ser su facilitador).
+     */
+    function supervisaTodosLosCursos(): bool
+    {
+        return hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::SUPERVISAR_CURSOS);
+    }
+}
+
+if (! function_exists('gestionaTodosLosCursos')) {
+    /**
+     * D7: acción de gestión de cursos con alcance global. Equivale a
+     * ResuelveRolesTaller::esGestor() para el usuario autenticado.
+     */
+    function gestionaTodosLosCursos(): bool
+    {
+        return hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO)
+            && supervisaTodosLosCursos();
+    }
+}
+
 if (! function_exists('renderAvatar')) {
     /**
      * Renderiza el avatar del usuario (Imagen o Iniciales)
@@ -321,31 +343,31 @@ if (! function_exists('renderAvatar')) {
 
 if (! function_exists('asistenciaColorTexto')) {
     /**
-     * Retorna la clase de color de texto según el porcentaje de asistencia (umbral 75% / 50%).
+     * Retorna la clase de color de texto según el porcentaje de asistencia (D3: verde solo con el 100 % exigido para certificar; ámbar desde el 75 %).
      * Unificado para RF-37, RF-44 y UX-15.
      */
     function asistenciaColorTexto(float|int $porcentaje): string
     {
-        return $porcentaje >= 75 ? 'text-success' : ($porcentaje >= 50 ? 'text-warning' : 'text-danger');
+        return $porcentaje >= 100 ? 'text-success' : ($porcentaje >= 75 ? 'text-warning' : 'text-danger');
     }
 }
 
 if (! function_exists('asistenciaColorBg')) {
     /**
-     * Retorna la clase de fondo según el porcentaje de asistencia (umbral 75% / 50%).
+     * Retorna la clase de fondo según el porcentaje de asistencia (D3: verde solo con el 100 % exigido para certificar; ámbar desde el 75 %).
      */
     function asistenciaColorBg(float|int $porcentaje): string
     {
-        return $porcentaje >= 75 ? 'bg-success' : ($porcentaje >= 50 ? 'bg-warning' : 'bg-danger');
+        return $porcentaje >= 100 ? 'bg-success' : ($porcentaje >= 75 ? 'bg-warning' : 'bg-danger');
     }
 }
 
 if (! function_exists('asistenciaBadgeClass')) {
     /**
-     * Retorna la clase de badge según el porcentaje de asistencia (umbral 75% / 50%).
+     * Retorna la clase de badge según el porcentaje de asistencia (D3: verde solo con el 100 % exigido para certificar; ámbar desde el 75 %).
      */
     function asistenciaBadgeClass(float|int $porcentaje): string
     {
-        return $porcentaje >= 75 ? 'bg-success' : ($porcentaje >= 50 ? 'bg-warning text-dark' : 'bg-danger');
+        return $porcentaje >= 100 ? 'bg-success' : ($porcentaje >= 75 ? 'bg-warning text-dark' : 'bg-danger');
     }
 }

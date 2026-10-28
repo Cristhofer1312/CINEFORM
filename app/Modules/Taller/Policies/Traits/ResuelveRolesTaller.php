@@ -21,12 +21,30 @@ trait ResuelveRolesTaller
     }
 
     /**
-     * Un "Gestor" en Taller es quien posee la capacidad GESTIONAR_CURSO
-     * sobre el proceso principal de cursos (típicamente Coordinador / Administrador).
+     * D7: alcance global. SUPERVISAR_CURSOS extiende a todos los cursos las
+     * acciones que el usuario ya tiene; por sí solo no concede ninguna acción.
+     */
+    public function supervisaCursos(User $user): bool
+    {
+        return $this->autorizacion()->puede('taller.cursos.index', SecurityAction::SUPERVISAR_CURSOS, $user);
+    }
+
+    /**
+     * El curso está al alcance del usuario: lo supervisa todo o es su facilitador.
+     */
+    public function alcanzaCurso(User $user, Curso $curso): bool
+    {
+        return $this->supervisaCursos($user) || $this->esFacilitadorDe($user, $curso);
+    }
+
+    /**
+     * Gestión de cualquier curso: la acción GESTIONAR_CURSO con alcance global
+     * (SUPERVISAR_CURSOS). No es un perfil: se decide por esos dos permisos.
      */
     public function esGestor(User $user): bool
     {
-        return $this->autorizacion()->puede('taller.cursos.index', SecurityAction::GESTIONAR_CURSO, $user);
+        return $this->autorizacion()->puede('taller.cursos.index', SecurityAction::GESTIONAR_CURSO, $user)
+            && $this->supervisaCursos($user);
     }
 
     /**

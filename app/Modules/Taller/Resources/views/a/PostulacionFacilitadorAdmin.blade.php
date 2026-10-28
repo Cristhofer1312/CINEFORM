@@ -310,8 +310,8 @@
     .modal-body .form-select { padding: 0.6rem 0.8rem; }
     .modal-body .row .col-md-6 { padding-left: 0.75rem; padding-right: 0.75rem; }
     .modal-content { border-radius: 12px; overflow: hidden; }
-    .modal-header { border-bottom: 1px solid #eee; padding: 1rem 1.25rem; }
-    .modal-footer { border-top: 1px solid #eee; padding: 0.75rem 1.25rem; }
+    .modal-header { border-bottom: 1px solid var(--cf-border); padding: 1rem 1.25rem; }
+    .modal-footer { border-top: 1px solid var(--cf-border); padding: 0.75rem 1.25rem; }
 </style>
 @endpush
 @endsection

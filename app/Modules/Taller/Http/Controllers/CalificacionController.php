@@ -64,8 +64,14 @@ class CalificacionController extends BaseController
             ->get();
 
         $search = $request->search;
+        $soloLectura = $this->notasCerradas($curso);
 
-        return view('taller::a.CursoCalificar', compact('curso', 'contenido', 'estudiantes', 'search'));
+        return view('taller::a.CursoCalificar', compact('curso', 'contenido', 'estudiantes', 'search', 'soloLectura'));
+    }
+
+    private function notasCerradas(Curso $curso): bool
+    {
+        return (int) ($curso->estado_actual->id_estado ?? 0) === EstadoCurso::CERRADO->value;
     }
 
     /**
@@ -76,9 +82,9 @@ class CalificacionController extends BaseController
         $curso = Curso::findOrFail($curso_id);
         $this->authorize('calificar', $curso);
 
-        $estadoActualId = $curso->estado_actual->id_estado ?? null;
-        if (in_array($estadoActualId, [EstadoCurso::FINALIZADO->value, EstadoCurso::CERRADO->value], true)) {
-            abort(403, 'No se pueden modificar calificaciones: el curso ya está Finalizado o Cerrado.');
+        // En Finalizado se califica y se corrigen notas; solo el cierre las congela.
+        if ($this->notasCerradas($curso)) {
+            abort(403, 'No se pueden modificar calificaciones: el curso ya está Cerrado.');
         }
 
         $contenido = ContenidoCurso::where('id_curso', $curso_id)

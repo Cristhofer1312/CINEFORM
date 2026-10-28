@@ -32,7 +32,7 @@
                 </div>
             </div>
 
-            <div class="rounded-3 p-3 mb-3" style="background-color: #f1f5f9 !important;">
+            <div class="rounded-3 p-3 mb-3" style="background-color: var(--cf-app-bg) !important;">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4">
                         <label class="small text-muted fw-bold mb-1">FECHA DE CLASE <span class="text-danger">*</span></label>

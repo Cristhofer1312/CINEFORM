@@ -3,11 +3,11 @@
 @section('title', 'Asistencia Registrada')
 
 @section('content')
-<div class="min-vh-100 d-flex align-items-center justify-content-center bg-gradient-success py-5" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
+<div class="min-vh-100 d-flex align-items-center justify-content-center bg-gradient-success py-5" style="background: linear-gradient(135deg, var(--cf-success-ink) 0%, var(--cf-success) 100%);">
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-6 col-lg-5">
-                <div class="card shadow-lg border-0" style="border-radius: 1.5rem;">
+                <div class="card shadow-lg border-0">
                     <div class="card-body p-5 text-center">
                         <div class="mb-4">
                             <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 100px; height: 100px;">

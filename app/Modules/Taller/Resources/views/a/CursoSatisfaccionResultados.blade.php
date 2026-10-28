@@ -20,10 +20,17 @@
                 </div>
             </div>
 
-            <div class="mb-4">
+            <div class="mb-4 d-flex flex-wrap gap-2 justify-content-between">
                 <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}" class="btn btn-outline-secondary rounded-pill fw-bold px-4">
                     <i class="fas fa-arrow-left me-2"></i> Volver al curso
                 </a>
+                @if($estadisticas !== null)
+                    @can('reporteSatisfaccion', $curso)
+                        <a href="{{ route('taller.cursos.satisfaccion.reporte', $curso->crypt_id) }}" class="btn btn-success rounded-pill fw-bold px-4">
+                            <i class="fas fa-file-excel me-2"></i> Descargar reporte (Excel)
+                        </a>
+                    @endcan
+                @endif
             </div>
 
             @if($estadisticas === null)

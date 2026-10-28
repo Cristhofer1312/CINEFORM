@@ -105,7 +105,6 @@
 
 @push('styles')
 <style>
-    .bg-success-soft { background-color: rgba(25, 135, 84, 0.1); }
 </style>
 @endpush
 

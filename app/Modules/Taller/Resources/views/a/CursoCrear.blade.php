@@ -165,7 +165,7 @@
                                             <i class="fas fa-map-marker-alt me-2 text-primary"></i> ESTADOS / LOCALIDADES PERMITIDAS
                                         </h6>
                                         <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-xs btn-white border shadow-xs rounded-pill px-3 py-1" onclick="TallerModule.selectAllLocalidades(false)" style="font-size: 0.7rem;">
+                                            <button type="button" class="btn btn-xs btn-white border shadow-xs rounded-pill px-3 py-1" onclick="TallerModule.selectAllLocalidades(false)" style="font-size: 0.75rem;">
                                                 <i class="fas fa-times me-1 text-danger"></i> NINGUNO
                                             </button>
                                         </div>
@@ -520,16 +520,11 @@
 
     @push('styles')
     <style>
-        .bg-primary-soft { background-color: rgba(30, 58, 138, 0.1); }
         .bg-success-light { background-color: rgba(16, 185, 129, 0.1); }
-        .bg-gray-100 { background-color: #f1f5f9; }
-        .border-light-2 { border: 1.5px solid #d1d5db !important; }
-        .shadow-xs { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .shadow-card { box-shadow: 0 12px 35px rgba(0,0,0,0.1); }
         
         .content-card-edit {
-            border: 1px solid #e2e8f0;
-            border-left: 5px solid #1e3a8a;
+            border: 1px solid var(--cf-border);
+            border-left: 5px solid var(--cf-navy);
             transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
             box-shadow: 0 4px 10px rgba(0,0,0,0.03);
         }
@@ -540,18 +535,9 @@
         }
         
         .focus-none:focus { outline: none; border: none; box-shadow: none; }
-        .hvr-push { transition: transform 0.2s; }
-        .hvr-push:active { transform: scale(0.98); }
-        .transition-hover { transition: all 0.2s ease; }
-        .transition-hover:hover { background-color: #f1f5f9; transform: translateY(-1px); }
-        .uppercase { text-transform: uppercase; letter-spacing: 0.5px; }
-        .cursor-pointer { cursor: pointer; }
 
         /* Custom Scrollbar */
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #999; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--cf-muted); }
     </style>
     @endpush
 

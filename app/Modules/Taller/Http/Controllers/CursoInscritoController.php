@@ -21,8 +21,11 @@ class CursoInscritoController extends BaseController
 
         $user = $this->getUsuarioAutenticado();
         $persona = $user->personalData;
-        $profileId = (int) (session('profile_id') ?? $user->profile_id);
-        $esFacilitador = ($profileId === 2);
+        // Sin perfil activo: quien puede facilitar ve sus cursos asignados y,
+        // con ?vista=inscritos, aquellos en los que participa.
+        $puedeFacilitar = app(\App\Services\Security\Autorizacion::class)
+            ->puede(\App\Services\Security\Autorizacion::PROCESO_CURSOS, \App\Constants\SecurityAction::EDITAR_CURSO, $user);
+        $esFacilitador = $puedeFacilitar && $request->query('vista') !== 'inscritos';
 
         if ($esFacilitador) {
             // Cursos asignados donde es el facilitador responsable
@@ -80,7 +83,7 @@ class CursoInscritoController extends BaseController
         // Procesar para agregar propiedades de badge/etiqueta
         $this->procesarCursosParaVista($cursosInscritos);
 
-        return view('taller::a.CursosInscritos', compact('persona', 'cursosInscritos', 'estados', 'esFacilitador'));
+        return view('taller::a.CursosInscritos', compact('persona', 'cursosInscritos', 'estados', 'esFacilitador', 'puedeFacilitar'));
     }
 
     /**

@@ -134,6 +134,8 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
             ->name('taller.inscripciones.rechazar');
         Route::post('/inscripciones/{inscripcion}/denegar', [InscripcionController::class, 'denegar'])
             ->name('taller.inscripciones.denegar');
+        Route::post('/inscripciones/{inscripcion}/revertir', [InscripcionController::class, 'revertir'])
+            ->name('taller.inscripciones.revertir');
 
         // Nota: esta ruta va ANTES de cualquier wildcard que pueda capturar 'respuestas'
         Route::get('/inscripciones/respuestas/{respuesta}/descargar', [InscripcionController::class, 'descargarDocumento'])
@@ -153,6 +155,9 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
 
         Route::get('/cursos/{curso}/satisfaccion/resultados', [SatisfaccionCursoController::class, 'resultados'])
             ->name('taller.cursos.satisfaccion.resultados');
+
+        Route::get('/cursos/{curso}/satisfaccion/reporte', [SatisfaccionCursoController::class, 'reporte'])
+            ->name('taller.cursos.satisfaccion.reporte');
 
         // Ruta para actualizar el estado del curso
         Route::put('/cursos/{curso}/status', [CursoController::class, 'updateStatus'])
@@ -264,6 +269,10 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
             ->name('taller.asistencia.marcar-manual');
         Route::post('/cursos/{curso}/token/{token}/marcar', [AsistenciaController::class, 'marcar'])
             ->name('taller.asistencia.marcar');
+        Route::post('/cursos/{curso}/asistencia/{inscripcion}/contenido/{contenido}/justificar', [AsistenciaController::class, 'justificarFalta'])
+            ->name('taller.asistencia.justificar');
+        Route::post('/cursos/{curso}/asistencia/{inscripcion}/contenido/{contenido}/quitar-justificacion', [AsistenciaController::class, 'quitarJustificacion'])
+            ->name('taller.asistencia.quitar-justificacion');
 
         // ── Postulación a Facilitador ──
         // Landing (participantes)

@@ -8,19 +8,32 @@
     {{-- Header & Filters Card --}}
     <div class="row">
         <div class="col-12">
-            <div class="card mb-3 shadow-sm overflow-hidden" style="border-radius: 15px;">
+            <div class="card mb-3 shadow-sm overflow-hidden">
                 <div class="card-header bg-gradient-primary text-white py-3">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                         <h5 class="mb-0">
                             <i class="fas {{ ($esFacilitador ?? false) ? 'fa-chalkboard-teacher' : 'fa-book-reader' }} me-2"></i> {{ ($esFacilitador ?? false) ? 'Mis Cursos Asignados' : 'Mis Cursos Inscritos' }}
                         </h5>
-                        <span class="badge bg-white text-primary px-3 py-2 rounded-pill fw-bold">
-                            Total: {{ $cursosInscritos->total() }}
-                        </span>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            @if($puedeFacilitar ?? false)
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Vista de mis cursos">
+                                    <a href="{{ route('taller.mis-cursos') }}"
+                                        class="btn {{ $esFacilitador ? 'btn-light text-primary fw-bold' : 'btn-outline-light' }}"
+                                        @if($esFacilitador) aria-current="page" @endif>Asignados</a>
+                                    <a href="{{ route('taller.mis-cursos', ['vista' => 'inscritos']) }}"
+                                        class="btn {{ $esFacilitador ? 'btn-outline-light' : 'btn-light text-primary fw-bold' }}"
+                                        @unless($esFacilitador) aria-current="page" @endunless>Inscritos</a>
+                                </div>
+                            @endif
+                            <span class="badge bg-white text-primary px-3 py-2 rounded-pill fw-bold">
+                                Total: {{ $cursosInscritos->total() }}
+                            </span>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body bg-light py-3">
                     <form action="{{ route('taller.mis-cursos') }}" method="GET" class="row g-3">
+                        @unless($esFacilitador)<input type="hidden" name="vista" value="inscritos">@endunless
                         {{-- Buscador --}}
                         <div class="col-md-6">
                             <div class="input-group">
@@ -57,7 +70,7 @@
                                 <i class="fas fa-search me-1"></i> Filtrar
                             </button>
                             @if(request()->has('search') || request()->has('id_estado'))
-                                <a href="{{ route('taller.mis-cursos') }}"
+                                <a href="{{ route('taller.mis-cursos', $esFacilitador ? [] : ['vista' => 'inscritos']) }}"
                                     class="btn btn-outline-secondary fw-bold" style="flex: 1;">
                                     <i class="fas fa-undo me-1"></i> Limpiar
                                 </a>
@@ -72,7 +85,7 @@
     {{-- Grid de cursos --}}
     <div class="row">
         <div class="col-12">
-            <div class="card shadow-sm overflow-hidden" style="border-radius: 15px;">
+            <div class="card shadow-sm overflow-hidden">
                 <div class="card-body pb-0">
                     <div class="row">
                         @forelse($cursosInscritos as $curso)
@@ -226,15 +239,8 @@
 @endpush
 
 <style>
-    .hover-shadow:hover {
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-        transform: translateY(-3px);
-    }
     .transition-all {
         transition: all 0.3s ease;
-    }
-    .bg-gradient-primary {
-        background: linear-gradient(135deg, #1572e8 0%, #0b5ed7 100%);
     }
 </style>
 @endsection

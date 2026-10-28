@@ -166,9 +166,7 @@
 
 @push('styles')
 <style>
-    .bg-success-soft { background-color: rgba(25, 135, 84, 0.1); }
     .bg-warning-soft { background-color: rgba(255, 193, 7, 0.12); }
-    .shadow-card { box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
 </style>
 @endpush
 

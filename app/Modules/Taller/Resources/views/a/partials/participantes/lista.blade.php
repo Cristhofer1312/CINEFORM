@@ -42,18 +42,32 @@
                             <i class="fas fa-check me-1"></i> Aprobar
                         </button>
                         <button type="button" class="btn btn-warning btn-sm rounded-pill px-3 py-1 fw-bold w-100"
-                                onclick="updatePostulacion('{{ $insc->crypt_id }}', 'rechazar', '¿Rechazar para Corrección?', 'Indique la razón para que el participante pueda corregir.', true)">
-                            <i class="fas fa-exclamation-triangle me-1"></i> Rechazar
+                                onclick="updatePostulacion('{{ $insc->crypt_id }}', 'rechazar', '¿Enviar a subsanar?', 'Indique qué debe subsanar el participante. Podrá corregir y reenviar su postulación.', true)">
+                            <i class="fas fa-exclamation-triangle me-1"></i> Subsanar
                         </button>
                         <button type="button" class="btn btn-danger btn-sm rounded-pill px-3 py-1 fw-bold w-100"
-                                onclick="updatePostulacion('{{ $insc->crypt_id }}', 'denegar', '¿Denegar Definitivamente?', 'Esta acción no permitirá que el usuario se vuelva a postular.', true)">
-                            <i class="fas fa-times-circle me-1"></i> Denegar
+                                onclick="updatePostulacion('{{ $insc->crypt_id }}', 'denegar', '¿Rechazar definitivamente?', 'El participante no podrá volver a postularse. Quien gestiona el curso puede revertirlo.', true)">
+                            <i class="fas fa-times-circle me-1"></i> Rechazar definitivamente
                         </button>
                     @elseif($tipo === 'rechazado')
                          <button type="button" class="btn btn-danger btn-sm rounded-pill px-3 py-1 fw-bold w-100"
-                                onclick="updatePostulacion('{{ $insc->crypt_id }}', 'denegar', '¿Denegar Definitivamente?', 'Esta acción es irreversible.', true)">
-                            <i class="fas fa-times-circle me-1"></i> Denegar Final
+                                onclick="updatePostulacion('{{ $insc->crypt_id }}', 'denegar', '¿Rechazar definitivamente?', 'El participante no podrá volver a postularse. Quien gestiona el curso puede revertirlo.', true)">
+                            <i class="fas fa-times-circle me-1"></i> Rechazar definitivamente
                         </button>
+                    @elseif($tipo === 'denegado')
+                        @can('gestionar', $insc)
+                            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-bold w-100"
+                                    onclick="updatePostulacion('{{ $insc->crypt_id }}', 'revertir', '¿Revertir el rechazo definitivo?', 'La postulación volverá a revisión. Indique el motivo.', true)">
+                                <i class="fas fa-undo me-1"></i> Revertir
+                            </button>
+                        @endcan
+                    @elseif($tipo === 'retirado')
+                        @can('rehabilitar', $insc)
+                            <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-bold w-100"
+                                    onclick="updatePostulacion('{{ $insc->crypt_id }}', 'revertir', '¿Revertir el retiro?', 'El participante volverá a estar inscrito si hay cupo. Indique el motivo.', true)">
+                                <i class="fas fa-undo me-1"></i> Revertir
+                            </button>
+                        @endcan
                     @endif
                 </div>
             </div>

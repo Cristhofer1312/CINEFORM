@@ -2,13 +2,17 @@
 
 namespace Modules\Taller\Http\Controllers;
 
+use App\Enums\EstadoCurso;
+use App\Services\Security\Auditoria;
 use BaconQrCode\Renderer\Image\ImagickImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Modules\Comun\Entities\PersonalData;
 use Modules\Taller\Entities\Asistencia;
+use Modules\Taller\Entities\AsistenciaJustificacion;
 use Modules\Taller\Entities\AsistenciaToken;
 use Modules\Taller\Entities\ContenidoCurso;
 use Modules\Taller\Entities\Curso;
@@ -324,6 +328,115 @@ class AsistenciaController extends BaseController
         }
 
         return back()->with('success', 'Asistencia restaurada correctamente.');
+    }
+
+    /**
+     * D3: justifica la falta de un participante a una clase. La falta justificada
+     * cuenta como asistencia cumplida para certificar.
+     */
+    public function justificarFalta(Request $request, $curso_id, $inscripcion_id, $contenido_id)
+    {
+        [$curso, $inscripcion, $contenido] = $this->resolverFalta($curso_id, $inscripcion_id, $contenido_id);
+
+        $data = $request->validate([
+            'motivo' => 'required|string|max:500',
+        ]);
+
+        $asistio = Asistencia::where('id_contenido_curso', $contenido->id_contenido_curso)
+            ->where('id_persona', $inscripcion->id_persona)
+            ->where('activa', true)
+            ->exists();
+
+        if ($asistio) {
+            return $this->respuestaJustificacion($request, false, 'El participante asistió a esta clase: no hay falta que justificar.', 422);
+        }
+
+        DB::transaction(function () use ($inscripcion, $contenido, $data) {
+            $antes = AsistenciaJustificacion::where('id_contenido_curso', $contenido->id_contenido_curso)
+                ->where('id_inscripcion', $inscripcion->id_inscripcion)
+                ->first();
+
+            $justificacion = AsistenciaJustificacion::updateOrCreate(
+                ['id_contenido_curso' => $contenido->id_contenido_curso, 'id_inscripcion' => $inscripcion->id_inscripcion],
+                ['motivo' => $data['motivo'], 'justificada_por' => auth()->id()]
+            );
+
+            app(Auditoria::class)->registrar(
+                'asistencia.justificar',
+                'taller.asistencia_justificaciones',
+                $justificacion->id_justificacion,
+                $antes ? ['motivo' => $antes->motivo] : null,
+                ['id_inscripcion' => $inscripcion->id_inscripcion, 'id_contenido_curso' => $contenido->id_contenido_curso],
+                $data['motivo']
+            );
+        });
+
+        return $this->respuestaJustificacion($request, true, 'Falta justificada.');
+    }
+
+    /**
+     * D3: quita la justificación de una falta.
+     */
+    public function quitarJustificacion(Request $request, $curso_id, $inscripcion_id, $contenido_id)
+    {
+        [$curso, $inscripcion, $contenido] = $this->resolverFalta($curso_id, $inscripcion_id, $contenido_id);
+
+        if ($inscripcion->certificadoAprobado()) {
+            return $this->respuestaJustificacion($request, false, 'La certificación ya está aprobada: deniéguela antes de quitar la justificación.', 422);
+        }
+
+        $justificacion = AsistenciaJustificacion::where('id_contenido_curso', $contenido->id_contenido_curso)
+            ->where('id_inscripcion', $inscripcion->id_inscripcion)
+            ->firstOrFail();
+
+        DB::transaction(function () use ($justificacion) {
+            app(Auditoria::class)->registrar(
+                'asistencia.quitar_justificacion',
+                'taller.asistencia_justificaciones',
+                $justificacion->id_justificacion,
+                ['motivo' => $justificacion->motivo, 'id_inscripcion' => $justificacion->id_inscripcion, 'id_contenido_curso' => $justificacion->id_contenido_curso],
+                null
+            );
+
+            $justificacion->delete();
+        });
+
+        return $this->respuestaJustificacion($request, true, 'Justificación eliminada.');
+    }
+
+    /**
+     * Curso, inscripción aprobada y clase (no evaluación) del mismo curso, con el
+     * curso aún no Cerrado. Autoriza con la misma regla que el resto de la asistencia.
+     */
+    private function resolverFalta($curso_id, $inscripcion_id, $contenido_id): array
+    {
+        $curso = Curso::findOrFail($curso_id);
+        $this->verificarPermisoGestion($curso);
+
+        if ((int) ($curso->estado_actual->id_estado ?? 0) === EstadoCurso::CERRADO->value) {
+            abort(403, 'El curso está Cerrado: la asistencia ya no se puede modificar.');
+        }
+
+        $inscripcion = Inscripcion::where('id_inscripcion', $inscripcion_id)
+            ->where('id_curso', $curso->id_curso)
+            ->where('estado', Inscripcion::ESTADO_APROBADO)
+            ->firstOrFail();
+
+        $contenido = ContenidoCurso::where('id_contenido_curso', $contenido_id)
+            ->where('id_curso', $curso->id_curso)
+            ->where('es_evaluacion', false)
+            ->firstOrFail();
+
+        return [$curso, $inscripcion, $contenido];
+    }
+
+    private function respuestaJustificacion(Request $request, bool $ok, string $mensaje, int $status = 200)
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['success' => $ok, 'message' => $mensaje], $status);
+        }
+
+        return back()->with($ok ? 'success' : 'error', $mensaje);
     }
 
     /**

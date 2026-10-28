@@ -37,7 +37,7 @@ class CursoController extends BaseController
 
         $personalData = $this->getUsuarioAutenticado()->personalData;
         $esFacilitador = $personalData && $curso->id_persona == $personalData->id_persona;
-        $esGestor = auth()->user()->can('reasignarFacilitador', $curso);
+        $esGestor = auth()->user()->can('gestionar', $curso);
 
         $contenidoActual = null;
         if ($contenido_id) {
@@ -70,13 +70,6 @@ class CursoController extends BaseController
 
         $origen = EstadoCurso::tryFrom((int) ($curso->estado_actual->id_estado ?? 0));
         $destino = EstadoCurso::tryFrom($nuevoEstado);
-
-        // Si el curso está en POR_ACEPTAR y no se especificó un destino explícito entre rechazar/declinar,
-        // por defecto se asigna RECHAZADO (2).
-        if ($origen === EstadoCurso::POR_ACEPTAR && !in_array($destino, [EstadoCurso::RECHAZADO, EstadoCurso::DECLINADO], true)) {
-            $nuevoEstado = EstadoCurso::RECHAZADO->value;
-            $destino = EstadoCurso::RECHAZADO;
-        }
 
         // 1. Autorización estricta por par (origen, destino) via Policy
         $this->authorize('cambiarEstado', [$curso, $nuevoEstado]);
@@ -135,11 +128,12 @@ class CursoController extends BaseController
                 'message' => 'Estado del curso actualizado correctamente',
             ]);
         } catch (\Exception $e) {
+            report($e);
             DB::rollBack();
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error al actualizar el estado: '.$e->getMessage(),
+                'message' => 'Error al actualizar el estado: '.(config('app.debug') ? $e->getMessage() : 'intente nuevamente o contacte al administrador.'),
             ], 500);
         }
     }
@@ -159,7 +153,7 @@ class CursoController extends BaseController
         }
 
         // Resolver vista en base al permiso en lugar del viejo servicio
-        $vistaParcial = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO)
+        $vistaParcial = gestionaTodosLosCursos()
             ? 'partials.Buscador-actions.CursosCoordinador'
             : 'partials.Buscador-actions.Cursos';
 
@@ -169,7 +163,7 @@ class CursoController extends BaseController
             ->withCount(['contenidos', 'inscripciones']);
 
         // Si NO es gestor, ni facilitador, ni coordinador (Participante Base)
-        if (! hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO) &&
+        if (! supervisaTodosLosCursos() &&
             ! hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::EDITAR_CURSO)) {
 
             $personalData = Auth::user()->personalData;
@@ -251,11 +245,11 @@ class CursoController extends BaseController
         $this->procesarCursosParaVista($cursos);
 
         // Si gestiona los cursos, trae todos los estados, sino solo los activos (>= 6)
-        $estados = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO)
+        $estados = supervisaTodosLosCursos()
             ? \Modules\Taller\Entities\Estado::all()
             : \Modules\Taller\Entities\Estado::where('id_estado', 6)->get();
 
-        $esCoordinador = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO);
+        $esCoordinador = gestionaTodosLosCursos();
 
         return view('taller::a.Cursos', compact('vistaParcial', 'cursos', 'estados', 'esCoordinador', 'esFacilitador'));
     }
@@ -343,7 +337,7 @@ class CursoController extends BaseController
         // Verificar si el usuario es el facilitador o un participante
         $esFacilitador = $curso->id_persona == $persona->id_persona;
         $esParticipante = $curso->inscripciones->contains('id_persona', $persona->id_persona);
-        $esCoordinador = hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::GESTIONAR_CURSO);
+        $esCoordinador = supervisaTodosLosCursos();
 
         if (! $esFacilitador && ! $esParticipante && ! $esCoordinador) {
             return response()->json([
@@ -529,16 +523,17 @@ class CursoController extends BaseController
                 'message' => 'Curso no encontrado',
             ], 404);
         } catch (\Exception $e) {
+            report($e);
             return response()->json([
                 'success' => false,
-                'message' => 'Error al finalizar la edición del curso: '.$e->getMessage(),
+                'message' => 'Error al finalizar la edición del curso: '.(config('app.debug') ? $e->getMessage() : 'intente nuevamente o contacte al administrador.'),
             ], 500);
         }
     }
 
     /**
      * Reasigna el facilitador de un curso.
-     * Solo coordinadores (GESTIONAR_CURSO) pueden ejecutar esta acción.
+     * Solo quien gestiona todos los cursos (GESTIONAR_CURSO + SUPERVISAR_CURSOS) puede ejecutar esta acción.
      * Solo permitido en estados 1-5 (antes de Inscripción).
      *
      * @param  int  $id
@@ -547,16 +542,19 @@ class CursoController extends BaseController
     public function reasignarFacilitador(Request $request, $id)
     {
         try {
-            // Verificar permiso de gestión
-            if (! hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No tienes permiso para reasignar facilitadores.',
-                ], 403);
-            }
-
             $id = $this->decryptId($id);
             $curso = Curso::with('estados')->findOrFail($id);
+
+            // Gestión global y sin conflicto de interés: el facilitador asignado
+            // no reasigna su propio curso.
+            if (! $request->user()->can('reasignarFacilitador', $curso)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => gestionaTodosLosCursos()
+                        ? 'Eres el facilitador de este curso: otra persona de coordinación debe reasignarlo.'
+                        : 'No tienes permiso para reasignar facilitadores.',
+                ], 403);
+            }
 
             // Validar estado del curso: se permite durante preparación o ejecución activa
             $estadoActualId = $curso->estado_actual?->id_estado ?? 0;
@@ -610,6 +608,16 @@ class CursoController extends BaseController
                 return response()->json([
                     'success' => false,
                     'message' => 'La persona seleccionada no es elegible como facilitador.',
+                ], 422);
+            }
+
+            // Conflicto de interés: quien coordina no se asigna a sí mismo
+            // (después tendría que revisar y aprobar su propio curso).
+            if ((int) $nuevaPersona->user_id === (int) $request->user()->id
+                && ! app(\App\Services\Security\Autorizacion::class)->esRaiz()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No puedes asignarte a ti mismo como facilitador.',
                 ], 422);
             }
 
@@ -668,11 +676,12 @@ class CursoController extends BaseController
             ]);
 
         } catch (\Exception $e) {
+            report($e);
             DB::rollBack();
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error al reasignar el facilitador: '.$e->getMessage(),
+                'message' => 'Error al reasignar el facilitador: '.(config('app.debug') ? $e->getMessage() : 'intente nuevamente o contacte al administrador.'),
             ], 500);
         }
     }

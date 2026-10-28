@@ -302,6 +302,7 @@ class PostulacionFacilitadorController extends BaseController
             }
 
             DB::commit();
+            app(\App\Services\Security\Autorizacion::class)->invalidar();
 
             return back()->with('success', 'Postulación aprobada. El participante ahora es Facilitador.');
 

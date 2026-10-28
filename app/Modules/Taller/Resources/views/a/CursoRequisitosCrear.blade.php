@@ -159,8 +159,6 @@
 
 @push('styles')
 <style>
-    .border-light-2 { border: 1px solid #e2e8f0; }
-    .shadow-card { box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
 </style>
 @endpush
 
@@ -227,8 +225,8 @@
                 text: `Se quitará "${titulo}".`,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#6c757d',
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#64748b',
                 confirmButtonText: 'Sí, eliminar',
                 cancelButtonText: 'Cancelar'
             }).then((result) => {

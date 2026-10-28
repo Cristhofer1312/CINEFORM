@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\Inscripcion;
-use Modules\Taller\Entities\Asistencia;
+use Modules\Taller\Services\CumplimientoAsistencia;
 use App\Constants\SecurityAction;
 
 class CertificacionPanelController extends BaseController
@@ -30,20 +30,8 @@ class CertificacionPanelController extends BaseController
         $actividades = $curso->contenidos->where('es_evaluacion', false);
         $evaluaciones = $curso->contenidos->where('es_evaluacion', true);
 
-        $actividadIds = $actividades->pluck('id_contenido_curso');
-        $asistenciasRaw = Asistencia::whereIn('id_contenido_curso', $actividadIds)
-            ->where('activa', true)
-            ->get();
-
-        $asistenciasPorPersona = $asistenciasRaw
-            ->groupBy('id_persona')
-            ->map(fn($group) => $group->count());
-
-        $asistenciaDetallePorPersona = $asistenciasRaw
-            ->groupBy('id_persona')
-            ->map(fn($group) => $group->pluck('id_contenido_curso')->flip()->keys());
-
-        $totalActividades = $actividades->count();
+        // D3: asistencia al 100 %, contando las faltas justificadas.
+        $cumplimiento = app(CumplimientoAsistencia::class)->porInscripcion($curso, $inscripciones);
 
         $calificacionesRaw = DB::table('taller.calificaciones')
             ->where('id_curso', $curso->id_curso)
@@ -54,11 +42,7 @@ class CertificacionPanelController extends BaseController
         $resumenParticipantes = [];
         foreach ($inscripciones as $inscripcion) {
             $idPersona = $inscripcion->id_persona;
-
-            $asistencias = $asistenciasPorPersona->get($idPersona, 0);
-            $porcentajeAsistencia = $totalActividades > 0
-                ? round(($asistencias / $totalActividades) * 100, 1)
-                : 0;
+            $asistencia = $cumplimiento[$inscripcion->id_inscripcion];
 
             $califs = $calificacionesPorPersona->get($idPersona, collect());
             $puntosObtenidos = 0;
@@ -78,10 +62,13 @@ class CertificacionPanelController extends BaseController
 
             $resumenParticipantes[] = [
                 'inscripcion' => $inscripcion,
-                'asistencias' => $asistencias,
-                'totalActividades' => $totalActividades,
-                'porcentajeAsistencia' => $porcentajeAsistencia,
-                'clasesAsistidas' => $asistenciaDetallePorPersona->get($idPersona, collect()),
+                'asistencias' => $asistencia['asistidas']->count(),
+                'justificadas' => $asistencia['justificadas'],
+                'faltas' => $asistencia['faltas'],
+                'totalActividades' => $asistencia['total'],
+                'porcentajeAsistencia' => $asistencia['porcentaje'],
+                'cumpleAsistencia' => $asistencia['cumple'],
+                'clasesAsistidas' => $asistencia['asistidas'],
                 'promedio' => $promedio,
             ];
         }
@@ -100,6 +87,13 @@ class CertificacionPanelController extends BaseController
             ->where('id_curso', $id_curso)
             ->where('estado', Inscripcion::ESTADO_APROBADO)
             ->firstOrFail();
+
+        // D3: exige el 100 % de asistencia; cada falta debe estar justificada.
+        $faltas = app(CumplimientoAsistencia::class)->deInscripcion($curso, $inscripcion)['faltas']->count();
+        if ($faltas > 0) {
+            return back()->with('error', 'No se puede aprobar la certificación de '.$inscripcion->persona->nombre_completo
+                .': tiene '.$faltas.' '.($faltas === 1 ? 'falta' : 'faltas').' sin justificar. Se exige el 100 % de asistencia; justifique cada falta para aprobar.');
+        }
 
         $inscripcion->update([
             'certificado_aprobado' => true,

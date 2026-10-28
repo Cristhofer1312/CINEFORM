@@ -7,7 +7,7 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card bg-white border-0 shadow-card overflow-hidden" style="border-radius: 1rem;">
+            <div class="card bg-white border-0 shadow-card overflow-hidden">
                 <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div>
                         <div class="d-flex align-items-center mb-1">
@@ -51,7 +51,7 @@
     @endif
 
     <!-- Enlace Activo -->
-    <div id="seccionTokenActivo" class="card border-0 shadow-sm mb-4 d-none" style="border-radius: 1rem; border-left: 4px solid #10b981;">
+    <div id="seccionTokenActivo" class="card border-0 shadow-sm mb-4 d-none" style="border: 1px solid var(--cf-success) !important;">
         <div class="card-body p-4">
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
                 <div class="d-flex align-items-start">
@@ -96,7 +96,7 @@
     </div>
 
     <!-- Tabla consolidada -->
-    <div class="card border-0 shadow-sm" style="border-radius: 1rem;">
+    <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom py-3">
             <h5 class="fw-bold text-dark mb-0"><i class="fas fa-list-alt me-2 text-primary"></i> Participantes ({{ $curso->inscripciones->count() }})</h5>
         </div>
@@ -196,8 +196,8 @@
 <!-- Modal Marcar Asistencia Manual -->
 <div class="modal fade" id="modalMarcarManual" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border-radius: 1rem;">
-            <div class="modal-header bg-primary text-white" style="border-radius: 1rem 1rem 0 0;">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white" style="border-radius: var(--cf-radius-card) 1rem 0 0;">
                 <h5 class="modal-title fw-bold"><i class="fas fa-user-check me-2"></i> Marcar Asistencia Manual</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -241,8 +241,8 @@
 <!-- Modal Generar Token -->
 <div class="modal fade" id="modalGenerarToken" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border-radius: 1rem;">
-            <div class="modal-header bg-primary text-white" style="border-radius: 1rem 1rem 0 0;">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white" style="border-radius: var(--cf-radius-card) 1rem 0 0;">
                 <h5 class="modal-title fw-bold"><i class="fas fa-qrcode me-2"></i> Generar Enlace de Asistencia</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>

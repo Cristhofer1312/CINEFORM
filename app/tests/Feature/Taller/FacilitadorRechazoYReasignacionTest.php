@@ -29,11 +29,13 @@ class FacilitadorRechazoYReasignacionTest extends TestCase
         $this->coordinador = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::COORDINADOR);
         })->where('id', '>', 1)->first() ?? User::find(2);
+        $this->soloConPerfiles($this->coordinador, Perfil::COORDINADOR);
 
-        // Obtener dos facilitadores distintos
+        // Obtener dos facilitadores distintos (sin perfil de gestión: los permisos suman perfiles)
         $facilitadores = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::FACILITADOR);
-        })->where('id', '>', 1)->whereNotNull('session_token')->get();
+        })->whereDoesntHave('perfiles', fn ($q) => $q->whereIn('security.profiles.id', [Perfil::ADMINISTRADOR, Perfil::COORDINADOR]))
+            ->where('id', '>', 1)->whereNotNull('session_token')->get();
 
         $this->facilitador1 = $facilitadores->first() ?? User::findOrFail(5);
         $this->facilitador2 = $facilitadores->skip(1)->first() ?? User::findOrFail(6);

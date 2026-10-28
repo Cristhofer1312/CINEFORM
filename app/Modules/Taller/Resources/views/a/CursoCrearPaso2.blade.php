@@ -268,8 +268,6 @@
 
     @push('styles')
     <style>
-        .bg-primary-soft { background-color: rgba(30, 58, 138, 0.08) !important; }
-        .cursor-pointer { cursor: pointer; }
         .facilitator-item {
             transition: background-color 0.15s ease, border-color 0.15s ease;
         }

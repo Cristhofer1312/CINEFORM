@@ -321,15 +321,15 @@ class HuecosFlujoTest extends TestCase
      */
     public function test_helpers_umbral_asistencia_unificado(): void
     {
-        $this->assertEquals('text-success', asistenciaColorTexto(80));
-        $this->assertEquals('text-success', asistenciaColorTexto(75));
-        $this->assertEquals('text-warning', asistenciaColorTexto(74.9));
-        $this->assertEquals('text-warning', asistenciaColorTexto(50));
-        $this->assertEquals('text-danger', asistenciaColorTexto(49.9));
+        // D3 (26/10): se certifica con el 100 %, así que solo el 100 % es verde.
+        $this->assertEquals('text-success', asistenciaColorTexto(100));
+        $this->assertEquals('text-warning', asistenciaColorTexto(99.9));
+        $this->assertEquals('text-warning', asistenciaColorTexto(75));
+        $this->assertEquals('text-danger', asistenciaColorTexto(74.9));
         $this->assertEquals('text-danger', asistenciaColorTexto(0));
 
-        $this->assertEquals('bg-success', asistenciaColorBg(75));
-        $this->assertEquals('bg-warning', asistenciaColorBg(60));
+        $this->assertEquals('bg-success', asistenciaColorBg(100));
+        $this->assertEquals('bg-warning', asistenciaColorBg(80));
         $this->assertEquals('bg-danger', asistenciaColorBg(30));
     }
 

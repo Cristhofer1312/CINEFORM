@@ -635,7 +635,7 @@ class CrearCursoController extends BaseController
 
             // Guardar como predeterminado global: solo gestión (son coordenadas de la institución).
             if ($request->has('guardar_default')) {
-                if (! hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
+                if (! gestionaTodosLosCursos()) {
                     Log::warning('Intento de guardar coordenadas globales sin permiso (wizard)', [
                         'usuario' => Auth::id(),
                     ]);
@@ -952,7 +952,7 @@ class CrearCursoController extends BaseController
      */
     private function autorizarAjusteCertificado(Curso $curso): void
     {
-        $esGestor = hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO);
+        $esGestor = gestionaTodosLosCursos();
         $estadoId = $curso->estado_actual->id_estado ?? 0;
 
         if (! app(CondicionalEstadoCurso::class)->puedeAjustarCertificado($estadoId, $esGestor)) {
@@ -1043,7 +1043,7 @@ class CrearCursoController extends BaseController
             // Guardar como predeterminado global: solo gestión (son coordenadas de la institución).
             // Se guarda la versión ya recorrida si hubo auto-ajuste de la plantilla.
             if ($request->has('guardar_default')) {
-                if (! hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO)) {
+                if (! gestionaTodosLosCursos()) {
                     Log::warning('Intento de guardar coordenadas globales sin permiso', [
                         'id_curso' => $curso->id_curso,
                         'usuario' => Auth::id(),

@@ -17,6 +17,9 @@ class CursoDetalleController extends BaseController
     public function show($id)
     {
         $id = $this->decryptId($id);
+        // decryptId devuelve el texto tal cual si no es un id válido
+        // (p. ej. /taller/cursos/crear); sin esto Postgres respondía 500.
+        abort_unless(is_int($id), 404);
         $condicional = new CondicionalEstadoCurso;
 
         $curso = Curso::with([
@@ -38,8 +41,9 @@ class CursoDetalleController extends BaseController
         $puedeCancelarInscripciones = hasPermissionRoute('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION);
         $puedeVerParticipantes = $user ? $user->can('verParticipantes', $curso) : false;
 
-        // El administrador (gestor) NO actúa como facilitador ni como participante.
-        // Solo ve herramientas de gestión y acceso a contenidos como revisor.
+        // El administrador (gestor) NO actúa como participante. Sí conserva las
+        // acciones de facilitador en los cursos donde es el facilitador asignado:
+        // antes se anulaban y no podía aceptar ni rechazar su propia asignación.
         $inscripcion = $datosCurso['inscripcion'];
         $esParticipante = $inscripcion !== null && (
             ($curso->estado_actual->id_estado ?? 0) === \App\Enums\EstadoCurso::INSCRIPCION->value
@@ -50,12 +54,12 @@ class CursoDetalleController extends BaseController
 
         if ($datosUsuario['esGestor']) {
             $esParticipante = false;
-            $esOperativo = false;
             $puedeInscribirse = false;
         }
 
+        $estadoId = $curso->estado_actual->id_estado ?? 0;
         $capacidades = $condicional->obtenerCapacidades(
-            $curso->estado_actual->id_estado ?? 0,
+            $estadoId,
             $esParticipante,
             $esOperativo,
             $datosUsuario['esGestor'],
@@ -63,6 +67,19 @@ class CursoDetalleController extends BaseController
             $puedeInscribirse,
             $puedeVerParticipantes
         );
+
+        // Panel por bloques: con perfiles sumados una persona puede ser a la vez
+        // coordinación y facilitador del curso; cada bloque muestra solo las
+        // acciones de ese papel (y la vista las vuelve a filtrar con la Policy).
+        $capsFacilitador = $esOperativo
+            ? $condicional->obtenerCapacidades($estadoId, false, true, false, $datosCurso['CuposDisponibles'], false, $puedeVerParticipantes)
+            : [];
+        $capsCoordinacion = $datosUsuario['esGestor']
+            ? array_values(array_diff(
+                $condicional->obtenerCapacidades($estadoId, false, false, true, $datosCurso['CuposDisponibles'], false, $puedeVerParticipantes),
+                $capsFacilitador
+            ))
+            : [];
 
         $satisfaccion = app(\Modules\Taller\Services\SatisfaccionCursoService::class);
 
@@ -73,14 +90,16 @@ class CursoDetalleController extends BaseController
 
         $facilitadores = [];
         if ($datosUsuario['esGestor']) {
-            $facilitadores = app(\App\Services\Security\Autorizacion::class)
-                ->consultaElegiblesFacilitador()
+            $autorizacion = app(\App\Services\Security\Autorizacion::class);
+            $facilitadores = $autorizacion->consultaElegiblesFacilitador()
+                // Nadie se asigna a sí mismo (conflicto de interés).
+                ->when(! $autorizacion->esRaiz(), fn ($q) => $q->whereKeyNot($user->id))
                 ->with('personalData')
                 ->get();
         }
 
         return view('taller::a.CursoDetalle', array_merge(
-            compact('curso', 'capacidades', 'puedeCancelarInscripciones', 'puedeVerParticipantes', 'contextoSatisfaccion', 'facilitadores'),
+            compact('curso', 'capacidades', 'capsCoordinacion', 'capsFacilitador', 'puedeCancelarInscripciones', 'puedeVerParticipantes', 'contextoSatisfaccion', 'facilitadores'),
             $datosUsuario,
             $datosCurso
         ));
@@ -105,6 +124,7 @@ class CursoDetalleController extends BaseController
         $aprobados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_APROBADO);
         $rechazados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_RECHAZADO);
         $denegados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_DENEGADO);
+        $retirados = $curso->inscripciones->where('estado', Inscripcion::ESTADO_RETIRADO);
 
         return view('taller::a.CursoParticipantes', compact(
             'curso',
@@ -112,7 +132,8 @@ class CursoDetalleController extends BaseController
             'postulados',
             'aprobados',
             'rechazados',
-            'denegados'
+            'denegados',
+            'retirados'
         ));
     }
 
@@ -133,7 +154,7 @@ class CursoDetalleController extends BaseController
         return [
             'user' => $user,
             'idPersona' => $idPersona,
-            'esGestor' => hasPermissionRoute('taller.cursos.index', SecurityAction::GESTIONAR_CURSO),
+            'esGestor' => gestionaTodosLosCursos(),
             'personalData' => $personalData,
         ];
     }

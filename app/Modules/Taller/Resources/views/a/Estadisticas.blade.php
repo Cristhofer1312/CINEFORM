@@ -206,11 +206,17 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const PALETTE = [
-            '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#6f42c1',
-            '#fd7e14', '#20c997', '#e83e8c', '#5a5c69', '#74b9ff', '#ff7675',
-            '#00b894', '#d63031', '#0984e3', '#e17055', '#a29bfe', '#fab1a0'
-        ];
+        // Paleta categórica de CINEFORM (DESIGN.md), validada con el skill dataviz:
+        // orden fijo, nunca se cicla; desde la 9.ª categoría se agrupa en "Otros".
+        const PALETTE = ['#1572e8', '#eb6834', '#0891b2', '#eda100', '#e87ba4', '#6861ce', '#00a3cc', '#a35a00'];
+        const COLOR_OTROS = '#94a3b8';
+        const COLOR_SERIE = '#1572e8';
+
+        if (typeof Chart !== 'undefined') {
+            Chart.defaults.font.family = "'Public Sans', sans-serif";
+            Chart.defaults.color = '#64748b';
+            Chart.defaults.borderColor = '#e2e8f0';
+        }
         const charts = {};
         const URL_DATOS = @json(route('taller.estadisticas.datos'));
 
@@ -222,18 +228,18 @@
             }
         };
 
-        function colores(n, alpha = 0.75) {
-            return Array.from({ length: n }, (_, i) => {
-                const base = PALETTE[i % PALETTE.length];
-                return alpha < 1 ? hexToRgba(base, alpha) : base;
-            });
-        }
-
-        function hexToRgba(hex, alpha) {
-            const r = parseInt(hex.slice(1, 3), 16);
-            const g = parseInt(hex.slice(3, 5), 16);
-            const b = parseInt(hex.slice(5, 7), 16);
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        // Más de 8 categorías: se conservan las 7 mayores (en su orden original)
+        // y el resto se suma en "Otros".
+        function agruparOtros(labels, values) {
+            if (labels.length <= PALETTE.length) return { labels, values, otros: false };
+            const mayores = values.map((v, i) => [Number(v), i]).sort((a, b) => b[0] - a[0])
+                .slice(0, PALETTE.length - 1).map(([, i]) => i).sort((a, b) => a - b);
+            const otros = values.reduce((s, v, i) => mayores.includes(i) ? s : s + Number(v), 0);
+            return {
+                labels: [...mayores.map(i => labels[i]), 'Otros'],
+                values: [...mayores.map(i => values[i]), otros],
+                otros: true,
+            };
         }
 
         function crearChart(id, config) {
@@ -273,13 +279,17 @@
         }
 
         function chartDona(labels, values) {
+            // Las categorías en cero no se dibujan y solo ensucian la leyenda.
+            const conDatos = labels.map((l, i) => [l, values[i]]).filter(([, v]) => Number(v) > 0);
+            const g = agruparOtros(conDatos.map(([l]) => l), conDatos.map(([, v]) => v));
+            const fondo = g.labels.map((_, i) => (g.otros && i === g.labels.length - 1) ? COLOR_OTROS : PALETTE[i]);
             return {
                 type: 'doughnut',
                 data: {
-                    labels: labels,
+                    labels: g.labels,
                     datasets: [{
-                        data: values,
-                        backgroundColor: colores(labels.length),
+                        data: g.values,
+                        backgroundColor: fondo,
                         borderWidth: 2,
                         borderColor: '#ffffff'
                     }]
@@ -288,7 +298,9 @@
             };
         }
 
-        function chartBarras(labels, values, colorBase = '#4e73df') {
+        // Una sola serie: un solo color. Colorear cada barra distinto sugiere
+        // categorías que el gráfico no codifica.
+        function chartBarras(labels, values) {
             return {
                 type: 'bar',
                 data: {
@@ -296,10 +308,9 @@
                     datasets: [{
                         label: 'Cantidad',
                         data: values,
-                        backgroundColor: colores(labels.length, 0.75),
-                        borderColor: colores(labels.length),
-                        borderWidth: 1,
-                        borderRadius: 6
+                        backgroundColor: COLOR_SERIE,
+                        borderRadius: 4,
+                        maxBarThickness: 40
                     }]
                 },
                 options: {
@@ -320,11 +331,12 @@
                     datasets: [{
                         label: 'Inscripciones',
                         data: values,
-                        borderColor: '#1cc88a',
-                        backgroundColor: 'rgba(28, 200, 138, 0.15)',
+                        borderColor: COLOR_SERIE,
+                        backgroundColor: 'rgba(21, 114, 232, 0.12)',
+                        borderWidth: 2,
                         fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#1cc88a',
+                        tension: 0.3,
+                        pointBackgroundColor: COLOR_SERIE,
                         pointRadius: 4
                     }]
                 },
@@ -345,7 +357,7 @@
                 { icon: 'fa-award', color: 'warning', label: 'Certificados Aprobados', value: kpis.certificados_aprobados, tooltip: 'Certificados otorgados tras completar satisfactoriamente los requisitos.' },
                 { icon: 'fa-hourglass-half', color: 'secondary', label: 'Certificados Pendientes', value: kpis.certificados_pendientes, tooltip: 'Participantes que finalizaron y esperan validación de certificado.' },
                 { icon: 'fa-times-circle', color: 'danger', label: 'Certificados Denegados', value: kpis.certificados_denegados, tooltip: 'Participantes que no alcanzaron los requisitos mínimos para certificar.' },
-                { icon: 'fa-chair', color: 'dark', label: 'Ocupación de Cupos', value: kpis.ocupacion_promedio + '%', tooltip: 'Porcentaje promedio de cupos cubiertos respecto al cupo total ofertado.' }
+                { icon: 'fa-percent', color: 'dark', label: 'Ocupación de Cupos', value: kpis.ocupacion_promedio + '%', tooltip: 'Porcentaje promedio de cupos cubiertos respecto al cupo total ofertado.' }
             ];
 
             row.innerHTML = cards.map(c => `
@@ -379,12 +391,12 @@
         function renderCharts(data) {
             crearChart('chart-estado', chartDona(data.porEstado.labels, data.porEstado.values));
             crearChart('chart-inscripciones', chartLinea(data.inscripcionesTiempo.labels, data.inscripcionesTiempo.values));
-            crearChart('chart-modalidad', chartBarras(data.porModalidad.labels, data.porModalidad.values, '#1cc88a'));
-            crearChart('chart-actividad', chartBarras(data.porActividad.labels, data.porActividad.values, '#f6c23e'));
-            crearChart('chart-aspecto', chartBarras(data.porAspecto.labels, data.porAspecto.values, '#e74a3b'));
-            crearChart('chart-anio', chartBarras(data.porAnio.labels, data.porAnio.values, '#6f42c1'));
-            crearChart('chart-trimestre', chartBarras(data.porTrimestre.labels, data.porTrimestre.values, '#36b9cc'));
-            crearChart('chart-geografia', chartBarras(data.geografia.labels, data.geografia.values, '#20c997'));
+            crearChart('chart-modalidad', chartBarras(data.porModalidad.labels, data.porModalidad.values));
+            crearChart('chart-actividad', chartBarras(data.porActividad.labels, data.porActividad.values));
+            crearChart('chart-aspecto', chartBarras(data.porAspecto.labels, data.porAspecto.values));
+            crearChart('chart-anio', chartBarras(data.porAnio.labels, data.porAnio.values));
+            crearChart('chart-trimestre', chartBarras(data.porTrimestre.labels, data.porTrimestre.values));
+            crearChart('chart-geografia', chartBarras(data.geografia.labels, data.geografia.values));
         }
 
         function aplicarFiltros() {

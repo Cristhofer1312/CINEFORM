@@ -87,7 +87,8 @@
                                                 <small class="text-muted d-block fw-semibold" style="font-size: 0.72rem;">Sin foto seleccionada</small>
                                             </div>
                                             <img id="foto-preview" src="{{ $fotoUrl ?? '' }}" alt="Vista previa"
-                                                 onerror="ocultarPreviewFotoError();"
+                                                 {{-- Inline: el error de carga puede ocurrir antes de que se defina ocultarPreviewFotoError() más abajo. --}}
+                                                 onerror="this.classList.add('d-none'); document.getElementById('foto-placeholder')?.classList.remove('d-none'); document.getElementById('btn-quitar-foto')?.classList.add('d-none');"
                                                  class="w-100 h-100 position-absolute top-0 start-0 {{ !empty($fotoUrl) ? '' : 'd-none' }}"
                                                  style="object-fit: cover;">
                                         </div>

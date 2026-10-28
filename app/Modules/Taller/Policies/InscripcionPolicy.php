@@ -61,7 +61,7 @@ class InscripcionPolicy
     public function cancelar(User $user, Inscripcion $inscripcion): bool
     {
         return $this->esDuenio($user, $inscripcion)
-            || ($this->esGestor($user) && $this->autorizacion()->puede('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION, $user));
+            || ($this->supervisaCursos($user) && $this->autorizacion()->puede('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION, $user));
     }
 
     /**
@@ -88,10 +88,9 @@ class InscripcionPolicy
      */
     public function rehabilitar(User $user, Inscripcion $inscripcion): bool
     {
-        return $this->esGestor($user) && (
-            $this->autorizacion()->puede('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION, $user)
-            || $this->autorizacion()->puede('taller.cursos.index', SecurityAction::GESTIONAR_CURSO, $user)
-        );
+        // D7: CANCELAR_INSCRIPCION con alcance global; GESTIONAR_CURSO ya no hace de comodín.
+        return $this->supervisaCursos($user)
+            && $this->autorizacion()->puede('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION, $user);
     }
 
     /**

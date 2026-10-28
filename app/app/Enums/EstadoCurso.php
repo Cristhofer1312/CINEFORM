@@ -63,7 +63,8 @@ enum EstadoCurso: int
         return match ($this) {
             self::POR_ACEPTAR => [self::POR_ACEPTAR, self::RECHAZADO, self::DECLINADO, self::EDICION, self::BORRADOR],
             self::RECHAZADO   => [self::POR_ACEPTAR, self::BORRADOR],
-            self::DECLINADO   => [self::POR_ACEPTAR, self::EDICION, self::BORRADOR],
+            // DECLINADO → APROBACION: el facilitador corrige lo observado y reenvía a revisión.
+            self::DECLINADO   => [self::POR_ACEPTAR, self::EDICION, self::APROBACION, self::BORRADOR],
             self::EDICION     => [self::POR_ACEPTAR, self::APROBACION, self::EDICION, self::BORRADOR],
             self::APROBACION  => [self::POR_ACEPTAR, self::INSCRIPCION, self::EDICION, self::RECHAZADO, self::DECLINADO, self::BORRADOR],
             self::INSCRIPCION => [self::EN_CURSO, self::INSCRIPCION],

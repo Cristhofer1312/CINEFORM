@@ -163,7 +163,7 @@
                                             <i class="fas fa-map-marker-alt me-2 text-primary"></i> ESTADOS / LOCALIDADES PERMITIDAS
                                         </h6>
                                         <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-xs btn-white border shadow-xs rounded-pill px-3 py-1" onclick="TallerModule.selectAllLocalidades(false)" style="font-size: 0.7rem;">
+                                            <button type="button" class="btn btn-xs btn-white border shadow-xs rounded-pill px-3 py-1" onclick="TallerModule.selectAllLocalidades(false)" style="font-size: 0.75rem;">
                                                 <i class="fas fa-times me-1 text-danger"></i> NINGUNO
                                             </button>
                                         </div>

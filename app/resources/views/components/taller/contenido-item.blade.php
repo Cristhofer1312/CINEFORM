@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <div class="row g-3 evaluacion-fields bg-primary rounded-3 p-3 mb-3" style="{{ $esEvaluacion ? 'display:flex;' : 'display:none;' }} background-color: #0d6efd !important;">
+            <div class="row g-3 evaluacion-fields bg-primary rounded-3 p-3 mb-3" style="{{ $esEvaluacion ? 'display:flex;' : 'display:none;' }} background-color: var(--cf-blue) !important;">
                 <div class="col-md-7">
                     <label class="small text-white fw-bold mb-1">METODOLOGÍA</label>
                     <select name="contenidos[{{ $index }}][id_tipo_evaluacion]" class="form-select border-0 shadow-sm">
@@ -65,7 +65,7 @@
                  SECCIÓN: FECHA Y HORA DE CLASE (agrupadas)
                  Se ocultan las horas cuando es evaluación (solo fecha de entrega)
                  ══════════════════════════════════════════════════════════════ --}}
-            <div class="rounded-3 p-3 mb-3" style="background-color: #f1f5f9 !important;">
+            <div class="rounded-3 p-3 mb-3" style="background-color: var(--cf-app-bg) !important;">
                 <div class="row mb-2">
                     <div class="col-md-4 text-muted fw-bold small text-uppercase">
                         FECHA Y HORA DE CLASE
@@ -110,7 +110,7 @@
                 </div>
             </div>
 
-            <div class="material-fields row g-3 rounded-3 p-3 mb-3" style="{{ $hasMaterial ? 'display:flex;' : 'display:none;' }} background-color: #4f46e5 !important;">
+            <div class="material-fields row g-3 rounded-3 p-3 mb-3" style="{{ $hasMaterial ? 'display:flex;' : 'display:none;' }} background-color: #6861ce !important;">
                 <div class="col-12 text-white fw-bold small uppercase d-flex align-items-center mb-1">
                     <i class="fas fa-paperclip me-2"></i> Material de Apoyo
                 </div>

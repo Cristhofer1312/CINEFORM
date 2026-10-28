@@ -56,14 +56,20 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link fw-bold" id="rechazados-tab" data-bs-toggle="tab" href="#rechazados" role="tab">
-                                <i class="fas fa-exclamation-circle me-2"></i> Rechazados
+                                <i class="fas fa-exclamation-circle me-2"></i> Por subsanar
                                 <span class="badge bg-warning ms-1">{{ $rechazados->count() }}</span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link fw-bold" id="denegados-tab" data-bs-toggle="tab" href="#denegados" role="tab">
-                                <i class="fas fa-times-circle me-2"></i> Denegados
+                                <i class="fas fa-times-circle me-2"></i> Rechazados definitivamente
                                 <span class="badge bg-danger ms-1">{{ $denegados->count() }}</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link fw-bold" id="retirados-tab" data-bs-toggle="tab" href="#retirados" role="tab">
+                                <i class="fas fa-user-minus me-2"></i> Retirados
+                                <span class="badge bg-secondary ms-1">{{ $retirados->count() }}</span>
                             </a>
                         </li>
                     </ul>
@@ -79,7 +85,7 @@
                             @include('taller::a.partials.participantes.lista', ['items' => $aprobados, 'tipo' => 'aprobado'])
                         </div>
 
-                        {{-- Tab Rechazados --}}
+                        {{-- Tab Por subsanar --}}
                         <div class="tab-pane fade" id="rechazados" role="tabpanel">
                             @include('taller::a.partials.participantes.lista', ['items' => $rechazados, 'tipo' => 'rechazado'])
                         </div>
@@ -87,6 +93,11 @@
                         {{-- Tab Denegados --}}
                         <div class="tab-pane fade" id="denegados" role="tabpanel">
                             @include('taller::a.partials.participantes.lista', ['items' => $denegados, 'tipo' => 'denegado'])
+                        </div>
+
+                        {{-- Tab Retirados (D6) --}}
+                        <div class="tab-pane fade" id="retirados" role="tabpanel">
+                            @include('taller::a.partials.participantes.lista', ['items' => $retirados, 'tipo' => 'retirado'])
                         </div>
                     </div>
                 </div>
@@ -97,21 +108,17 @@
 
 @push('styles')
 <style>
-    .shadow-card { box-shadow: 0 10px 40px rgba(0,0,0,0.06); }
-    .shadow-xs { box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
-    .hvr-push { transition: transform 0.2s; }
-    .hvr-push:active { transform: scale(0.97); }
     
     .nav-line.nav-tabs .nav-link {
         border: none;
         border-bottom: 3px solid transparent;
-        color: #6b7280;
+        color: var(--cf-muted);
         padding: 1rem 1.5rem;
     }
     .nav-line.nav-tabs .nav-link.active {
         background: transparent;
-        border-bottom-color: #3b82f6;
-        color: #3b82f6;
+        border-bottom-color: var(--cf-blue);
+        color: var(--cf-blue);
     }
 
     .scrollable-tabs {

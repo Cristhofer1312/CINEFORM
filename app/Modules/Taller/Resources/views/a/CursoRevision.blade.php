@@ -202,7 +202,7 @@
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonColor: '#1e3a8a',
-                    cancelButtonColor: '#6c757d',
+                    cancelButtonColor: '#64748b',
                     confirmButtonText: '<i class="fas fa-rocket me-1"></i> Sí, crear curso',
                     cancelButtonText: 'Revisar más'
                 }).then((result) => {

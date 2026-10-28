@@ -239,7 +239,7 @@
                                             <i class="fas fa-times-circle me-1"></i> Exceso de carga
                                         </div>
                                     </div>
-                                    <button type="submit" id="btn-save-curso" class="btn btn-primary px-5 py-3 rounded-pill fw-bold shadow-lg" style="background: #1e3a8a;">
+                                    <button type="submit" id="btn-save-curso" class="btn btn-primary px-5 py-3 rounded-pill fw-bold shadow-lg" style="background: var(--cf-navy);">
                                         <i class="fas fa-save me-2 text-white"></i> Guardar Cambios
                                     </button>
                                 </div>

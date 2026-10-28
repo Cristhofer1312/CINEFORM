@@ -5,7 +5,7 @@
         <!-- Header Section -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="card bg-white border-0 shadow-card overflow-hidden" style="border-radius: 1rem;">
+                <div class="card bg-white border-0 shadow-card overflow-hidden">
                     <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
                         <div>
                             <div class="d-flex align-items-center mb-1">
@@ -24,7 +24,7 @@
                                 <i class="fas fa-arrow-left me-2"></i> Volver al contenido
                             </a>
                             <a href="{{ route('taller.cursos.show', $curso->id_curso) }}"
-                                class="btn btn-outline-light text-dark border-0 bg-gray-100 hover-lift" style="background-color: #f8fafc;">
+                                class="btn btn-outline-light text-dark border-0 bg-gray-100 hover-lift" style="background-color: var(--cf-surface-subtle);">
                                 <i class="fas fa-arrow-left me-2"></i> Volver al curso
                             </a>
                         </div>
@@ -47,11 +47,18 @@
                                             <a href="{{ route('taller.calificaciones.index', ['curso' => $curso->id_curso, 'contenido' => $contenido->crypt_id]) }}" 
                                                class="btn btn-link text-muted px-3 border-0 shadow-none"><i class="fas fa-times-circle"></i></a>
                                         @endif
-                                        <button type="submit" class="btn btn-primary px-4 rounded-pill m-1 fw-bold shadow-sm" style="background-color: #1e3a8a;">Buscar</button>
+                                        <button type="submit" class="btn btn-primary px-4 rounded-pill m-1 fw-bold shadow-sm" style="background-color: var(--cf-navy);">Buscar</button>
                                     </div>
                                 </form>
                             </div>
                         </div>
+
+                @if($soloLectura)
+                    <div class="alert alert-secondary d-flex align-items-center mt-4 mb-0" role="status">
+                        <i class="fas fa-lock me-2"></i>
+                        El curso está Cerrado: las calificaciones se pueden consultar, pero ya no se pueden modificar.
+                    </div>
+                @endif
 
                 <form action="{{ route('taller.calificaciones.store', ['curso' => $curso->id_curso, 'contenido' => $contenido->crypt_id]) }}" method="POST">
                     @csrf
@@ -78,7 +85,7 @@
                                         name="calificaciones[{{ $estudiante->id_persona }}][nota]" 
                                         class="form-control text-center py-2 fw-bold border bg-light shadow-none zen-input-grade @error("calificaciones.{$estudiante->id_persona}.nota") is-invalid @enderror"
                                         value="{{ old("calificaciones.{$estudiante->id_persona}.nota", $estudiante->calificacion) }}" min="0" max="100" step="0.01" placeholder="--"
-                                        style="font-size: 1.1rem; border-radius: 8px;">
+                                        style="font-size: 1.1rem; border-radius: 8px;" @disabled($soloLectura)>
                                     @error("calificaciones.{$estudiante->id_persona}.nota")
                                         <div class="invalid-feedback d-block small">{{ $message }}</div>
                                     @enderror
@@ -91,7 +98,7 @@
                                         class="form-control border-0 border-bottom bg-transparent rounded-0 shadow-none ps-lg-4 py-2 zen-input-feedback @error("calificaciones.{$estudiante->id_persona}.observacion") is-invalid @enderror"
                                         value="{{ old("calificaciones.{$estudiante->id_persona}.observacion", $estudiante->observacion) }}"
                                         placeholder="Escribir feedback opcional..."
-                                        style="font-size: 0.95rem;">
+                                        style="font-size: 0.95rem;" @disabled($soloLectura)>
                                     @error("calificaciones.{$estudiante->id_persona}.observacion")
                                         <div class="invalid-feedback d-block small">{{ $message }}</div>
                                     @enderror
@@ -106,7 +113,7 @@
                     @endforelse
                 </div>
 
-                @if(count($estudiantes) > 0)
+                @if(count($estudiantes) > 0 && ! $soloLectura)
                     <div class="py-5 text-end">
                         <button type="submit" class="btn btn-dark btn-lg rounded-3 px-5 py-3 fw-bold border-0 shadow-sm" style="background-color: #1e293b;">
                             <i class="fas fa-save me-2"></i> Guardar Calificaciones
@@ -121,10 +128,10 @@
 
 @push('styles')
         <style>
-            .calificar-container .card { border-radius: 16px; border: 1px solid #eef2f6; }
+            .calificar-container .card { border-radius: var(--cf-radius-card); border: 1px solid #eef2f6; }
             
             .search-box-focus:focus-within {
-                border-color: #1e3a8a !important;
+                border-color: var(--cf-navy) !important;
                 background-color: #fff !important;
                 box-shadow: 0 4px 12px rgba(30, 58, 138, 0.08);
             }
@@ -143,7 +150,7 @@
             }
 
             .grade-input-container:focus-within {
-                border-color: #1e3a8a;
+                border-color: var(--cf-navy);
                 background-color: #fff !important;
                 box-shadow: 0 4px 12px rgba(30, 58, 138, 0.08);
             }
@@ -154,7 +161,7 @@
             }
 
             .feedback-box-minimal:focus-within {
-                border-color: #1e3a8a;
+                border-color: var(--cf-navy);
                 background-color: #fff !important;
                 box-shadow: 0 4px 12px rgba(30, 58, 138, 0.05);
             }
@@ -175,22 +182,22 @@
                 font-weight: bold;
             }
 
-            .zen-row:hover { background-color: #f8fafc; }
-            .zen-row { border-bottom: 1px solid #f1f5f9; }
+            .zen-row:hover { background-color: var(--cf-surface-subtle); }
+            .zen-row { border-bottom: 1px solid var(--cf-app-bg); }
 
             .zen-input-grade:focus {
                 background-color: #fff !important;
                 border-color: #1e293b !important;
-                color: #0f172a !important;
+                color: var(--cf-ink) !important;
             }
 
             .zen-input-feedback:focus {
                 border-bottom-color: #1e293b !important;
-                color: #0f172a !important;
+                color: var(--cf-ink) !important;
             }
 
             .badge-minimal {
-                background-color: #f1f5f9;
+                background-color: var(--cf-app-bg);
                 color: #475569;
                 font-weight: 600;
             }

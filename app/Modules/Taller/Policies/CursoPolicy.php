@@ -21,7 +21,7 @@ class CursoPolicy
      */
     public function verContenido(User $user, Curso $curso): bool
     {
-        if ($this->esGestor($user)) {
+        if ($this->supervisaCursos($user)) {
             return true;
         }
 
@@ -68,7 +68,27 @@ class CursoPolicy
      */
     public function aprobar(User $user, Curso $curso): bool
     {
-        return $this->autorizacion()->puede('taller.cursos.index', SecurityAction::APROBAR_CURSO, $user);
+        // Conflicto de interés: nadie aprueba su propia propuesta.
+        return $this->autorizacion()->puede('taller.cursos.index', SecurityAction::APROBAR_CURSO, $user)
+            && ! $this->esFacilitadorDe($user, $curso);
+    }
+
+    /**
+     * Revisión de coordinación sobre un curso: gestión global y sin conflicto de
+     * interés (quien es el facilitador asignado no revisa ni reasigna su curso).
+     */
+    public function revisarComoCoordinacion(User $user, Curso $curso): bool
+    {
+        return $this->esGestor($user) && ! $this->esFacilitadorDe($user, $curso);
+    }
+
+    /**
+     * Gestión de coordinación que no decide sobre el propio trabajo (datos del
+     * curso, foto, público objetivo): basta con ser gestor.
+     */
+    public function gestionar(User $user, Curso $curso): bool
+    {
+        return $this->esGestor($user);
     }
 
     /**
@@ -90,7 +110,7 @@ class CursoPolicy
                 return $this->responderAsignacion($user, $curso);
             }
             if ($origen === \App\Enums\EstadoCurso::APROBACION->value) {
-                return $this->esGestor($user);
+                return $this->revisarComoCoordinacion($user, $curso);
             }
 
             return $this->esGestor($user) || ($this->esFacilitador($user) && $this->esFacilitadorDe($user, $curso));
@@ -99,7 +119,7 @@ class CursoPolicy
         // 2. Destino DECLINADO (3)
         if ($destino === \App\Enums\EstadoCurso::DECLINADO->value) {
             if ($origen === \App\Enums\EstadoCurso::APROBACION->value) {
-                return $this->esGestor($user);
+                return $this->revisarComoCoordinacion($user, $curso);
             }
 
             if ($origen === \App\Enums\EstadoCurso::POR_ACEPTAR->value) {
@@ -123,7 +143,7 @@ class CursoPolicy
 
         // 5. Destino RECHAZADO (2)
         if ($destino === \App\Enums\EstadoCurso::RECHAZADO->value) {
-            if ($this->esGestor($user)) {
+            if ($this->revisarComoCoordinacion($user, $curso)) {
                 return true;
             }
 
@@ -141,11 +161,12 @@ class CursoPolicy
     }
 
     /**
-     * Reasignar facilitador a un curso. Exclusivo de Gestores.
+     * Reasignar facilitador a un curso. Exclusivo de Gestores que no son el
+     * facilitador asignado: nadie reasigna su propio curso.
      */
     public function reasignarFacilitador(User $user, Curso $curso): bool
     {
-        return $this->esGestor($user);
+        return $this->revisarComoCoordinacion($user, $curso);
     }
 
     /**
@@ -158,14 +179,12 @@ class CursoPolicy
 
     /**
      * Ver listado de participantes postulados/inscritos.
-     * Requiere permiso VER_PARTICIPANTES (o GESTIONAR_CURSO) y ser Gestor o el Facilitador asignado al curso.
+     * Requiere VER_PARTICIPANTES y alcance sobre el curso (D7: sin GESTIONAR_CURSO como comodín).
      */
     public function verParticipantes(User $user, Curso $curso): bool
     {
-        $puedeVer = $this->autorizacion()->puede('taller.cursos.index', SecurityAction::VER_PARTICIPANTES, $user)
-            || $this->autorizacion()->puede('taller.cursos.index', SecurityAction::GESTIONAR_CURSO, $user);
-
-        return $puedeVer && ($this->esGestor($user) || $this->esFacilitadorDe($user, $curso));
+        return $this->autorizacion()->puede('taller.cursos.index', SecurityAction::VER_PARTICIPANTES, $user)
+            && $this->alcanzaCurso($user, $curso);
     }
 
     /**
@@ -180,26 +199,22 @@ class CursoPolicy
 
     /**
      * Gestión de asistencias (generar token QR, marcar manual, anular, restaurar).
-     * Requiere GESTIONAR_ASISTENCIA (o GESTIONAR_CURSO) y pertenencia.
+     * Requiere GESTIONAR_ASISTENCIA y alcance sobre el curso (D7).
      */
     public function gestionarAsistencia(User $user, Curso $curso): bool
     {
-        $tienePermiso = $this->autorizacion()->puede('taller.cursos.index', SecurityAction::GESTIONAR_ASISTENCIA, $user)
-            || $this->autorizacion()->puede('taller.cursos.index', SecurityAction::GESTIONAR_CURSO, $user);
-
-        return $tienePermiso && ($this->esGestor($user) || $this->esFacilitadorDe($user, $curso));
+        return $this->autorizacion()->puede('taller.cursos.index', SecurityAction::GESTIONAR_ASISTENCIA, $user)
+            && $this->alcanzaCurso($user, $curso);
     }
 
     /**
      * Aprobar o denegar emisión de certificados a participantes.
-     * Requiere GESTIONAR_ASISTENCIA (o GESTIONAR_CURSO) y pertenencia.
+     * Requiere GESTIONAR_ASISTENCIA y alcance sobre el curso (D7).
      */
     public function certificar(User $user, Curso $curso): bool
     {
-        $tienePermiso = $this->autorizacion()->puede('taller.cursos.index', SecurityAction::GESTIONAR_ASISTENCIA, $user)
-            || $this->autorizacion()->puede('taller.cursos.index', SecurityAction::GESTIONAR_CURSO, $user);
-
-        return $tienePermiso && ($this->esGestor($user) || $this->esFacilitadorDe($user, $curso));
+        return $this->autorizacion()->puede('taller.cursos.index', SecurityAction::GESTIONAR_ASISTENCIA, $user)
+            && $this->alcanzaCurso($user, $curso);
     }
 
     /**
@@ -208,6 +223,17 @@ class CursoPolicy
      */
     public function verSatisfaccion(User $user, Curso $curso): bool
     {
-        return $this->esGestor($user) || ($this->esFacilitador($user) && $this->esFacilitadorDe($user, $curso));
+        return $this->supervisaCursos($user) || ($this->esFacilitador($user) && $this->esFacilitadorDe($user, $curso));
+    }
+
+    /**
+     * Descargar el reporte de satisfacción (D2): quien puede consultar los
+     * resultados del curso y además tiene REPORTE_SATISFACCION. El facilitador
+     * solo consulta.
+     */
+    public function reporteSatisfaccion(User $user, Curso $curso): bool
+    {
+        return $this->verSatisfaccion($user, $curso)
+            && $this->autorizacion()->puede('taller.cursos.index', SecurityAction::REPORTE_SATISFACCION, $user);
     }
 }

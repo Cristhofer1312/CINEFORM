@@ -51,7 +51,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                                 {{ $contenido->titulo }}
                                             </span>
                                             @if($contenido->es_evaluacion)
-                                                <span class="badge bg-warning text-dark ms-2 shadow-xs" style="font-size: 0.7rem; padding: 0.35em 0.65em;">
+                                                <span class="badge bg-warning text-dark ms-2 shadow-xs" style="font-size: 0.75rem; padding: 0.35em 0.65em;">
                                                     {{ $contenido->ponderacion ?? '0' }}%
                                                 </span>
                                             @endif
@@ -129,7 +129,8 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                     if (isset($esFacilitador) && $esFacilitador) {
                                         $btnClass = 'btn-primary text-white';
                                         $btnIcon = 'fa-check-double';
-                                        $btnText = 'Calificar ' . $tipoNombre;
+                                        $notasCerradas = (int) ($curso->estado_actual->id_estado ?? 0) === \App\Enums\EstadoCurso::CERRADO->value;
+                                        $btnText = ($notasCerradas ? 'Ver calificaciones de ' : 'Calificar ') . $tipoNombre;
                                         $url = route('taller.calificaciones.index', ['curso' => $curso->crypt_id, 'contenido' => $contenidoActual->crypt_id]);
                                         $showBtn = true; // Siempre mostrar para facilitador evaluando
                                     } else {
@@ -150,13 +151,13 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                 <div class="col-md-8">
 
                                     <div class="d-flex flex-wrap gap-3">
-                                        <div class="px-4 py-2 bg-light border rounded-3 d-flex align-items-center shadow-sm" style="background: linear-gradient(to bottom, #f8f9fa, #e9ecef);">
+                                        <div class="px-4 py-2 bg-light border rounded-3 d-flex align-items-center shadow-sm" style="background: linear-gradient(to bottom, var(--cf-surface-subtle), var(--cf-border));">
                                             <i class="fas fa-tag text-dark me-2"></i>
                                             <span class="fw-bold text-dark">{{ ucfirst($tipo) }}</span>
                                         </div>
 
                                         @if($contenidoActual->fecha_contenido)
-                                        <div class="px-4 py-2 bg-light border rounded-3 d-flex align-items-center shadow-sm" style="background: linear-gradient(to bottom, #f8f9fa, #e9ecef);">
+                                        <div class="px-4 py-2 bg-light border rounded-3 d-flex align-items-center shadow-sm" style="background: linear-gradient(to bottom, var(--cf-surface-subtle), var(--cf-border));">
                                             <i class="far fa-clock text-dark me-2"></i>
                                             <span class="fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.2;">
                                                 {{ $contenidoActual->fecha_contenido->format('d/m/Y') }}
@@ -172,7 +173,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                                 <span class="fw-bold text-white">Ponderación: {{ $contenidoActual->ponderacion ?? '0' }}%</span>
                                             </div>
                                         @else
-                                            <div class="px-4 py-2 text-white border-0 rounded-3 d-flex align-items-center shadow-sm" style="background-color: #3b82f6;">
+                                            <div class="px-4 py-2 text-white border-0 rounded-3 d-flex align-items-center shadow-sm" style="background-color: var(--cf-blue);">
                                                 <i class="fas fa-times me-2"></i>
                                                 <span class="fw-bold">Material didáctico</span>
                                             </div>
@@ -183,13 +184,13 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                 <div class="col-md-4 d-flex flex-column gap-2 align-items-md-end align-items-start mt-3 mt-md-0">
                                     @can('gestionarAsistencia', $curso)
                                         @if($contenidoActual && !$contenidoActual->es_evaluacion)
-                                            <a href="{{ route('taller.asistencia.consolidado', $curso->crypt_id) }}" class="btn btn-info text-white rounded-pill shadow-sm fw-bold px-4 py-2 btn-action" style="background-color: #5bb4f3; border-color: #5bb4f3;">
+                                            <a href="{{ route('taller.asistencia.consolidado', $curso->crypt_id) }}" class="btn btn-info text-white rounded-pill shadow-sm fw-bold px-4 py-2 btn-action" style="background-color: var(--cf-cyan-ink); border-color: var(--cf-cyan-ink);">
                                                 <i class="fas fa-user me-2"></i> Ver Asistencia
                                             </a>
                                         @endif
                                     @endcan
                                     @if($showBtn)
-                                        <a href="{{ $url }}" class="btn {{ $btnClass }} text-white rounded-pill shadow-sm fw-bold px-4 py-2 btn-action" style="border-color: #d9534f;">
+                                        <a href="{{ $url }}" class="btn {{ $btnClass }} text-white rounded-pill shadow-sm fw-bold px-4 py-2 btn-action" style="border-color: var(--cf-danger);">
                                             <i class="fas {{ $btnIcon }} me-2"></i> {{ $btnText }}
                                         </a>
                                     @endif
@@ -229,9 +230,9 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                             @endif
 
                             <!-- Descripción y Detalles -->
-                            <div class="card border-0 rounded-4 mt-4 mb-2 shadow-sm" style="background-color: #f8f9fa;">
+                            <div class="card border-0 rounded-4 mt-4 mb-2 shadow-sm" style="background-color: var(--cf-surface-subtle);">
                                 <div class="card-body p-4">
-                                    <h5 class="fw-bold mb-3 d-flex align-items-center" style="color: #3b82f6;">
+                                    <h5 class="fw-bold mb-3 d-flex align-items-center" style="color: var(--cf-blue);">
                                         <i class="fas fa-info-circle me-2"></i> Descripción
                                     </h5>
                                     <div class="text-dark" style="font-size: 1rem; line-height: 1.7;">
@@ -259,7 +260,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
     @push('styles')
         <style>
             .card {
-                border-radius: 20px;
+                border-radius: var(--cf-radius-card);
                 border: none;
                 transition: all 0.3s ease;
             }
@@ -277,7 +278,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
             }
 
             .list-group-item .text-dark {
-                color: #212529 !important;
+                color: var(--cf-ink) !important;
             }
 
             .active-lesson-shadow {

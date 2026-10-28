@@ -3,6 +3,7 @@
 namespace Modules\Taller\Http\Controllers;
 
 use App\Enums\EstadoCurso;
+use App\Services\Security\Auditoria;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +50,10 @@ class InscripcionController extends BaseController
             if ($inscripcionExistente->esDenegado()) {
                 return redirect()->route('taller.cursos.show', $curso->id_curso)
                     ->with('error', 'Tu postulación a este curso fue denegada de forma definitiva.');
+            }
+            if ($inscripcionExistente->esRetirado()) {
+                return redirect()->route('taller.cursos.show', $curso->id_curso)
+                    ->with('error', 'Fuiste retirado de este curso por la coordinación.');
             }
             // Si $inscripcionExistente->esRechazado(), se le permite continuar a la vista para corregir postulación (UX-11).
         }
@@ -275,9 +280,10 @@ class InscripcionController extends BaseController
                 'motivo' => 'required|string|max:500',
             ]);
 
-            // En lugar de eliminar, marcamos como denegada (no corregible)
+            // En lugar de eliminar, se marca como retirada (D6): no corregible por
+            // el participante, pero revertible por quien gestiona.
             $inscripcion->update([
-                'estado' => Inscripcion::ESTADO_DENEGADO,
+                'estado' => Inscripcion::ESTADO_RETIRADO,
                 'rechazada_por' => $user->id,
                 'fecha_rechazo' => Carbon::now(),
                 'motivo_estado' => $data['motivo'],
@@ -285,7 +291,7 @@ class InscripcionController extends BaseController
 
             return response()->json([
                 'success' => true,
-                'message' => "La inscripción de {$nombreParticipante} ha sido rechazada/retirada.",
+                'message' => "La inscripción de {$nombreParticipante} ha sido retirada.",
                 'cupos_restantes' => $curso->cantidad_cupos !== null
                     ? max(0, (int) $curso->cantidad_cupos - Inscripcion::activas()->where('id_curso', $curso->id_curso)->count())
                     : null,
@@ -437,10 +443,12 @@ class InscripcionController extends BaseController
             ], 400);
         }
 
-        if ($inscripcion->esDenegado()) {
+        // Pasar a "rechazado" dejaría al participante volver a postularse: una
+        // denegación o un retiro solo se deshace con la acción de revertir.
+        if ($inscripcion->esRevertible()) {
             return response()->json([
                 'success' => false,
-                'message' => 'La postulación está denegada.',
+                'message' => 'La postulación está denegada o retirada; use la acción de revertir.',
             ], 400);
         }
 
@@ -453,7 +461,7 @@ class InscripcionController extends BaseController
 
         return response()->json([
             'success' => true,
-            'message' => 'Postulación rechazada para corrección.',
+            'message' => 'Postulación enviada a subsanar.',
         ]);
     }
 
@@ -476,6 +484,13 @@ class InscripcionController extends BaseController
             ], 400);
         }
 
+        if ($inscripcion->esRetirado()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La inscripción fue retirada; use la acción de revertir.',
+            ], 400);
+        }
+
         $inscripcion->update([
             'estado' => Inscripcion::ESTADO_DENEGADO,
             'motivo_estado' => $data['motivo'],
@@ -485,7 +500,82 @@ class InscripcionController extends BaseController
 
         return response()->json([
             'success' => true,
-            'message' => 'Postulación denegada definitivamente.',
+            'message' => 'Postulación rechazada definitivamente.',
+        ]);
+    }
+
+    /**
+     * Revierte una denegación o un retiro (D6).
+     *
+     * - Denegada en revisión → vuelve a "postulado" para revisarla de nuevo.
+     *   La puede revertir quien gestiona postulaciones del curso.
+     * - Retirada durante el curso → vuelve a "aprobado" si hay cupo.
+     *   La puede revertir quien puede retirar participantes.
+     */
+    public function revertir(Request $request, $id)
+    {
+        $inscripcion = $this->findInscripcionOperativa($id);
+
+        // Se autoriza antes de mirar el estado para no revelarlo a quien no gestiona.
+        $this->authorize($inscripcion->esRetirado() ? 'rehabilitar' : 'gestionar', $inscripcion);
+
+        if (! $inscripcion->esRevertible()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Solo se puede revertir una postulación denegada o una inscripción retirada.',
+            ], 400);
+        }
+
+        $data = $request->validate([
+            'motivo' => 'required|string|max:500',
+        ]);
+
+        $curso = $inscripcion->curso;
+        $estadoCurso = (int) ($curso->estado_actual->id_estado ?? 0);
+        if (! in_array($estadoCurso, [EstadoCurso::INSCRIPCION->value, EstadoCurso::EN_CURSO->value], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Solo se puede revertir mientras el curso está en Inscripción o En Curso.',
+            ], 400);
+        }
+
+        $destino = $inscripcion->esRetirado() ? Inscripcion::ESTADO_APROBADO : Inscripcion::ESTADO_POSTULADO;
+
+        if ($destino === Inscripcion::ESTADO_APROBADO) {
+            $inscritos = Inscripcion::activas()->where('id_curso', $curso->id_curso)->count();
+            if ($curso->cantidad_cupos !== null && $inscritos >= (int) $curso->cantidad_cupos) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No hay cupos disponibles para reincorporar al participante.',
+                ], 409);
+            }
+        }
+
+        $antes = $inscripcion->only(['estado', 'motivo_estado', 'rechazada_por', 'fecha_rechazo']);
+
+        DB::transaction(function () use ($inscripcion, $destino, $antes, $data) {
+            $inscripcion->update([
+                'estado' => $destino,
+                'motivo_estado' => null,
+                'rechazada_por' => null,
+                'fecha_rechazo' => null,
+            ]);
+
+            app(Auditoria::class)->registrar(
+                'inscripcion.revertir',
+                'taller.inscripciones',
+                $inscripcion->id_inscripcion,
+                $antes,
+                ['estado' => $destino],
+                $data['motivo']
+            );
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => $destino === Inscripcion::ESTADO_APROBADO
+                ? 'Retiro revertido: el participante vuelve a estar inscrito.'
+                : 'Rechazo definitivo revertido: la postulación vuelve a revisión.',
         ]);
     }
 
@@ -507,7 +597,8 @@ class InscripcionController extends BaseController
 
         $this->authorize('verDocumento', $inscripcion);
 
-        return \Illuminate\Support\Facades\Storage::disk('public')->download($respuesta->ruta_archivo);
+        // inline: el visor lo carga en un iframe; con download() el navegador lo descargaba.
+        return \Illuminate\Support\Facades\Storage::disk('public')->response($respuesta->ruta_archivo);
     }
 
     /**
