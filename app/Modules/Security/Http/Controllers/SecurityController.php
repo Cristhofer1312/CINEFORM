@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Modules\Security\Entities\User;
@@ -23,9 +24,16 @@ use Response;
 
 class SecurityController extends Controller
 {
-    private $NAC_VENEZOLANA = 1;
+    /** Intentos fallidos de login por cuenta y desde la misma IP antes de pausarla. */
+    private const INTENTOS_LOGIN = 5;
 
-    private $PROFILE_TRAMITES = 3;
+    /** Intentos fallidos desde una IP, sumando todas las cuentas que pruebe. */
+    private const INTENTOS_LOGIN_IP = 20;
+
+    private const BLOQUEO_LOGIN_SEGUNDOS = 900;
+
+    /** Hash bcrypt válido de una cadena aleatoria, para igualar el tiempo de respuesta. */
+    private const HASH_RELLENO = '$2y$12$Q5Z8w1c9m3K7r2T6v0X4yOeQh9yJ3pL1sN5bD7fG2kH4jM6nP8qRu';
 
     private function storeAvatar($imagenCodificada)
     {
@@ -285,113 +293,21 @@ class SecurityController extends Controller
         return $response;
     }
 
-    private function generateCode()
+    /**
+     * Compara el captcha y lo consume: cada imagen sirve para un solo intento.
+     * Si siguiera en sesión, un captcha resuelto una vez permitiría probar
+     * contraseñas sin volver a resolverlo.
+     */
+    private function captchaValido(Request $request): bool
     {
-        return str_pad(mt_rand(100000, 999999), 6, '0', STR_PAD_LEFT);
+        $esperado = (string) session()->pull('SET_CAPTCHA', '');
+
+        return $esperado !== '' && hash_equals(Lower($esperado), Lower((string) $request->captcha));
     }
 
-    public function register(Request $request)
+    private function generateCode()
     {
-        /*
-          if (\Request::ajax()) {
-          exit;
-          }
-         */
-        if (\Request::isMethod('get')) {
-            return view('security::users.register');
-        } else {
-
-            if (\Request::isMethod('put')) {
-
-                $generateCode = $this->generateCode();
-                $user = User::where('email', Lower($request->email))->first();
-                if ($user == null) {
-                    $code = \Modules\Security\Entities\Codes::where('email', strtolower($request->email))->first();
-                    if ($code != null) {
-
-                        $date = Carbon::parse($code->date);
-                        $minutesSinceLastRequest = $date->diffInMinutes(Carbon::now());
-                        if ($minutesSinceLastRequest > 15) {
-                            $code->date = now();
-                            $code->code = $generateCode;
-                            $code->save();
-                        } else {
-                            return response()->json(['type' => 'danger', 'message' => __('You have an active code, you must wait 15 minutes'), 'status' => '0']);
-                        }
-                    } else {
-                        $code = new \Modules\Security\Entities\Codes;
-                        $code->code = $generateCode;
-                        $code->email = Lower($request->email);
-                        $code->date = now();
-                        $code->save();
-                    }
-                    $subject = __('Registration Code');
-                    $for = $code->email;
-
-                    Mail::send('security::emails.send_code', ['code' => $generateCode], function ($email) use ($subject, $for) {
-                        $email->subject($subject);
-                        $email->to($for);
-                        // $msj->attachData($proforma->output(), "PROFORMA_" . showCode($Proforma->id) . ".pdf");
-                    });
-
-                    return response()->json(['type' => 'success', 'message' => __('A code has been sent to your email'), 'status' => '1']);
-                } else {
-                    return response()->json(['type' => 'danger', 'message' => __('A User Already Exists with That Email'), 'status' => '0']);
-                }
-            } else {
-                // dd($request->all());
-                $request->validate([
-                    'email' => 'required|email',
-                    'code' => 'required',
-                    'password' => ['required', 'same:re_password', Password::defaults()],
-                    're_password' => 'required',
-                    'captcha' => 'required',
-                ]);
-
-                if (Lower(session()->get('SET_CAPTCHA')) !== Lower($request->captcha)) {
-                    return back()->withErrors(['error-message' => __('Captcha does not match')])->withInput();
-                }
-
-                $user = User::where('email', strtolower($request->email))->first();
-
-                if ($user == null) {
-                    $findCodeExists = \Modules\Security\Entities\Codes::where('email', strtolower($request->email))->first();
-                    if ($findCodeExists != null) {
-                        if ($findCodeExists->code == $request->code) {
-                            $findCodeExists->processed = true;
-                            $findCodeExists->save();
-
-                            $Country = \Modules\Security\Entities\Countries::where('iso2', 've')->first();
-
-                            $User = new User;
-                            $User->document_type_id = $this->NAC_VENEZOLANA;
-                            $User->document = '';
-                            $User->full_name = '';
-                            $User->email = $request->email;
-                            $User->username = '';
-                            $User->password = Hash::make($request->password);
-                            $User->phone = '';
-                            $User->country_id = $Country ? $Country->id : null;
-                            $User->profile_id = $this->PROFILE_TRAMITES;
-
-                            $User->active = 0;
-                            $User->user_id = 1;
-                            $User->register_date = now();
-                            $User->ip = $request->ip();
-                            $User->save();
-
-                            return to_route('login')->withSuccess(__('Successfully Created User'));
-                        } else {
-                            return back()->withErrors(['error-message' => __('Your verification code is wrong')]);
-                        }
-                    } else {
-                        return back()->withErrors(['error-message' => __('You do not have a verification code')]);
-                    }
-                } else {
-                    return back()->withErrors(['error-message' => __('A User Already Exists with That Email')]);
-                }
-            }
-        }
+        return str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
     }
 
     public function recovery(Request $request, $token = null)
@@ -452,11 +368,14 @@ class SecurityController extends Controller
                     'email' => 'required|email',
                     'captcha' => 'required',
                 ]);
-                if (Lower(session()->get('SET_CAPTCHA')) !== Lower($request->captcha)) {
+                if (! $this->captchaValido($request)) {
                     return back()->withErrors(['error-message' => __('Captcha does not match')])->withInput();
                 }
 
                 $user = User::where('email', strtolower($request->email))->first();
+
+                // Misma respuesta exista o no el correo: no revela qué cuentas existen.
+                $respuesta = to_route('login')->withSuccess(__('An email has been sent to you with specifications for updating your password.'));
 
                 if ($user != null) {
                     // Generar token criptográfico aleatorio seguro (64 chars)
@@ -474,7 +393,9 @@ class SecurityController extends Controller
                             $email->to($for);
                         });
                     } catch (\Exception $ex) {
-                        return back()->withErrors(['error-message' => __('There is a problem with your email, please check.')])->withInput();
+                        Log::error('No se pudo enviar el correo de recuperación', ['user_id' => $user->id, 'error' => $ex->getMessage()]);
+
+                        return $respuesta;
                     }
 
                     // Guardar HASH del token en DB — nunca en texto plano
@@ -483,11 +404,9 @@ class SecurityController extends Controller
                         'token' => $hashedToken,
                         'date_change_password' => now(),
                     ]);
-
-                    return to_route('login')->withSuccess(__('An email has been sent to you with specifications for updating your password.'));
-                } else {
-                    return to_route('login');
                 }
+
+                return $respuesta;
             } else {
                 $request->validate([
                     'password' => ['required', 'same:re_password', Password::defaults()],
@@ -495,24 +414,35 @@ class SecurityController extends Controller
                     'captcha' => 'required',
                 ]);
 
-                if (Lower(session()->get('SET_CAPTCHA')) !== Lower($request->captcha)) {
+                if (! $this->captchaValido($request)) {
                     return back()->withErrors(['error-message' => __('Captcha does not match')])->withInput();
                 }
-                if (session()->get('SET_ID_ALTER_PASSWORD') != null) {
+                $User = session()->get('SET_ID_ALTER_PASSWORD') != null
+                    ? User::find(Encryptor::decrypt(session()->get('SET_ID_ALTER_PASSWORD')))
+                    : null;
 
-                    $id = Encryptor::decrypt(session()->get('SET_ID_ALTER_PASSWORD'));
-                    $User = User::find($id);
+                // El enlace vale 30 minutos desde que se pidió; el permiso guardado en
+                // sesión no puede durar más que el enlace que lo otorgó.
+                $vigente = $User != null
+                    && $User->change_password
+                    && $User->date_change_password
+                    && Carbon::parse($User->date_change_password)->diffInMinutes(Carbon::now()) < 30;
 
+                if ($vigente) {
                     if (Hash::check($request->password, $User->password)) {
                         return back()->withErrors(['error-message' => __('New Password cannot be same as your current password.')])->withInput();
                     }
 
+                    // Nuevo session_token: cierra las sesiones abiertas con la contraseña
+                    // anterior (Authenticate las compara en cada petición).
                     User::whereId($User->id)->update([
                         'change_password' => false,
                         'token' => '',
                         'date_change_password' => null,
                         'password' => Hash::make($request->password),
+                        'session_token' => Str::random(40),
                     ]);
+                    session()->forget('SET_ID_ALTER_PASSWORD');
 
                     return to_route('login')->withSuccess(__('User Updated Successfully'));
                 } else {
@@ -543,62 +473,83 @@ class SecurityController extends Controller
         } else { // Si es otro tipo de petición (usualmente POST), continúa con la lógica de autenticación.
 
             $request->validate([
-                'username' => 'required',
-                'password' => 'required',
-                'captcha' => 'required',
+                'username' => 'required|string|max:300',
+                'password' => 'required|string|max:255',
+                'captcha' => 'required|string|max:10',
             ]); // Valida que los campos username, password y captcha estén presentes en el request, caso contrario lanza error.
-            if (Lower(session()->get('SET_CAPTCHA')) !== Lower($request->captcha)) {
+            if (! $this->captchaValido($request)) {
                 return back()->withErrors(['error-message' => __('Captcha does not match')])->withInput();
             } // Compara el captcha almacenado en sesión (convertido a minúsculas) con el captcha enviado. Si no coinciden, retorna con error y llena el formulario con los datos previamente ingresados.
 
             $usernameNormalized = mb_strtolower($request->username);
+
+            // Intentos fallidos por cuenta + IP: la llave incluye la IP para que nadie
+            // pueda dejar fuera al dueño de una cuenta fallando a propósito desde otra
+            // máquina (DoS). Aparte, un tope más holgado por IP frena a quien prueba
+            // muchas cuentas. Un acceso correcto solo reinicia el conteo de su cuenta.
+            $claveIntentos = 'login-fallido:'.sha1($usernameNormalized.'|'.$request->ip());
+            $claveIp = 'login-fallido-ip:'.$request->ip();
+            $bloqueada = RateLimiter::tooManyAttempts($claveIntentos, self::INTENTOS_LOGIN) ? $claveIntentos
+                : (RateLimiter::tooManyAttempts($claveIp, self::INTENTOS_LOGIN_IP) ? $claveIp : null);
+            if ($bloqueada) {
+                $minutos = (int) ceil(RateLimiter::availableIn($bloqueada) / 60);
+
+                return back()->withErrors(['error-message' => "Demasiados intentos fallidos. Intente de nuevo en {$minutos} minuto(s)."])->withInput();
+            }
+
             $user = User::whereRaw('LOWER(username) = ?', [$usernameNormalized])
                 ->orWhereRaw('LOWER(email) = ?', [$usernameNormalized])
                 ->first(); // Busca en la base de datos el usuario cuyo campo (email o username) coincide con el valor recibido, de forma case-insensitive.
 
             if ($user == null) {// Si no encuentra usuario, retorna con mensaje de error. Si sí, continúa.
+                // Hash de relleno: la respuesta tarda lo mismo exista o no el usuario.
+                Hash::check((string) $request->password, self::HASH_RELLENO);
+                RateLimiter::hit($claveIntentos, self::BLOQUEO_LOGIN_SEGUNDOS);
+                RateLimiter::hit($claveIp, self::BLOQUEO_LOGIN_SEGUNDOS);
 
                 return back()->withErrors(['error-message' => __('Wrong Data')]);
+            } elseif (! Hash::check($request->password, $user->password)) {
+                // La contraseña se comprueba antes que el estado: "bloqueado" solo se
+                // muestra a quien ya demostró conocer la contraseña de la cuenta.
+                RateLimiter::hit($claveIntentos, self::BLOQUEO_LOGIN_SEGUNDOS);
+                RateLimiter::hit($claveIp, self::BLOQUEO_LOGIN_SEGUNDOS);
+
+                return back()->withErrors(['error-message' => __('Wrong Data')])->withInput();
+            } elseif ($user->active != 1) {
+                return back()->withErrors(['error-message' => __('User blocked')])->withInput(); // Si el usuario no está activo (bloqueado), muestra error específico.
             } else {
-                if ($user->active == 1) {// Verifica que el usuario esté activo. Si no lo está, retorna error.
-                    if (Hash::check($request->password, $user->password)) {// Verifica la contraseña contra el hash almacenado, sin depender del formato exacto del username en la DB.
-                        Auth::login($user); // Autentica directamente con el modelo recuperado (case-insensitive).
+                RateLimiter::clear($claveIntentos);
+                Auth::login($user); // Autentica directamente con el modelo recuperado (case-insensitive).
 
-                        session()->regenerate(); // Previene session fixation: genera nuevo ID de sesión tras autenticación exitosa
+                session()->regenerate(); // Previene session fixation: genera nuevo ID de sesión tras autenticación exitosa
 
-                        // Token de sesión: se guarda en sesión para permitir invalidación remota
-                        // cuando el status de un perfil asignado cambia (driver de sesión es File).
-                        $fresh = Auth::user();
-                        if (empty($fresh->session_token)) {
-                            $fresh->session_token = \Illuminate\Support\Str::random(40);
-                            $fresh->save();
-                        }
-                        session()->put('session_token', $fresh->session_token);
-
-                        User::whereId(Auth::user()->id)->update([
-                            'change_password' => false,
-                            'token' => '',
-                            'date_change_password' => null,
-                        ]); // Si el login es exitoso, actualiza el usuario logueado para quitar flags temporales relacionados con el cambio de contraseña y limpiar tokens.
-
-                        // Sin selección de perfil: los permisos suman todos los perfiles
-                        // activos. El principal se guarda solo como dato informativo.
-                        if ($principal = app(\App\Services\Security\Autorizacion::class)->perfilPrincipalPara($fresh)) {
-                            session()->put('profile_id', $principal);
-                        }
-
-                        // COMENTADO 2026-04-24: Lógica de módulos eliminada del sidebar
-                        // if (Auth::user()->getModules()->count() == 1) {
-                        //     session()->put('MODULE', Auth::user()->getModules()[0]->id);
-                        // }
-
-                        return redirect()->intended(route('home')); // Redirige a la ruta nombrada home (dashboard o página principal).
-                    } else {
-                        return back()->withErrors(['error-message' => __('Wrong Data')])->withInput(); // Si el login falla, muestra error y rellena el formulario con datos ingresados.
-                    }
-                } else {
-                    return back()->withErrors(['error-message' => __('User blocked')])->withInput(); // Si el usuario no está activo (bloqueado), muestra error específico.
+                // Token de sesión: se guarda en sesión para permitir invalidación remota
+                // cuando el status de un perfil asignado cambia (driver de sesión es File).
+                $fresh = Auth::user();
+                if (empty($fresh->session_token)) {
+                    $fresh->session_token = \Illuminate\Support\Str::random(40);
+                    $fresh->save();
                 }
+                session()->put('session_token', $fresh->session_token);
+
+                User::whereId(Auth::user()->id)->update([
+                    'change_password' => false,
+                    'token' => '',
+                    'date_change_password' => null,
+                ]); // Si el login es exitoso, actualiza el usuario logueado para quitar flags temporales relacionados con el cambio de contraseña y limpiar tokens.
+
+                // Sin selección de perfil: los permisos suman todos los perfiles
+                // activos. El principal se guarda solo como dato informativo.
+                if ($principal = app(\App\Services\Security\Autorizacion::class)->perfilPrincipalPara($fresh)) {
+                    session()->put('profile_id', $principal);
+                }
+
+                // COMENTADO 2026-04-24: Lógica de módulos eliminada del sidebar
+                // if (Auth::user()->getModules()->count() == 1) {
+                //     session()->put('MODULE', Auth::user()->getModules()[0]->id);
+                // }
+
+                return redirect()->intended(route('home')); // Redirige a la ruta nombrada home (dashboard o página principal).
             }
         }
     }

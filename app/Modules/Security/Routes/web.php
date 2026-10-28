@@ -14,9 +14,16 @@ use Illuminate\Support\Facades\Route;
  */
 
 Route::get('language/{lang?}', function ($lang = 'en') {
+    // Solo idiomas conocidos: el valor llega a App::setLocale() en cada petición.
+    abort_unless(in_array($lang, ['es', 'en'], true), 404);
     session()->put('language', $lang);
 
-    return redirect()->back();
+    // back() usa el Referer tal cual: un enlace desde otro sitio volvería a ese sitio.
+    $anterior = url()->previous();
+
+    return str_starts_with($anterior, url('/').'/') || $anterior === url('/')
+        ? redirect()->to($anterior)
+        : redirect()->route('home');
     //return redirect('/home');
     //return to_route('home');;
 })->name('language');
@@ -24,12 +31,13 @@ Route::get('language/{lang?}', function ($lang = 'en') {
 Route::prefix('security')->group(function () {
 
 
-    // Rate-limiting: máximo 10 intentos por minuto por IP en rutas de autenticación
-    Route::middleware(['throttle:10,1'])->group(function () {
+    // Rate limiting: ver RateLimiter 'entrada' en RouteServiceProvider (por IP y por correo).
+    Route::middleware(['throttle:entrada'])->group(function () {
         Route::group(array('middleware' => array(\Modules\Security\Http\Middleware\SetLanguage::class)), function () {
             Route::match(['get', 'post'], 'login', [Modules\Security\Http\Controllers\SecurityController::class, 'login'])->name('login');
             Route::match(['get', 'post', 'put'], 'recovery/{token?}', [Modules\Security\Http\Controllers\SecurityController::class, 'recovery'])->name('recovery');
-            Route::match(['get', 'post', 'put'], 'register', [Modules\Security\Http\Controllers\SecurityController::class, 'register'])->name('register');
+            // Enlace antiguo: el registro vigente es registro.usuario.
+            Route::get('register', fn () => to_route('registro.usuario'))->name('register');
         });
         Route::get('captcha/{seed?}', [Modules\Security\Http\Controllers\SecurityController::class, 'captcha'])->name('captcha');
     });
@@ -48,7 +56,7 @@ Route::prefix('security')->group(function () {
         // Route::get('set-module/{id}', [Modules\Security\Http\Controllers\SecurityController::class, 'set_module'])->name('set_module');
 
         Route::match(['get', 'post'], 'update-profile', [Modules\Security\Http\Controllers\SecurityController::class, 'update_profile'])->name('update_profile');
-        Route::match(['get', 'post'], 'update-profile/send-code', [Modules\Security\Http\Controllers\SecurityController::class, 'update_profile_send_code'])->name('update_profile.send_code');
+        Route::match(['get', 'post'], 'update-profile/send-code', [Modules\Security\Http\Controllers\SecurityController::class, 'update_profile_send_code'])->name('update_profile.send_code')->middleware('throttle:codigo-correo');
 
         Route::get('show-avatar/{img}', [Modules\Security\Http\Controllers\SecurityController::class, 'show_avatar'])->name('show_avatar');
 
