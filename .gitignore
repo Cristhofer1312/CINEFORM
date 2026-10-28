@@ -47,3 +47,6 @@ app/code/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Generado por instalar.sh en el servidor (contiene claves)
+docker-compose.override.yml
