@@ -196,6 +196,22 @@ class AuditoriaSeguridadTest extends TestCase
         $this->assertDatabaseMissing('security.users', ['email' => $email]);
     }
 
+    public function test_registro_solo_acepta_prefijos_moviles_venezolanos(): void
+    {
+        $email = 'prefijo_'.uniqid().'@example.com';
+        DB::table('security.codes')->insert(['email' => $email, 'code' => '123456', 'date' => now(), 'processed' => false]);
+
+        foreach (['04101234567', '0414123456', '(0414) 123-4567'] as $telefono) {
+            $this->post(route('registro.usuario.store'), ['telefono' => $telefono] + $this->registro($email, '123456'))
+                ->assertSessionHasErrors('telefono');
+        }
+
+        foreach (array_keys(\Modules\Registro\Http\Controllers\RegisterController::PREFIJOS_TELEFONO) as $prefijo) {
+            $this->post(route('registro.usuario.store'), ['telefono' => $prefijo.'1234567'] + $this->registro($email, '000000'))
+                ->assertSessionDoesntHaveErrors('telefono');
+        }
+    }
+
     public function test_codigo_de_registro_se_bloquea_tras_5_errores(): void
     {
         $email = 'fuerza_'.uniqid().'@example.com';

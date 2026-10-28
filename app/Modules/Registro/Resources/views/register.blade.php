@@ -185,7 +185,10 @@
             box-shadow: var(--cf-focus-ring);
         }
 
+        /* KaiAdmin anula el max-width de Bootstrap: sin esto, una etiqueta más
+           larga que su campo se sale del borde en vez de cortarse con "…". */
         .cf-registro .form-floating > label {
+            max-width: 100%;
             color: var(--cf-muted);
         }
 
@@ -222,6 +225,23 @@
 
         .cf-registro__obligatorio {
             color: var(--cf-danger-ink);
+        }
+
+        /* Teléfono: prefijo + número en una pieza. */
+        /* Ancho fijo: input-group encoge sus piezas y cortaba el prefijo elegido. */
+        .cf-registro__telefono > .cf-registro__prefijo {
+            flex: 0 0 7.5rem;
+            width: 7.5rem;
+        }
+
+        .cf-registro__telefono .cf-registro__prefijo > .form-select {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .cf-registro__telefono .form-floating + .form-floating > .form-control {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
         }
 
         /* Código de verificación: campo + botón "Enviar código" en una pieza. */
@@ -272,7 +292,10 @@
             /* Sin espacio para campo y botón en una línea: el botón baja. */
             .cf-registro__codigo { flex-wrap: wrap; gap: 0.5rem; }
             .cf-registro__codigo .form-floating { flex: 1 1 100%; }
-            .cf-registro__codigo .form-floating > .form-control { border-radius: var(--cf-radius-control); }
+            .cf-registro__codigo .form-floating > .form-control {
+                border-radius: var(--cf-radius-control) !important;
+                border-right: 1px solid var(--cf-border-strong);
+            }
             .cf-registro__codigo .btn {
                 width: 100%;
                 margin-left: 0 !important;
@@ -352,7 +375,7 @@
                                 <div class="form-floating">
                                     <input id="dni" name="dni" type="text" maxlength="20" class="form-control{{ $invalido('dni') }}"
                                         placeholder="Número de documento" required value="{{ old('dni') }}" />
-                                    <label for="dni">Número de documento o pasaporte <span class="cf-registro__obligatorio" aria-hidden="true">*</span></label>
+                                    <label for="dni">Número de documento <span class="cf-registro__obligatorio" aria-hidden="true">*</span></label>
                                     @error('dni') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                             </div>
@@ -423,24 +446,39 @@
                         <legend>Contacto y ubicación</legend>
                         <p class="cf-registro__ayuda">Para avisarte sobre tus cursos y emitir tus certificados.</p>
 
-                        {{-- Teléfonos (máscara (0000) 000-0000 aplicada por JS) --}}
+                        {{-- Teléfonos: prefijo móvil + 7 dígitos (máscara 000-0000 por JS).
+                             El campo oculto con el nombre real ("telefono") se arma al
+                             enviar: prefijo + dígitos, 11 en total, como en comun.personas. --}}
                         <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <input id="telefono" name="telefono" type="tel" class="form-control{{ $invalido('telefono') }}"
-                                        placeholder="Teléfono principal" autocomplete="tel" required value="{{ old('telefono') }}" />
-                                    <label for="telefono">Teléfono principal <span class="cf-registro__obligatorio" aria-hidden="true">*</span></label>
-                                    @error('telefono') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                            @foreach ([['telefono', 'Teléfono', true], ['telefono_opcional', 'Otro teléfono', false]] as [$campo, $etiqueta, $obligatorio])
+                                @php
+                                    $anterior = (string) old($campo);
+                                    $prefijoAnterior = substr($anterior, 0, 4);
+                                    $numeroAnterior = strlen($anterior) > 4 ? substr($anterior, 4, 3).'-'.substr($anterior, 7) : '';
+                                @endphp
+                                <div class="col-md-6">
+                                    <div class="input-group cf-registro__telefono" data-telefono="{{ $campo }}">
+                                        <div class="form-floating cf-registro__prefijo">
+                                            <select id="{{ $campo }}_prefijo" class="form-select{{ $invalido($campo) }}" @if($obligatorio) required @endif
+                                                aria-label="Prefijo de {{ mb_strtolower($etiqueta) }}">
+                                                <option value="" {{ $prefijoAnterior === '' ? 'selected' : '' }} @if($obligatorio) disabled @endif>{{ $obligatorio ? 'Elija' : 'Ninguno' }}</option>
+                                                @foreach ($prefijosTelefono as $prefijo => $operadora)
+                                                    <option value="{{ $prefijo }}" title="{{ $operadora }}" {{ $prefijoAnterior === $prefijo ? 'selected' : '' }}>{{ $prefijo }}</option>
+                                                @endforeach
+                                            </select>
+                                            <label for="{{ $campo }}_prefijo">Prefijo @if($obligatorio)<span class="cf-registro__obligatorio" aria-hidden="true">*</span>@endif</label>
+                                        </div>
+                                        <div class="form-floating">
+                                            <input id="{{ $campo }}_numero" type="tel" inputmode="numeric" class="form-control{{ $invalido($campo) }}"
+                                                placeholder="123-4567" autocomplete="{{ $obligatorio ? 'tel-local' : 'off' }}" pattern="[0-9]{3}-[0-9]{4}"
+                                                title="7 dígitos, por ejemplo 123-4567" @if($obligatorio) required @endif value="{{ $numeroAnterior }}" />
+                                            <label for="{{ $campo }}_numero">{{ $etiqueta }} @if($obligatorio)<span class="cf-registro__obligatorio" aria-hidden="true">*</span>@endif</label>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" id="{{ $campo }}" name="{{ $campo }}" value="{{ $anterior }}">
+                                    @error($campo) <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                                 </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-floating">
-                                    <input id="telefono_opcional" name="telefono_opcional" type="tel" class="form-control{{ $invalido('telefono_opcional') }}"
-                                        placeholder="Otro teléfono" value="{{ old('telefono_opcional') }}" />
-                                    <label for="telefono_opcional">Otro teléfono</label>
-                                    @error('telefono_opcional') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                                </div>
-                            </div>
+                            @endforeach
 
                             {{-- Ubicación en cascada: Estado → Municipio → Parroquia por AJAX.
                                  data-anterior guarda lo elegido antes de un error de validación,
@@ -479,10 +517,11 @@
                             <div class="col-12">
                                 <div class="form-floating">
                                     <textarea id="direccion" name="direccion" maxlength="255" class="form-control{{ $invalido('direccion') }}"
-                                        placeholder="Dirección" autocomplete="street-address" required>{{ old('direccion') }}</textarea>
-                                    <label for="direccion">Dirección (urbanización, calle, casa o apartamento) <span class="cf-registro__obligatorio" aria-hidden="true">*</span></label>
+                                        placeholder="Dirección" autocomplete="street-address" aria-describedby="direccion_ayuda" required>{{ old('direccion') }}</textarea>
+                                    <label for="direccion">Dirección <span class="cf-registro__obligatorio" aria-hidden="true">*</span></label>
                                     @error('direccion') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
+                                <div id="direccion_ayuda" class="form-text">Urbanización, calle, casa o apartamento.</div>
                             </div>
                         </div>
                     </fieldset>
@@ -572,11 +611,32 @@
         $(document).ready(function () {
             const ICONO_ENVIAR = '<i class="fas fa-paper-plane me-1" aria-hidden="true"></i> Enviar código';
 
-            // ── Máscara de teléfono ────────────────────────────────────
+            // ── Teléfonos: prefijo + número ────────────────────────────
             if (window.Inputmask) {
-                // removeMaskOnSubmit: se guardan solo dígitos, como el resto de teléfonos en comun.personas.
-                Inputmask('(9999) 999-9999', { removeMaskOnSubmit: true }).mask(document.querySelectorAll('#telefono, #telefono_opcional'));
+                Inputmask('999-9999', { showMaskOnHover: false }).mask(document.querySelectorAll('#telefono_numero, #telefono_opcional_numero'));
             }
+
+            // Arma el valor que se envía (prefijo + 7 dígitos) y, en el teléfono
+            // opcional, exige las dos partes si se llenó una sola.
+            function armarTelefono(grupo) {
+                const campo = grupo.dataset.telefono;
+                const prefijo = document.getElementById(campo + '_prefijo');
+                const numero = document.getElementById(campo + '_numero');
+                const digitos = numero.value.replace(/[^0-9]/g, '');
+
+                if (!prefijo.required) {
+                    prefijo.setCustomValidity(!prefijo.value && digitos ? 'Elija el prefijo de este teléfono.' : '');
+                    numero.setCustomValidity(prefijo.value && !digitos ? 'Escriba el número o quite el prefijo.' : '');
+                }
+
+                document.getElementById(campo).value = prefijo.value && digitos ? prefijo.value + digitos : '';
+            }
+
+            $('.cf-registro__telefono').each(function () {
+                const grupo = this;
+                $(grupo).on('input change', 'select, input', function () { armarTelefono(grupo); });
+                armarTelefono(grupo);
+            });
 
             // ── RIF y código: solo dígitos ─────────────────────────────
             $('#rif, #code').on('input', function () {
@@ -704,7 +764,7 @@
             // El navegador explica cada campo vacío o mal escrito y no envía;
             // aquí solo se marcan en rojo. Si todo está bien, el botón se
             // bloquea para no enviar el registro dos veces.
-            $('#frm_register').find('input, select, textarea').on('invalid', function () {
+            $('#frm_register').find('input, select, textarea').not('[type="hidden"]').on('invalid', function () {
                 $(this).addClass('is-invalid');
             });
 

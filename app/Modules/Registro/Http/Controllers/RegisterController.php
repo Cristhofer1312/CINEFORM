@@ -19,6 +19,20 @@ use Modules\Security\Entities\User;
 class RegisterController extends Controller
 {
     /**
+     * Prefijos de telefonía móvil de Venezuela, con su operadora. El teléfono se
+     * guarda como prefijo + 7 dígitos (11 en total), igual que el resto de
+     * teléfonos en comun.personas.
+     */
+    public const PREFIJOS_TELEFONO = [
+        '0412' => 'Digitel',
+        '0422' => 'Digitel',
+        '0414' => 'Movistar',
+        '0424' => 'Movistar',
+        '0416' => 'Movilnet',
+        '0426' => 'Movilnet',
+    ];
+
+    /**
      * Muestra el formulario de registro
      *
      * @return Renderable
@@ -27,8 +41,15 @@ class RegisterController extends Controller
     {
         $documentTypes = DB::table('security.document_types')->get();
         $genders = DB::table('security.genders')->get();
+        $prefijosTelefono = self::PREFIJOS_TELEFONO;
 
-        return view('registro::register', compact('documentTypes', 'genders'));
+        return view('registro::register', compact('documentTypes', 'genders', 'prefijosTelefono'));
+    }
+
+    /** Regla de validación: un prefijo de la lista seguido de 7 dígitos. */
+    private static function reglaTelefono(): string
+    {
+        return 'regex:/^('.implode('|', array_keys(self::PREFIJOS_TELEFONO)).')\d{7}$/';
     }
 
     private function generateCode()
@@ -94,6 +115,8 @@ class RegisterController extends Controller
      */
     public function store(Request $request)
     {
+        $prefijos = implode(', ', array_keys(self::PREFIJOS_TELEFONO));
+
         // Solo lo validado llega a la BD (sin $request->input sueltos).
         $datos = $request->validate([
             // Cada campo con tipo y largo máximo (el de la columna o menor): sin
@@ -126,8 +149,8 @@ class RegisterController extends Controller
             'segundo_nombre' => 'nullable|string|max:100',
             'primer_apellido' => 'required|string|max:100',
             'segundo_apellido' => 'nullable|string|max:100',
-            'telefono' => ['required', 'string', 'max:20', 'regex:/^[0-9+()\s-]+$/'],
-            'telefono_opcional' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+()\s-]+$/'],
+            'telefono' => ['required', 'string', self::reglaTelefono()],
+            'telefono_opcional' => ['nullable', 'string', self::reglaTelefono()],
             'id_estado' => ['nullable', 'integer', Rule::exists('pgsql.comun.estados', 'id')],
             'id_municipio' => ['nullable', 'integer', Rule::exists('pgsql.comun.municipios', 'id')->where('state_id', $request->input('id_estado'))],
             'id_parroquia' => ['nullable', 'integer', Rule::exists('pgsql.comun.parroquias', 'id')->where('municipality_id', $request->input('id_municipio'))],
@@ -140,6 +163,8 @@ class RegisterController extends Controller
             'pasaporte.unique' => 'Este pasaporte ya se encuentra registrado.',
             'rif.unique' => 'Este RIF ya se encuentra registrado.',
             'code.required' => 'El código de verificación es obligatorio.',
+            'telefono.regex' => 'El teléfono principal debe tener un prefijo válido ('.$prefijos.') y 7 dígitos.',
+            'telefono_opcional.regex' => 'El otro teléfono debe tener un prefijo válido ('.$prefijos.') y 7 dígitos.',
         ]);
 
         // Validar el código de verificación. Tras 5 códigos errados para un mismo
