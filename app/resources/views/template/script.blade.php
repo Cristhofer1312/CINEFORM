@@ -114,7 +114,7 @@
                 icon: 'warning',
                 title: 'Atención',
                 text: @json(session('warning')),
-                confirmButtonColor: '#f0a500',
+                confirmButtonColor: '#b45309',
                 confirmButtonText: 'Entendido'
             });
         @endif
@@ -124,7 +124,7 @@
                 icon: 'error',
                 title: 'Error',
                 text: @json(session('error')),
-                confirmButtonColor: '#dc3545',
+                confirmButtonColor: '#dc2626',
                 confirmButtonText: 'Cerrar'
             });
         @endif

@@ -23,7 +23,7 @@
                     <!-- End Navbar -->
                 </div>
 
-             <div style="margin-top:0px" class="container container-menu">
+             <div style="margin-top:0px" class="container container-menu cf-entrada">
                     <div class="page-inner">   
                         @yield('content')
                     </div>
@@ -54,7 +54,7 @@
                     @include('template.navbar-header')
                 </div>
 
-                <div style="margin-top:0px" class="container container-menu">
+                <div style="margin-top:0px" class="container container-menu cf-entrada">
                     <div class="page-inner">
                         @yield('content')
                     </div>

@@ -68,7 +68,7 @@
                     </div>
                 </div>
 
-                {{-- <footer class="footer" style="background-color: #1e293b !important; color: #f8fafc !important; border-top: 1px solid rgba(255,255,255,0.05);">
+                {{-- <footer class="footer" style="background-color: var(--cf-chrome) !important; color: var(--cf-chrome-text) !important; border-top: 1px solid rgba(255,255,255,0.05);">
                     @include('template.footer')
                 </footer> --}}
             </div>

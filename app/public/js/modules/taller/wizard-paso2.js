@@ -52,6 +52,8 @@ const WizardPaso2 = (() => {
             cont.style.display = isNac ? 'none' : '';
         }
         // No desmarcamos las localidades para que no se pierda la selección del usuario si alterna el switch
+    };
+
     const siguienteDia = (iso) => {
         if (!iso) return '';
         const partes = String(iso).split('-').map(Number);
@@ -119,7 +121,7 @@ const WizardPaso2 = (() => {
             if (esSalir) return;
 
             actualizarRangoFechas();
-            if (inputInicio?.value && inputFin?.value && inputFin.value <= inputInicio.value) {
+            if (inputFecha?.value && inputFin?.value && inputFin.value <= inputFecha.value) {
                 e.preventDefault();
                 inputFin.setCustomValidity('La fecha de finalización debe ser posterior a la fecha de inicio.');
                 inputFin.reportValidity();
@@ -145,7 +147,7 @@ const WizardPaso2 = (() => {
 
     const filaHtml = (f) => {
         const esp = (f.especialidades || []).slice(0, 3)
-            .map((e) => `<span class="badge bg-light text-primary border me-1" style="font-size:.7rem;">${escapar(e)}</span>`).join('');
+            .map((e) => `<span class="badge bg-light text-primary border me-1" style="font-size:.75rem;">${escapar(e)}</span>`).join('');
         const esSel = String(f.id_persona) === String(faciState.seleccion);
         const selClasses = esSel ? ' bg-primary-soft border-primary border-start border-4' : '';
         const checkDisplay = esSel ? '' : 'd-none';

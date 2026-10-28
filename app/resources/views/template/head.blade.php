@@ -42,7 +42,8 @@ WebFont.load({
 <!-- CSS Just for demo purpose, don't include it in your project -->
 <link rel="stylesheet" href="{{ asset('template/kaiadmin/assets/css/demo.css') }}" />
 
-<link rel="stylesheet" href="{{ asset('css/main.css') }}" />
+{{-- ?v= invalida la caché del navegador cuando cambia el sistema de diseño --}}
+<link rel="stylesheet" href="{{ asset('css/main.css') }}?v={{ filemtime(public_path('css/main.css')) }}" />
 
 @stack('styles')
 

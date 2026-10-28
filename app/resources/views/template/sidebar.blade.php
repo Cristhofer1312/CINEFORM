@@ -1,7 +1,7 @@
 <div class="sidebar custom-sidebar" data-background-color="dark">
     <style>
         .custom-sidebar {
-            background-color: #1e293b !important;
+            background-color: var(--cf-chrome) !important;
             box-shadow: 4px 0 10px rgba(0, 0, 0, 0.15) !important;
         }
         .custom-sidebar .nav.nav-secondary > .nav-item > a > p,
@@ -10,7 +10,7 @@
         .custom-sidebar .nav-collapse li a span.sub-item,
         .custom-sidebar .nav-section .text-section,
         .custom-sidebar .nav-section .sidebar-mini-icon i {
-            color: #f8fafc !important;
+            color: var(--cf-chrome-text) !important;
             font-weight: 500;
         }
         .custom-sidebar .nav.nav-secondary > .nav-item > a:hover,
@@ -19,7 +19,7 @@
             border-radius: 8px;
         }
         .custom-sidebar .nav.nav-secondary > .nav-item.active > a {
-            background-color: #1572e8 !important;
+            background-color: var(--cf-blue) !important;
             border-radius: 8px;
         }
         .custom-sidebar .nav.nav-secondary > .nav-item.active > a p,
@@ -38,7 +38,7 @@
     </style>
     <div class="sidebar-logo">
         <!-- Logo Header -->
-        <div class="logo-header" style="background-color: #1e293b !important;">
+        <div class="logo-header" style="background-color: var(--cf-chrome) !important;">
             <a href="{{route('home')}}" class="logo">
                 <img src="{{asset('template/kaiadmin/assets/img/kaiadmin/logo.jpeg')}}" alt="navbar brand"
                     class="navbar-brand" height="40" />

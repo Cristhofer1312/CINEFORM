@@ -1,4 +1,4 @@
-<div class="logo-header" style="background-color: #1e293b !important;">
+<div class="logo-header" style="background-color: var(--cf-chrome) !important;">
   <a href="{{route('home')}}" class="logo">
     <img src="{{ asset('template/kaiadmin/assets/img/kaiadmin/logo_light.svg')}}" alt="navbar brand"
       class="navbar-brand" height="40" />

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-26T00:00:00Z",
+  "title": "Design System: CINEFORM",
+  "extensions": {
+    "colorMeta": {
+      "navy-marca": { "role": "primary", "displayName": "Navy de marca", "canonical": "#1e3a8a" },
+      "azul-accion": { "role": "primary", "displayName": "Azul de acción", "canonical": "#1572e8" },
+      "cian-marca": { "role": "secondary", "displayName": "Cian de marca (solo acento)", "canonical": "#00c0ef" },
+      "cian-legible": { "role": "secondary", "displayName": "Cian legible", "canonical": "#0e7490" },
+      "ambar": { "role": "tertiary", "displayName": "Ámbar", "canonical": "#f59e0b" },
+      "fondo-app": { "role": "neutral", "displayName": "Fondo de la aplicación", "canonical": "#f1f5f9" },
+      "texto-tenue": { "role": "neutral", "displayName": "Texto tenue", "canonical": "#64748b" }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Título de la página." },
+      "title": { "displayName": "Title", "purpose": "Título de tarjeta." },
+      "body": { "displayName": "Body", "purpose": "Contenido y tablas, cifras tabulares." },
+      "label": { "displayName": "Label", "purpose": "Etiquetas de dato y encabezados de columna, en mayúsculas." }
+    },
+    "shadows": [
+      { "name": "xs", "value": "0 1px 2px rgba(15, 23, 42, 0.06)", "purpose": "Chips y elementos pequeños." },
+      { "name": "sm", "value": "0 2px 8px rgba(15, 23, 42, 0.06)", "purpose": "Controles elevados." },
+      { "name": "card", "value": "0 8px 24px rgba(15, 23, 42, 0.07)", "purpose": "Tarjetas y hover de tarjetas." },
+      { "name": "modal", "value": "0 24px 48px rgba(15, 23, 42, 0.18)", "purpose": "Solo modales." }
+    ],
+    "motion": [
+      { "name": "ease", "value": "cubic-bezier(0.2, 0, 0, 1)", "purpose": "Transiciones de estado." },
+      { "name": "dur", "value": "180ms", "purpose": "Duración por defecto; se anula con prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "576px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "992px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botón primario",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal de la pantalla.",
+      "html": "<button class=\"cf-btn\">Aprobar</button>",
+      "css": ".cf-btn { background: #1572e8; color: #fff; border: 0; border-radius: 50rem; padding: 8px 20px; font: 600 14px 'Public Sans', sans-serif; transition: background-color 180ms cubic-bezier(0.2,0,0,1); } .cf-btn:hover { background: #105fc4; } .cf-btn:focus-visible { outline: 2px solid #1572e8; outline-offset: 2px; }"
+    },
+    {
+      "name": "Tarjeta con encabezado",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Contenedor estándar sobre el fondo de la aplicación.",
+      "html": "<div class=\"cf-card\"><div class=\"cf-card-h\">Participantes</div><div class=\"cf-card-b\">Contenido</div></div>",
+      "css": ".cf-card { background: #fff; border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,0.07); font-family: 'Public Sans', sans-serif; } .cf-card-h { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-weight: 600; } .cf-card-b { padding: 20px; color: #334155; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Operate: claro, uniforme, amable",
+    "overview": "Herramienta de gestión de cursos de cine. La marca vive en el navy, el cian de acento y el fondo de cine de las pantallas de entrada; el resto es fondo gris azulado, tarjetas blancas de 16px y botones en píldora.",
+    "keyCharacteristics": ["Botones en píldora", "Tarjetas de 16px", "Encabezados blancos", "Colores de estado con 4.5:1"],
+    "rules": [
+      { "name": "Regla del cian", "body": "El cian de marca es acento; con texto se usa el cian legible #0e7490.", "section": "colors" },
+      { "name": "Regla de estado", "body": "Verde, ámbar y rojo solo comunican estado.", "section": "colors" }
+    ],
+    "dos": ["Do usar las utilidades y tokens de main.css."],
+    "donts": ["Don't redefinir utilidades en las vistas.", "Don't poner texto blanco sobre #00c0ef."]
+  }
+}

@@ -1,33 +1,338 @@
+/* ================================================
+   CINEFORM: sistema de diseño (D4). Fuente: DESIGN.md
+   Se carga después de KaiAdmin y antes de @stack('styles').
+   Las vistas no deben redefinir las utilidades de la sección 3.
+   ================================================ */
+
+/* 1. Tokens */
+:root {
+    /* Marca */
+    --cf-navy: #1e3a8a;          /* tinta de marca, foco, títulos */
+    --cf-navy-soft: rgba(30, 58, 138, 0.08);
+    --cf-blue: #1572e8;          /* acción primaria (blanco encima: 4.56:1) */
+    --cf-blue-hover: #105fc4;
+    --cf-cyan: #00c0ef;          /* acento de marca; nunca con texto blanco encima */
+    --cf-cyan-ink: #0e7490;      /* cian legible: texto y fondos con texto blanco (5.36:1) */
+    --cf-amber: #f59e0b;         /* destacado; texto navy encima */
+    --cf-gradient-brand: linear-gradient(135deg, #1e3a8a 0%, #1572e8 100%); /* bandas de cabecera */
+
+    /* Estados */
+    --cf-success: #198754;       /* blanco encima: 4.53:1 */
+    --cf-success-ink: #146c43;   /* texto sobre fondo suave */
+    --cf-success-soft: rgba(25, 135, 84, 0.1);
+    --cf-danger: #dc2626;        /* blanco encima: 4.83:1 */
+    --cf-danger-ink: #b91c1c;
+    --cf-danger-soft: rgba(220, 38, 38, 0.1);
+    --cf-warning-ink: #b45309;
+    --cf-warning-soft: rgba(245, 158, 11, 0.14);
+
+    /* Neutros (slate) */
+    --cf-ink: #0f172a;
+    --cf-text: #334155;
+    --cf-muted: #64748b;         /* 4.76:1 sobre blanco */
+    --cf-border: #e2e8f0;
+    --cf-border-strong: #cbd5e1;
+    --cf-surface: #ffffff;
+    --cf-surface-subtle: #f8fafc;
+    --cf-app-bg: #f1f5f9;
+    --cf-chrome: #1e293b;        /* barra superior, menú lateral y pie */
+    --cf-chrome-text: #f8fafc;
+
+    /* Forma */
+    --cf-radius-card: 16px;
+    --cf-radius-control: 10px;
+    --cf-radius-pill: 50rem;
+
+    /* Elevación */
+    --cf-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --cf-shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
+    --cf-shadow-card: 0 8px 24px rgba(15, 23, 42, 0.07);
+
+    /* Movimiento */
+    --cf-ease: cubic-bezier(0.2, 0, 0, 1);
+    --cf-dur: 180ms;
+
+    --cf-focus-ring: 0 0 0 3px rgba(21, 114, 232, 0.35);
+}
+
+/* 2. Superficies */
+
+/* Fondo de cine solo en las pantallas de entrada (login, registro,
+   selección de perfil); la aplicación usa un fondo neutro. */
 body.login,
-.container-menu {
+.cf-entrada {
     background-image: url("../img/back-ground.png") !important;
     background-repeat: no-repeat;
     background-size: cover;
 }
-input[type="search"]:focus,
-input[type="text"]:focus,
-input[type="password"]:focus,
-select:focus option {
-    background-color: #ffff99 !important;
+.container-menu:not(.cf-entrada) {
+    background-color: var(--cf-app-bg);
 }
+
+body {
+    color: var(--cf-text);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+    background: rgba(21, 114, 232, 0.2);
+    color: var(--cf-ink);
+}
+
+/* Tarjetas: 16px, borde suave y sombra corta. KaiAdmin usa 10px y !important. */
+.card {
+    --bs-card-border-radius: var(--cf-radius-card);
+    --bs-card-inner-border-radius: calc(var(--cf-radius-card) - 1px);
+    border-radius: var(--cf-radius-card) !important;
+}
+
+/* Encabezado de tarjeta: blanco por defecto. Antes se forzaba #00c0ef con
+   texto blanco (2.15:1, no legible). Los encabezados que piden texto blanco
+   reciben una banda de color con contraste suficiente. */
+.card-header {
+    background-color: var(--cf-surface);
+    color: var(--cf-ink);
+    border-bottom: 1px solid var(--cf-border);
+}
+.card-header:first-child {
+    border-radius: calc(var(--cf-radius-card) - 1px) calc(var(--cf-radius-card) - 1px) 0 0 !important;
+}
+.card-header.text-white:not([class*="bg-"]) {
+    background: var(--cf-navy) !important;
+}
+.bg-gradient-primary {
+    background: var(--cf-gradient-brand) !important;
+}
+.card-header.bg-info {
+    background-color: var(--cf-cyan-ink) !important;
+}
+
+/* Controles */
+.btn {
+    --bs-btn-border-radius: var(--cf-radius-pill);
+    border-radius: var(--cf-radius-pill);
+    font-weight: 600;
+    transition: background-color var(--cf-dur) var(--cf-ease), border-color var(--cf-dur) var(--cf-ease),
+        color var(--cf-dur) var(--cf-ease), box-shadow var(--cf-dur) var(--cf-ease), transform var(--cf-dur) var(--cf-ease);
+}
+.input-group > .btn {
+    border-radius: var(--cf-radius-control);
+}
+.btn-primary:hover,
+.btn-primary:focus-visible {
+    background: var(--cf-blue-hover) !important;
+    border-color: var(--cf-blue-hover) !important;
+}
+.btn-info {
+    background: var(--cf-cyan-ink) !important;
+    border-color: var(--cf-cyan-ink) !important;
+}
+
+.form-control,
+.form-select {
+    border-radius: var(--cf-radius-control);
+    border-color: var(--cf-border-strong);
+}
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--cf-blue) !important;
+    box-shadow: var(--cf-focus-ring) !important;
+}
+.input-group > .form-control,
+.input-group > .form-select {
+    border-radius: var(--cf-radius-control);
+}
+
+/* Foco visible en todo lo interactivo (reemplaza el fondo amarillo #ffff99). */
+a:focus-visible,
+button:focus-visible,
+.btn:focus-visible,
+.nav-link:focus-visible,
+.page-link:focus-visible,
+[tabindex]:focus-visible,
+.form-check-input:focus-visible {
+    outline: 2px solid var(--cf-blue);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
 .form-floating-custom .form-control:focus + label,
 .form-floating-custom .form-control:not(:placeholder-shown) + label,
 .form-floating-custom .form-select:focus + label,
 .form-floating-custom .form-select:not(:placeholder-shown) + label {
     font-weight: bold;
 }
-.card-header {
-    background-color: #00c0ef !important;
-}
+
 .nav-pills.nav-secondary .nav-link.active {
-    background: #1572e8 !important;
+    background: var(--cf-blue) !important;
 }
+
+/* Colores de estado. Los de KaiAdmin con texto blanco no llegan a 4.5:1
+   (#31ce36 2.1, #ffad46 1.86, #f25961 3.29); se sustituyen por los tokens. */
+.btn-success,
+.btn-success:disabled,
+.btn-success:focus {
+    background: var(--cf-success) !important;
+    border-color: var(--cf-success) !important;
+    color: #fff !important;
+}
+.btn-success:hover {
+    background: var(--cf-success-ink) !important;
+    border-color: var(--cf-success-ink) !important;
+}
+.btn-danger,
+.btn-danger:disabled,
+.btn-danger:focus {
+    background: var(--cf-danger) !important;
+    border-color: var(--cf-danger) !important;
+    color: #fff !important;
+}
+.btn-danger:hover {
+    background: var(--cf-danger-ink) !important;
+    border-color: var(--cf-danger-ink) !important;
+}
+.btn-warning,
+.btn-warning:disabled,
+.btn-warning:focus,
+.btn-warning:hover {
+    background: var(--cf-amber) !important;
+    border-color: var(--cf-amber) !important;
+    color: var(--cf-ink) !important;
+}
+.btn-warning:hover {
+    filter: brightness(0.95);
+}
+.btn-border.btn-success, .btn-link.btn-success { color: var(--cf-success) !important; border-color: var(--cf-success) !important; }
+.btn-border.btn-danger, .btn-link.btn-danger { color: var(--cf-danger) !important; border-color: var(--cf-danger) !important; }
+.btn-border.btn-warning, .btn-link.btn-warning { color: var(--cf-warning-ink) !important; border-color: var(--cf-amber) !important; }
+.btn-border.btn-success, .btn-border.btn-danger, .btn-border.btn-warning,
+.btn-link.btn-success, .btn-link.btn-danger, .btn-link.btn-warning { background: transparent !important; }
+
+/* Contornos: el cian (#0dcaf0) y el amarillo de Bootstrap no se leen como texto. */
+.btn-outline-info {
+    --bs-btn-color: var(--cf-cyan-ink);
+    --bs-btn-border-color: var(--cf-cyan-ink);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: var(--cf-cyan-ink);
+    --bs-btn-hover-border-color: var(--cf-cyan-ink);
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: var(--cf-cyan-ink);
+    --bs-btn-active-border-color: var(--cf-cyan-ink);
+}
+.btn-outline-warning {
+    --bs-btn-color: var(--cf-warning-ink);
+    --bs-btn-border-color: var(--cf-amber);
+    --bs-btn-hover-color: var(--cf-ink);
+    --bs-btn-hover-bg: var(--cf-amber);
+    --bs-btn-hover-border-color: var(--cf-amber);
+    --bs-btn-active-color: var(--cf-ink);
+    --bs-btn-active-bg: var(--cf-amber);
+    --bs-btn-active-border-color: var(--cf-amber);
+}
+
+/* Respeta bg-opacity-*: KaiAdmin fija un color sólido y rompía los fondos suaves. */
+.bg-primary { --bs-primary-rgb: 21, 114, 232; }
+.bg-success, .badge-success { --bs-success-rgb: 25, 135, 84; }
+.bg-danger, .badge-danger { --bs-danger-rgb: 220, 38, 38; }
+.bg-warning, .badge-warning { --bs-warning-rgb: 245, 158, 11; }
+.bg-info, .badge-info { --bs-info-rgb: 14, 116, 144; }
+.bg-secondary, .badge-secondary { --bs-secondary-rgb: 104, 97, 206; }
+.bg-primary, .bg-success, .bg-danger, .bg-warning, .bg-info, .bg-secondary {
+    --bs-bg-opacity: 1;
+}
+.bg-primary { background-color: rgba(var(--bs-primary-rgb), var(--bs-bg-opacity)) !important; }
+.bg-success, .badge-success { background-color: rgba(var(--bs-success-rgb), var(--bs-bg-opacity, 1)) !important; }
+.bg-danger, .badge-danger { background-color: rgba(var(--bs-danger-rgb), var(--bs-bg-opacity, 1)) !important; }
+.bg-warning, .badge-warning { background-color: rgba(var(--bs-warning-rgb), var(--bs-bg-opacity, 1)) !important; }
+.bg-info, .badge-info { background-color: rgba(var(--bs-info-rgb), var(--bs-bg-opacity, 1)) !important; }
+.bg-secondary, .badge-secondary { background-color: rgba(var(--bs-secondary-rgb), var(--bs-bg-opacity, 1)) !important; }
+.bg-opacity-10 { --bs-bg-opacity: 0.1; }
+.bg-opacity-25 { --bs-bg-opacity: 0.25; }
+.bg-opacity-50 { --bs-bg-opacity: 0.5; }
+.bg-opacity-75 { --bs-bg-opacity: 0.75; }
+.badge-success, .badge-danger, .badge-info, .badge-secondary { color: #fff; }
+.badge-warning { color: var(--cf-ink); }
+.text-success { color: var(--cf-success) !important; }
+.text-danger { color: var(--cf-danger) !important; }
+.text-warning { color: var(--cf-warning-ink) !important; }
+.text-info { color: var(--cf-cyan-ink) !important; }
+
+.modal-content {
+    border: 0;
+    border-radius: var(--cf-radius-card);
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+}
+
+.dropdown-menu {
+    border: 1px solid var(--cf-border);
+    border-radius: 12px;
+    box-shadow: var(--cf-shadow-card);
+}
+
+.badge {
+    border-radius: var(--cf-radius-pill);
+    font-weight: 600;
+}
+
+* {
+    scrollbar-color: var(--cf-border-strong) transparent;
+}
+
+/* 3. Utilidades canónicas (definidas una sola vez aquí) */
+.shadow-xs { box-shadow: var(--cf-shadow-xs); }
+.shadow-card { box-shadow: var(--cf-shadow-card); }
+.bg-gray-100 { background-color: var(--cf-app-bg); }
+.bg-primary-soft { background-color: var(--cf-navy-soft) !important; }
+.bg-success-soft { background-color: var(--cf-success-soft) !important; }
+.bg-danger-soft { background-color: var(--cf-danger-soft) !important; }
+.bg-warning-soft { background-color: var(--cf-warning-soft) !important; }
+.border-light-2 { border: 1px solid var(--cf-border) !important; }
+.badge-soft-success { background-color: var(--cf-success-soft); color: var(--cf-success-ink); }
+.badge-soft-secondary { background-color: rgba(100, 116, 139, 0.14); color: #475569; }
+.badge-soft-danger { background-color: var(--cf-danger-soft); color: var(--cf-danger-ink); }
+.badge-soft-warning { background-color: var(--cf-warning-soft); color: var(--cf-warning-ink); }
+.badge-soft-primary { background-color: var(--cf-navy-soft); color: var(--cf-navy); }
+.uppercase { text-transform: uppercase; letter-spacing: 0.5px; }
+.cursor-pointer { cursor: pointer; }
+.rounded-card { border-radius: var(--cf-radius-card) !important; }
+
+.btn-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.btn-circle:hover {
+    background: var(--cf-surface);
+    color: var(--cf-navy);
+    border-color: var(--cf-navy) !important;
+}
+
+.transition-hover { transition: background-color var(--cf-dur) var(--cf-ease), transform var(--cf-dur) var(--cf-ease); }
+.transition-hover:hover { background-color: var(--cf-app-bg); transform: translateY(-1px); }
+
+.hover-shadow { transition: box-shadow var(--cf-dur) var(--cf-ease), transform var(--cf-dur) var(--cf-ease); }
+.hover-shadow:hover { box-shadow: var(--cf-shadow-card) !important; transform: translateY(-2px); }
+
+.hvr-push { transition: transform var(--cf-dur) var(--cf-ease); }
+.hvr-push:active { transform: scale(0.98); }
+
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--cf-border-strong); border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--cf-muted); }
+
+/* 4. Componentes heredados */
 .iti {
     width: 100%;
 }
 .card .overlay,
 .overlay {
-    border-radius: 0.25rem;
+    border-radius: inherit;
     -ms-flex-align: center;
     align-items: center;
     background: rgba(255, 255, 255, 0.7);
@@ -50,7 +355,7 @@ label.phone {
     opacity: 1;
     padding: 0.375rem 0 0.75rem;
 
-    color: #1572e8 !important;
+    color: var(--cf-blue) !important;
     font-weight: bold;
 }
 
@@ -106,6 +411,17 @@ table.dataTable {
 
 [data-notify] {
     z-index: 9999 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 /* ================================================

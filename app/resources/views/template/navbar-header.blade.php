@@ -1,4 +1,4 @@
-<nav class="navbar navbar-header navbar-expand-lg border-bottom" style="background-color: #1e293b !important; border-bottom-color: rgba(255,255,255,0.05) !important;">
+<nav class="navbar navbar-header navbar-expand-lg border-bottom" style="background-color: var(--cf-chrome) !important; border-bottom-color: rgba(255,255,255,0.05) !important;">
     <div class="container-fluid">
         <nav class="navbar navbar-header-left navbar-expand-lg navbar-form nav-search p-0 d-none d-lg-flex">
 
@@ -110,8 +110,6 @@
                         <li>
                             <div class="dropdown-divider"></div>
                             <a class="dropdown-item" href="{{route('update_profile')}}">{{__('Account Setting')}}</a>
-                            <a class="dropdown-item"
-                                href="{{route('usuario.cambiar_perfil')}}">{{__('Switch Profile')}}</a>
 
                             <div class="dropdown-divider"></div>
                             <form method="POST" action="{{ route('logout') }}">

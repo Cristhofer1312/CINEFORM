@@ -151,6 +151,9 @@ function getCamerasPC() {
                         CONT_CAM++;
                     }
                 });
+            })
+            .catch(function () {
+                // Sin cámara o permiso denegado: la lista queda vacía y se usa la subida de archivo.
             });
     }
 }
