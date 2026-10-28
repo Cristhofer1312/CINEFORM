@@ -79,6 +79,8 @@ cachear() {
     permisos_storage
     # OPcache no valida timestamps (docker/php/zz-performance.ini): sin reiniciar se sirve el código viejo.
     dc restart app scheduler
+    # Instalaciones con el nginx.conf anterior guardan la IP vieja de app (502).
+    dc restart webserver
 }
 
 verificar() {
