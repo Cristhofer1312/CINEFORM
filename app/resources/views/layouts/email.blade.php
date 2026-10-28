@@ -4,7 +4,7 @@
         <meta http-equiv="X-UA-Compatible" content="IE=edge" />
         <title>{{ config('app.name') }} </title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
-        <link rel="icon" href="{{ asset('template/kaiadmin/assets/img/kaiadmin/favicon.ico') }}" type="image/x-icon" />
+        <link rel="icon" href="{{ asset('favicon.ico') }}?v={{ filemtime(public_path('favicon.ico')) }}" sizes="16x16 32x32 48x48" />
         
         <!-- CSS Files -->
         <link rel="stylesheet" href="{{ asset('template/kaiadmin/assets/css/bootstrap.min.css') }}" />

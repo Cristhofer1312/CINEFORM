@@ -64,12 +64,11 @@
             margin-bottom: 1.75rem;
         }
 
+        /* Logo del CNAC en PNG transparente (img/marca); proporción 1.15:1. */
         .cf-login__logo {
-            width: 64px;
-            height: 64px;
+            width: auto;
+            height: 72px;
             flex: none;
-            border-radius: var(--cf-radius-control);
-            object-fit: cover;
         }
 
         .cf-login__cabecera h2 {
@@ -213,7 +212,7 @@
         @media (max-width: 399.98px) {
             .cf-login { padding-inline: 1rem; }
             .cf-login__cabecera { gap: 0.75rem; }
-            .cf-login__logo { width: 52px; height: 52px; }
+            .cf-login__logo { height: 56px; }
         }
     </style>
 
@@ -225,7 +224,7 @@
 
         <main class="container-login cf-login__tarjeta">
             <div class="cf-login__cabecera">
-                <img class="cf-login__logo" src="{{ asset('template/kaiadmin/assets/img/kaiadmin/logo.jpeg') }}"
+                <img class="cf-login__logo" src="{{ asset('img/marca/logo-cnac.png') }}?v={{ filemtime(public_path('img/marca/logo-cnac.png')) }}"
                     alt="Centro Nacional Autónomo de Cinematografía">
                 <div>
                     <h2>{{ __('Iniciar Sesión') }}</h2>

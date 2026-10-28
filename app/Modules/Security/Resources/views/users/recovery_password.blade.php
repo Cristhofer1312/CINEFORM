@@ -19,7 +19,7 @@
             
         </div>
         <h3 class="text-center d-block d-sm-none">
-            <img class="img-fluid" src="{{ asset('template/kaiadmin/assets/img/kaiadmin/logo.jpeg')}}" alt="Card image cap">
+            <img class="img-fluid" src="{{ asset('img/marca/logo-cnac.png') }}?v={{ filemtime(public_path('img/marca/logo-cnac.png')) }}" alt="Centro Nacional Autónomo de Cinematografía" style="max-height: 80px;">
        
         </h3>
         <h3 class="text-center">

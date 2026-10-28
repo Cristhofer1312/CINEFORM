@@ -1,7 +1,8 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <title>@hasSection('title')@yield('title') — {{ config('app.name') }}@else{{ config('app.name') }}@endif</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
-<link rel="icon" href="{{ asset('template/kaiadmin/assets/img/kaiadmin/favicon.ico') }}" type="image/x-icon" />
+<link rel="icon" href="{{ asset('favicon.ico') }}?v={{ filemtime(public_path('favicon.ico')) }}" sizes="16x16 32x32 48x48" />
+<link rel="apple-touch-icon" href="{{ asset('img/marca/apple-touch-icon.png') }}?v={{ filemtime(public_path('img/marca/apple-touch-icon.png')) }}" />
 
 <!-- Fonts and icons -->
 <script src="{{ asset('template/kaiadmin/assets/js/plugin/webfont/webfont.min.js') }}"></script>

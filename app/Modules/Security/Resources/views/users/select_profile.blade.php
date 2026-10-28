@@ -68,7 +68,7 @@
 
         {{-- Logo en móvil --}}
         <h3 class="text-center d-block d-sm-none mb-4">
-            <img class="img-fluid" src="{{ asset('template/kaiadmin/assets/img/kaiadmin/logo.jpeg') }}" alt="Logo" style="max-height: 80px;">
+            <img class="img-fluid" src="{{ asset('img/marca/logo-cnac.png') }}?v={{ filemtime(public_path('img/marca/logo-cnac.png')) }}" alt="Centro Nacional Autónomo de Cinematografía" style="max-height: 80px;">
         </h3>
 
         {{-- Saludo --}}

@@ -40,7 +40,7 @@
         <!-- Logo Header -->
         <div class="logo-header" style="background-color: var(--cf-chrome) !important;">
             <a href="{{route('home')}}" class="logo">
-                <img src="{{asset('template/kaiadmin/assets/img/kaiadmin/logo.jpeg')}}" alt="navbar brand"
+                <img src="{{ asset('img/marca/logo-cnac-claro.png') }}?v={{ filemtime(public_path('img/marca/logo-cnac-claro.png')) }}" alt="Centro Nacional Autónomo de Cinematografía"
                     class="navbar-brand" height="40" />
             </a>
             <div class="nav-toggle">

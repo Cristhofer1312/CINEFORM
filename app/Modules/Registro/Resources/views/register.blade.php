@@ -88,12 +88,11 @@
             margin-bottom: 2rem;
         }
 
+        /* Logo del CNAC en PNG transparente (img/marca); proporción 1.15:1. */
         .cf-registro__logo {
-            width: 64px;
-            height: 64px;
+            width: auto;
+            height: 72px;
             flex: none;
-            border-radius: var(--cf-radius-control);
-            object-fit: cover;
         }
 
         .cf-registro__cabecera h1 {
@@ -286,7 +285,7 @@
 
         @media (max-width: 575.98px) {
             .cf-registro__cabecera { align-items: flex-start; }
-            .cf-registro__logo { width: 52px; height: 52px; }
+            .cf-registro__logo { height: 56px; }
             .cf-registro__enviar { width: 100%; }
 
             /* Sin espacio para campo y botón en una línea: el botón baja. */
@@ -320,7 +319,7 @@
 
             <main class="cf-registro__tarjeta">
                 <header class="cf-registro__cabecera">
-                    <img class="cf-registro__logo" src="{{ asset('template/kaiadmin/assets/img/kaiadmin/logo.jpeg') }}"
+                    <img class="cf-registro__logo" src="{{ asset('img/marca/logo-cnac.png') }}?v={{ filemtime(public_path('img/marca/logo-cnac.png')) }}"
                         alt="Centro Nacional Autónomo de Cinematografía">
                     <div>
                         <h1>Crea tu cuenta</h1>
