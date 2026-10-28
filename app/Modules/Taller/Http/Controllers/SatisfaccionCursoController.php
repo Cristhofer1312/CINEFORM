@@ -46,11 +46,8 @@ class SatisfaccionCursoController extends BaseController
             'organizacion' => 'required|integer|between:1,5',
         ]);
 
-        try {
-            $this->satisfaccion->registrar($inscripcion, $data);
-        } catch (\DomainException $e) {
-            return back()->with('error', $e->getMessage())->withInput();
-        }
+        // Si ya respondió: ReglaDeNegocioException, y Handler vuelve con el mensaje.
+        $this->satisfaccion->registrar($inscripcion, $data);
 
         return $this->destinoTrasEnviar($curso, $inscripcion)
             ->with('success', '¡Gracias por tu respuesta!');

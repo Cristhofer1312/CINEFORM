@@ -79,7 +79,9 @@ class CertificadoController extends BaseController
                 ->header('Content-Type', 'application/pdf')
                 ->header('Content-Disposition', 'attachment; filename="' . $nombreArchivo . '"');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Error al generar el certificado: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error al generar el certificado', ['error' => $e->getMessage()]);
+
+            return redirect()->back()->with('error', 'No se pudo generar el certificado. Intente de nuevo o contacte al administrador.');
         }
     }
 

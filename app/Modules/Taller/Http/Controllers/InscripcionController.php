@@ -123,16 +123,29 @@ class InscripcionController extends BaseController
 
         $basePath = "{$actividadSlug}/{$codigoProcinec}/{$cedula}";
 
-        DB::beginTransaction();
-        try {
-            if ($existente && $existente->esRechazado()) {
+        // La carta de permiso solo cuenta en cursos dirigidos a menores; si quedó
+        // una fila antigua en un curso para adultos, se ignora.
+        $esParaMenores = $curso->esParaMenores();
+        $requisitos = $curso->requisitos->reject(
+            fn ($req) => ! $esParaMenores && CursoRequisito::esCartaPermisoDocumento($req)
+        );
+        $respuestasPrevias = $existente ? $existente->respuestas->keyBy('id_requisito') : collect();
+
+        // Se usa solo lo validado: req_{id} con su tipo, largo y archivo permitido.
+        $datos = $request->validate(...$this->reglasRequisitos($requisitos, $respuestasPrevias));
+
+        $esCorreccion = (bool) $existente;
+
+        // Un error inesperado deshace la transacción y llega a Handler: va al log
+        // y el usuario ve la página de error genérica, sin detalle técnico.
+        DB::transaction(function () use ($existente, $curso, $user, $requisitos, $respuestasPrevias, $datos, $basePath) {
+            if ($existente) {
                 // Modo Corrección (UX-11): reutilizar y actualizar la postulación existente
                 $inscripcion = $existente;
                 $inscripcion->estado = Inscripcion::ESTADO_POSTULADO;
                 $inscripcion->fecha_inscripcion = Carbon::now();
                 $inscripcion->motivo_estado = null;
                 $inscripcion->save();
-                $esCorreccion = true;
             } else {
                 // Modo Creación: nueva postulación
                 $inscripcion = Inscripcion::create([
@@ -141,100 +154,78 @@ class InscripcionController extends BaseController
                     'fecha_inscripcion' => Carbon::now(),
                     'estado' => Inscripcion::ESTADO_POSTULADO,
                 ]);
-                $esCorreccion = false;
             }
 
-            // Procesar respuestas. La carta de permiso solo cuenta en cursos
-            // dirigidos a menores; si quedó una fila antigua en un curso para
-            // adultos, se ignora en lugar de bloquear la inscripción.
-            $esParaMenores = $curso->esParaMenores();
-            $respuestasPrevias = $inscripcion->respuestas->keyBy('id_requisito');
-
-            foreach ($curso->requisitos as $req) {
-                if (! $esParaMenores && CursoRequisito::esCartaPermisoDocumento($req)) {
-                    continue;
+            foreach ($requisitos as $req) {
+                $valor = $datos['req_'.$req->id_requisito] ?? null;
+                if ($valor === null) {
+                    continue; // Opcional sin respuesta, o ya respondido en la postulación anterior.
                 }
-
-                $key = 'req_'.$req->id_requisito;
-                $respPrevia = $respuestasPrevias->get($req->id_requisito);
 
                 if ($req->tipo === 'pregunta') {
-                    if ($req->obligatorio && ! $request->filled($key) && (! $respPrevia || empty($respPrevia->respuesta_texto))) {
-                        throw new \Exception("La pregunta '{$req->titulo}' es obligatoria.");
-                    }
-
-                    if ($request->filled($key)) {
-                        \Modules\Taller\Entities\InscripcionRespuesta::updateOrCreate(
-                            [
-                                'id_inscripcion' => $inscripcion->id_inscripcion,
-                                'id_requisito' => $req->id_requisito,
-                            ],
-                            [
-                                'respuesta_texto' => $request->input($key),
-                            ]
-                        );
-                    }
+                    \Modules\Taller\Entities\InscripcionRespuesta::updateOrCreate(
+                        ['id_inscripcion' => $inscripcion->id_inscripcion, 'id_requisito' => $req->id_requisito],
+                        ['respuesta_texto' => $valor]
+                    );
                 } elseif ($req->tipo === 'documento') {
-                    $tieneArchivoPrevio = $respPrevia && ! empty($respPrevia->ruta_archivo);
-
-                    if ($req->obligatorio && ! $request->hasFile($key) && ! $tieneArchivoPrevio) {
-                        throw new \Exception("El documento '{$req->titulo}' es obligatorio.");
+                    // Limpiar archivo previo si es corrección y se sube uno nuevo
+                    $previo = $respuestasPrevias->get($req->id_requisito)?->ruta_archivo;
+                    if ($previo && Storage::disk('public')->exists($previo)) {
+                        Storage::disk('public')->delete($previo);
                     }
 
-                    if ($request->hasFile($key)) {
-                        $file = $request->file($key);
+                    $extension = strtolower($valor->guessExtension() ?: $valor->getClientOriginalExtension());
+                    $path = $valor->storeAs($basePath, Str::uuid().".{$extension}", 'public');
 
-                        // Validar archivo seguro (RNF-03 / RF-30)
-                        if (! $file->isValid()) {
-                            throw new \Exception("El archivo '{$req->titulo}' es inválido o no se pudo cargar.");
-                        }
-
-                        $validator = Validator::make(
-                            [$key => $file],
-                            [$key => 'required|file|max:5120|mimes:pdf,jpg,jpeg,png,doc,docx']
-                        );
-
-                        if ($validator->fails()) {
-                            throw new \Exception("El archivo '{$req->titulo}' es inválido: ".implode(' ', $validator->errors()->all()));
-                        }
-
-                        // Limpiar archivo previo si es corrección y se sube uno nuevo
-                        if ($tieneArchivoPrevio && Storage::disk('public')->exists($respPrevia->ruta_archivo)) {
-                            Storage::disk('public')->delete($respPrevia->ruta_archivo);
-                        }
-
-                        $extension = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension());
-                        $finalFileName = Str::uuid().".{$extension}";
-
-                        $path = $file->storeAs($basePath, $finalFileName, 'public');
-
-                        \Modules\Taller\Entities\InscripcionRespuesta::updateOrCreate(
-                            [
-                                'id_inscripcion' => $inscripcion->id_inscripcion,
-                                'id_requisito' => $req->id_requisito,
-                            ],
-                            [
-                                'ruta_archivo' => $path,
-                            ]
-                        );
-                    }
+                    \Modules\Taller\Entities\InscripcionRespuesta::updateOrCreate(
+                        ['id_inscripcion' => $inscripcion->id_inscripcion, 'id_requisito' => $req->id_requisito],
+                        ['ruta_archivo' => $path]
+                    );
                 }
             }
+        });
 
-            DB::commit();
+        $mensajeExito = $esCorreccion
+            ? 'Tu postulación ha sido corregida y enviada nuevamente para revisión.'
+            : 'Te has postulado exitosamente en el programa.';
 
-            $mensajeExito = $esCorreccion
-                ? 'Tu postulación ha sido corregida y enviada nuevamente para revisión.'
-                : 'Te has postulado exitosamente en el programa.';
+        return redirect()->route('taller.cursos.show', $curso->id_curso)
+            ->with('success', $mensajeExito);
+    }
 
-            return redirect()->route('taller.cursos.show', $curso->id_curso)
-                ->with('success', $mensajeExito);
+    /**
+     * Reglas y mensajes para los requisitos del curso (campos req_{id}).
+     * Es obligatorio lo que el requisito marca como tal, salvo que ya se haya
+     * respondido en la postulación que se está corrigiendo.
+     *
+     * @return array{0: array<string, string>, 1: array<string, string>}
+     */
+    private function reglasRequisitos($requisitos, $respuestasPrevias): array
+    {
+        $reglas = [];
+        $mensajes = [];
 
-        } catch (\Exception $e) {
-            DB::rollBack();
+        foreach ($requisitos as $req) {
+            $key = 'req_'.$req->id_requisito;
+            $previa = $respuestasPrevias->get($req->id_requisito);
 
-            return redirect()->back()->withInput()->with('error', $e->getMessage());
+            if ($req->tipo === 'pregunta') {
+                $yaRespondida = $previa && ! empty($previa->respuesta_texto);
+                $reglas[$key] = (($req->obligatorio && ! $yaRespondida) ? 'required' : 'nullable').'|string|max:5000';
+                $mensajes["{$key}.required"] = "La pregunta '{$req->titulo}' es obligatoria.";
+                $mensajes["{$key}.max"] = "La respuesta de '{$req->titulo}' no debe exceder 5000 caracteres.";
+            } elseif ($req->tipo === 'documento') {
+                $yaSubido = $previa && ! empty($previa->ruta_archivo);
+                $reglas[$key] = (($req->obligatorio && ! $yaSubido) ? 'required' : 'nullable').'|file|max:5120|mimes:pdf,jpg,jpeg,png,doc,docx';
+                $mensajes["{$key}.required"] = "El documento '{$req->titulo}' es obligatorio.";
+                $mensajes["{$key}.file"] = "El archivo '{$req->titulo}' es inválido o no se pudo cargar.";
+                $mensajes["{$key}.uploaded"] = "El archivo '{$req->titulo}' es inválido o no se pudo cargar.";
+                $mensajes["{$key}.mimes"] = "El archivo '{$req->titulo}' debe ser PDF, imagen (JPG o PNG) o Word.";
+                $mensajes["{$key}.max"] = "El archivo '{$req->titulo}' no debe exceder 5MB.";
+            }
         }
+
+        return [$reglas, $mensajes];
     }
 
     /**

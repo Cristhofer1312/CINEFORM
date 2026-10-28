@@ -84,97 +84,67 @@ class PostulacionFacilitadorController extends BaseController
         $persona = $user->personalData;
         $cedula = $persona->dni;
 
-        DB::beginTransaction();
-        try {
-            // Verificar que no tenga postulación pendiente
-            $existente = PostulacionFacilitador::where('id_persona', $persona->id_persona)
-                ->where('estado', PostulacionFacilitador::ESTADO_PENDIENTE)
-                ->first();
+        // Solo lo validado por PostulacionFacilitadorRequest (req_{id}: texto o
+        // archivo, con su obligatoriedad, tipo y tamaño). Nada más del request.
+        $datos = $request->validated();
 
-            if ($existente) {
-                DB::rollBack();
+        if (PostulacionFacilitador::where('id_persona', $persona->id_persona)
+            ->where('estado', PostulacionFacilitador::ESTADO_PENDIENTE)
+            ->exists()) {
+            return redirect()->back()->withInput()->with('error', 'Ya tienes una postulación pendiente.');
+        }
 
-                return redirect()->back()->withInput()->with('error', 'Ya tienes una postulación pendiente.');
-            }
-
-            // Crear postulación
+        // Un error inesperado deshace la transacción y llega a Handler: va al log
+        // y el usuario ve la página de error genérica, sin detalle técnico.
+        $postulacion = DB::transaction(function () use ($datos, $persona, $cedula) {
             $postulacion = PostulacionFacilitador::create([
                 'id_persona' => $persona->id_persona,
                 'estado' => PostulacionFacilitador::ESTADO_PENDIENTE,
             ]);
 
-            // Procesar respuestas
-            $requisitos = RequisitoFacilitador::activos()->get();
+            foreach (RequisitoFacilitador::activos()->get() as $req) {
+                $valor = $datos['req_'.$req->id_requisito_facilitador] ?? null;
 
-            foreach ($requisitos as $req) {
-                $key = 'req_'.$req->id_requisito_facilitador;
-
-                if ($req->tipo === 'recurso') {
-                    // Los recursos son informativos, no requieren respuesta
+                // Los recursos son informativos y los opcionales pueden venir vacíos.
+                if ($valor === null || $req->tipo === 'recurso') {
                     continue;
                 }
 
                 if ($req->tipo === 'pregunta') {
-                    if ($req->obligatorio && ! $request->filled($key)) {
-                        throw new \Exception("La pregunta '{$req->titulo}' es obligatoria.");
-                    }
-
-                    if ($request->filled($key)) {
-                        PostulacionRespuesta::create([
-                            'id_postulacion' => $postulacion->id_postulacion,
-                            'id_requisito_facilitador' => $req->id_requisito_facilitador,
-                            'respuesta_texto' => $request->input($key),
-                        ]);
-                    }
+                    PostulacionRespuesta::create([
+                        'id_postulacion' => $postulacion->id_postulacion,
+                        'id_requisito_facilitador' => $req->id_requisito_facilitador,
+                        'respuesta_texto' => $valor,
+                    ]);
                 } elseif ($req->tipo === 'documento') {
-                    if ($req->obligatorio && ! $request->hasFile($key)) {
-                        throw new \Exception("El documento '{$req->titulo}' es obligatorio.");
-                    }
+                    $extension = strtolower($valor->guessExtension() ?: $valor->getClientOriginalExtension());
+                    $path = $valor->storeAs("public/postulaciones_facilitador/{$cedula}", Str::uuid().".{$extension}");
 
-                    if ($request->hasFile($key)) {
-                        $file = $request->file($key);
-
-                        if (! $file->isValid()) {
-                            throw new \Exception("El archivo '{$req->titulo}' es inválido o no se pudo cargar.");
-                        }
-
-                        $extension = strtolower($file->guessExtension() ?: $file->getClientOriginalExtension());
-                        $finalFileName = Str::uuid().".{$extension}";
-
-                        $basePath = "postulaciones_facilitador/{$cedula}";
-                        $path = $file->storeAs("public/{$basePath}", $finalFileName);
-
-                        PostulacionRespuesta::create([
-                            'id_postulacion' => $postulacion->id_postulacion,
-                            'id_requisito_facilitador' => $req->id_requisito_facilitador,
-                            'ruta_archivo' => str_replace('public/', '', $path),
-                        ]);
-                    }
+                    PostulacionRespuesta::create([
+                        'id_postulacion' => $postulacion->id_postulacion,
+                        'id_requisito_facilitador' => $req->id_requisito_facilitador,
+                        'ruta_archivo' => str_replace('public/', '', $path),
+                    ]);
                 }
             }
 
-            // Enviar email de confirmación
-            try {
-                Mail::send('taller::emails.postulacion_facilitador_recibida', [
-                    'postulacion' => $postulacion,
-                ], function ($email) use ($user) {
-                    $email->subject('Postulación como Facilitador - Recibida');
-                    $email->to($user->email);
-                });
-            } catch (\Exception $e) {
-                // No detenemos el proceso si falla el correo
-            }
+            return $postulacion;
+        });
 
-            DB::commit();
-
-            return redirect()->route('taller.postulacion-facilitador.landing')
-                ->with('success', 'Tu postulación ha sido enviada exitosamente. Recibirás un correo de confirmación.');
-
+        // Enviar email de confirmación
+        try {
+            Mail::send('taller::emails.postulacion_facilitador_recibida', [
+                'postulacion' => $postulacion,
+            ], function ($email) use ($user) {
+                $email->subject('Postulación como Facilitador - Recibida');
+                $email->to($user->email);
+            });
         } catch (\Exception $e) {
-            DB::rollBack();
-
-            return redirect()->back()->withInput()->with('error', $e->getMessage());
+            // No detenemos el proceso si falla el correo
         }
+
+        return redirect()->route('taller.postulacion-facilitador.landing')
+            ->with('success', 'Tu postulación ha sido enviada exitosamente. Recibirás un correo de confirmación.');
     }
 
     /**
@@ -309,7 +279,9 @@ class PostulacionFacilitadorController extends BaseController
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Error al aprobar: '.$e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error al aprobar la postulación a facilitador', ['error' => $e->getMessage()]);
+
+            return back()->with('error', 'No se pudo aprobar la postulación. Intente de nuevo.');
         }
     }
 
@@ -371,7 +343,9 @@ class PostulacionFacilitadorController extends BaseController
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Error al rechazar: '.$e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error al rechazar la postulación a facilitador', ['error' => $e->getMessage()]);
+
+            return back()->with('error', 'No se pudo rechazar la postulación. Intente de nuevo.');
         }
     }
 

@@ -3,6 +3,7 @@
 namespace Modules\Taller\Services;
 
 use App\Enums\EstadoCurso;
+use App\Exceptions\ReglaDeNegocioException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Modules\Taller\Entities\Curso;
@@ -46,7 +47,7 @@ class SatisfaccionCursoService
     public function registrar(Inscripcion $inscripcion, array $datos): ResenaSatisfaccion
     {
         if ($this->yaRespondio($inscripcion)) {
-            throw new \DomainException('Ya respondiste la encuesta de este curso.');
+            throw new ReglaDeNegocioException('Ya respondiste la encuesta de este curso.');
         }
 
         try {
@@ -60,7 +61,7 @@ class SatisfaccionCursoService
                 'organizacion'   => $datos['organizacion'],
             ]);
         } catch (UniqueConstraintViolationException $e) {
-            throw new \DomainException('Ya respondiste la encuesta de este curso.', 0, $e);
+            throw new ReglaDeNegocioException('Ya respondiste la encuesta de este curso.', 0, $e);
         }
     }
 

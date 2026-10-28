@@ -154,7 +154,9 @@ class CalificacionController extends BaseController
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Error al guardar calificaciones: '.$e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error al guardar calificaciones', ['error' => $e->getMessage()]);
+
+            return back()->with('error', 'No se pudieron guardar las calificaciones. Intente de nuevo.');
         }
     }
 }

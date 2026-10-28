@@ -9,6 +9,7 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 use Modules\Comun\Entities\PersonalData;
 use Modules\Security\Entities\Codes;
@@ -40,15 +41,15 @@ class RegisterController extends Controller
      */
     public function sendCode(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-        ]);
+        $email = strtolower($request->validate([
+            'email' => 'required|string|email|max:100',
+        ])['email']);
 
         $generateCode = $this->generateCode();
-        $user = User::where('email', strtolower($request->email))->first();
+        $user = User::where('email', $email)->first();
 
         if ($user == null) {
-            $code = Codes::where('email', strtolower($request->email))->first();
+            $code = Codes::where('email', $email)->first();
             if ($code != null) {
                 $date = Carbon::parse($code->date);
                 $minutesSinceLastRequest = $date->diffInMinutes(Carbon::now());
@@ -62,7 +63,7 @@ class RegisterController extends Controller
             } else {
                 $code = new Codes;
                 $code->code = $generateCode;
-                $code->email = strtolower($request->email);
+                $code->email = $email;
                 $code->date = now();
                 $code->save();
             }
@@ -93,14 +94,20 @@ class RegisterController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'username' => ['required', 'string', 'max:30', Rule::unique(User::class, 'username')],
-            'email' => ['required', 'email', Rule::unique(User::class, 'email')],
-            'code' => 'required',
-            'password' => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
-            'tipo_dni' => 'required',
+        // Solo lo validado llega a la BD (sin $request->input sueltos).
+        $datos = $request->validate([
+            // Cada campo con tipo y largo máximo (el de la columna o menor): sin
+            // ellos, un valor largo o un id inexistente llegaba al INSERT y fallaba.
+            'username' => ['required', 'string', 'max:30', 'regex:/^[A-Za-z0-9._-]+$/', Rule::unique(User::class, 'username')],
+            'email' => ['required', 'string', 'email', 'max:100', Rule::unique(User::class, 'email')],
+            'code' => 'required|digits:6',
+            'password' => ['required', 'string', 'max:72', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
+            'tipo_dni' => ['required', 'integer', Rule::exists('pgsql.security.document_types', 'id')],
             'dni' => [
                 'required',
+                'string',
+                'max:20',
+                'regex:/^[A-Za-z0-9-]+$/',
                 Rule::unique(PersonalData::class, 'dni'),
             ],
             /* 'pasaporte' => [
@@ -109,12 +116,22 @@ class RegisterController extends Controller
             ], */
             'rif' => [
                 'nullable',
+                'string',
+                'max:20',
+                'regex:/^[A-Za-z0-9-]+$/',
                 Rule::unique(PersonalData::class, 'rif'),
             ],
-            'genero' => 'required',
+            'genero' => ['required', 'integer', Rule::exists('pgsql.security.genders', 'id')],
             'primer_nombre' => 'required|string|max:100',
+            'segundo_nombre' => 'nullable|string|max:100',
             'primer_apellido' => 'required|string|max:100',
-            'telefono' => 'required',
+            'segundo_apellido' => 'nullable|string|max:100',
+            'telefono' => ['required', 'string', 'max:20', 'regex:/^[0-9+()\s-]+$/'],
+            'telefono_opcional' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+()\s-]+$/'],
+            'id_estado' => ['nullable', 'integer', Rule::exists('pgsql.comun.estados', 'id')],
+            'id_municipio' => ['nullable', 'integer', Rule::exists('pgsql.comun.municipios', 'id')->where('state_id', $request->input('id_estado'))],
+            'id_parroquia' => ['nullable', 'integer', Rule::exists('pgsql.comun.parroquias', 'id')->where('municipality_id', $request->input('id_municipio'))],
+            'direccion' => 'nullable|string|max:255',
         ], [
             'username.required' => 'El nombre de usuario es obligatorio.',
             'username.unique' => 'Este nombre de usuario ya está en uso, por favor elija otro.',
@@ -125,15 +142,25 @@ class RegisterController extends Controller
             'code.required' => 'El código de verificación es obligatorio.',
         ]);
 
-        // Validar el código de verificación
-        $findCodeExists = Codes::where('email', strtolower($request->email))
-            ->where('code', $request->code)
+        // Validar el código de verificación. Tras 5 códigos errados para un mismo
+        // correo hay que esperar: sin tope, 6 dígitos se adivinan por fuerza bruta.
+        $claveIntentos = 'registro-codigo:'.sha1(strtolower($datos['email']));
+        if (RateLimiter::tooManyAttempts($claveIntentos, 5)) {
+            return back()->with('error', 'Demasiados códigos incorrectos. Espere 15 minutos y solicite un código nuevo.')->withInput();
+        }
+
+        $findCodeExists = Codes::where('email', strtolower($datos['email']))
+            ->where('code', $datos['code'])
             ->where('processed', false)
             ->first();
 
         if (! $findCodeExists) {
+            RateLimiter::hit($claveIntentos, 900);
+
             return back()->with('error', 'El código de verificación es inválido o ya ha sido procesado.')->withInput();
         }
+
+        RateLimiter::clear($claveIntentos);
 
         // El código caduca a los 15 minutos (el correo lo indica así)
         if (Carbon::parse($findCodeExists->date)->diffInMinutes(Carbon::now()) > 15) {
@@ -147,9 +174,9 @@ class RegisterController extends Controller
 
             // 1. Crear el usuario
             $user = new User([
-                'username' => strtolower($request->username),
-                'email' => strtolower($request->email),
-                'password' => Hash::make($request->password),
+                'username' => strtolower($datos['username']),
+                'email' => strtolower($datos['email']),
+                'password' => Hash::make($datos['password']),
             ]);
 
             // Campos de auditoría y activación requeridos por el Módulo de Seguridad
@@ -157,7 +184,7 @@ class RegisterController extends Controller
             $user->ip = $request->ip();
             $user->active = 1;
             $user->country_id = $venezuela?->id;
-            $user->address = $request->direccion;
+            $user->address = $datos['direccion'] ?? null;
             $user->save();
 
             // Marcar código como procesado
@@ -179,22 +206,22 @@ class RegisterController extends Controller
             // 3. Crear registro en personas
             PersonalData::create([
                 'user_id' => $user->id,
-                'tipo_dni' => $request->tipo_dni,
-                'dni' => $request->dni,
-                'pasaporte' => $request->tipo_dni == 3 ? $request->dni : null, // Si es pasaporte, lo guardamos en ambas por compatibilidad
-                'rif' => $request->rif,
-                'genero' => $request->genero,
-                'primer_nombre' => $request->primer_nombre,
-                'segundo_nombre' => $request->segundo_nombre,
-                'primer_apellido' => $request->primer_apellido,
-                'segundo_apellido' => $request->segundo_apellido,
-                'telefono' => $request->telefono,
-                'telefono_opcional' => $request->telefono_opcional,
+                'tipo_dni' => $datos['tipo_dni'],
+                'dni' => $datos['dni'],
+                'pasaporte' => $datos['tipo_dni'] == 3 ? $datos['dni'] : null, // Si es pasaporte, lo guardamos en ambas por compatibilidad
+                'rif' => $datos['rif'] ?? null,
+                'genero' => $datos['genero'],
+                'primer_nombre' => $datos['primer_nombre'],
+                'segundo_nombre' => $datos['segundo_nombre'] ?? null,
+                'primer_apellido' => $datos['primer_apellido'],
+                'segundo_apellido' => $datos['segundo_apellido'] ?? null,
+                'telefono' => $datos['telefono'],
+                'telefono_opcional' => $datos['telefono_opcional'] ?? null,
                 'id_pais' => $venezuela?->id, // Venezuela resuelto por iso2
-                'id_estado' => $request->id_estado,
-                'id_municipio' => $request->id_municipio,
-                'id_parroquia' => $request->id_parroquia,
-                'direccion' => $request->direccion,
+                'id_estado' => $datos['id_estado'] ?? null,
+                'id_municipio' => $datos['id_municipio'] ?? null,
+                'id_parroquia' => $datos['id_parroquia'] ?? null,
+                'direccion' => $datos['direccion'] ?? null,
                 'creado_por' => $user->id,
                 'creado_en' => now(),
             ]);
@@ -216,7 +243,9 @@ class RegisterController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            return back()->with('error', 'Ocurrió un error en el registro: '.$e->getMessage())->withInput();
+            \Illuminate\Support\Facades\Log::error('Error en el registro de usuario', ['error' => $e->getMessage()]);
+
+            return back()->with('error', 'Ocurrió un error en el registro. Intente de nuevo o contacte al administrador.')->withInput();
         }
     }
 
