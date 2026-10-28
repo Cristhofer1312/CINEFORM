@@ -56,7 +56,7 @@ Route::prefix('registro')->group(function() {
 
         Route::get('show-avatar/{img}', [Modules\Security\Http\Controllers\SecurityController::class, 'show_avatar'])->name('show_avatar');
 
-        Route::get('show-pdf/{pdf}/{page?}', [Modules\Security\Http\Controllers\SecurityController::class, 'show_pdf'])->name('show_pdf');
+        Route::get('show-pdf/{pdf}/{page?}', [Modules\Security\Http\Controllers\SecurityController::class, 'show_pdf'])->name('show_pdf')->where(['pdf' => '[A-Za-z0-9_-]+', 'page' => '[0-9]+']);
 
         Route::get('profiles', [Modules\Security\Http\Controllers\ProfilesController::class, 'index'])->name('profiles');
         Route::get('profiles-list', [Modules\Security\Http\Controllers\ProfilesController::class, 'list'])->name('profiles.list');
@@ -70,7 +70,7 @@ Route::prefix('registro')->group(function() {
         Route::match(['get', 'post'], 'users-update/{id}', [Modules\Security\Http\Controllers\UsersController::class, 'update'])->name('users.update');
         Route::match(['get', 'post'], 'users-password/{id}', [Modules\Security\Http\Controllers\UsersController::class, 'password'])->name('users.password');
 
-        Route::match(['get', 'post', 'put'], 'file-admin/{id?}', [Modules\Security\Http\Controllers\SecurityController::class, 'file_admin'])->name('security.admin');
+        Route::match(['get', 'post', 'put'], 'file-admin/{id?}', [Modules\Security\Http\Controllers\SecurityController::class, 'file_admin'])->name('security.admin')->where('id', '[A-Za-z0-9_-]+');
 
 
         Route::get('usuarios', [Modules\Security\Http\Controllers\UsersController::class, 'index'])->name('users'); */

@@ -15,7 +15,8 @@ use Tests\TestCase;
 /**
  * Permisos y perfiles:
  * - RF-82 (decisión 1b): quien tiene los permisos de gestión de perfiles puede
- *   otorgar cualquier permiso o perfil, igual que el administrador.
+ *   otorgar cualquier permiso, igual que el administrador. Perfiles: D8 (26/10),
+ *   solo los que el actor posee (DelegacionPerfilesTest).
  * - P2: catálogos separan ver de crear/editar.
  * - P3/P4: guardado atómico, por diferencia y auditado.
  * - P5: el usuario raíz recibe el mismo resultado por cualquier camino.
@@ -210,11 +211,24 @@ class PermisosPerfilesSeguridadTest extends TestCase
 
     // ── RF-82: asignación de perfiles ──────────────────────────────────────
 
-    public function test_asignacion_deja_exactamente_los_perfiles_marcados_y_queda_auditada(): void
+    public function test_asignacion_deja_los_perfiles_marcados_conserva_los_ajenos_y_queda_auditada(): void
     {
         $destino = $this->adminNoRaiz;
         $this->assertNotSame($destino->id, $this->coordinador->id);
-        $antes = $this->perfilesDe($destino->id);
+
+        // D8: el coordinador tiene Facilitador, Participante y Coordinador, pero no
+        // Administrador, así que no puede quitarlo. Se fija aquí para no depender de los datos.
+        DB::table('security.profiles_users')->where('id_users', $this->coordinador->id)->delete();
+        DB::table('security.profiles_users')->insert(array_map(fn ($idRol) => [
+            'id_rol' => $idRol, 'id_users' => $this->coordinador->id, 'status' => 1,
+            'creado_por' => 1, 'creado_en' => now(), 'actualizado_por' => 1, 'actualizado_en' => now(),
+        ], [Perfil::FACILITADOR, Perfil::PARTICIPANTE, Perfil::COORDINADOR]));
+        DB::table('security.profiles_users')->where('id_users', $destino->id)->delete();
+        DB::table('security.profiles_users')->insert(array_map(fn ($idRol) => [
+            'id_rol' => $idRol, 'id_users' => $destino->id, 'status' => 1,
+            'creado_por' => 1, 'creado_en' => now(), 'actualizado_por' => 1, 'actualizado_en' => now(),
+        ], [Perfil::ADMINISTRADOR, Perfil::FACILITADOR]));
+        $antes = [Perfil::ADMINISTRADOR, Perfil::FACILITADOR];
 
         $this->como($this->coordinador, Perfil::COORDINADOR)
             ->post(route('users.assign_profiles'), [
@@ -223,7 +237,7 @@ class PermisosPerfilesSeguridadTest extends TestCase
             ])
             ->assertJson(['success' => true]);
 
-        $this->assertSame([Perfil::PARTICIPANTE, Perfil::COORDINADOR], $this->perfilesDe($destino->id));
+        $this->assertSame([Perfil::ADMINISTRADOR, Perfil::PARTICIPANTE, Perfil::COORDINADOR], $this->perfilesDe($destino->id));
 
         $registro = DB::table('security.auditoria')
             ->where('accion', 'usuario.perfiles.asignar')

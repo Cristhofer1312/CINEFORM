@@ -32,6 +32,8 @@ class SecurityAction
     const POSTULARSE_FACILITADOR = 24;
     const GESTIONAR_POSTULACIONES_FACILITADOR = 25;
     const VER_ESTADISTICAS = 26;
+    const REPORTE_SATISFACCION = 27;
+    const SUPERVISAR_CURSOS = 28;
 
     /** Slug con el que se guarda cada acción en `security.permissions.slug`. */
     private const SLUGS = [
@@ -56,6 +58,8 @@ class SecurityAction
         self::POSTULARSE_FACILITADOR => 'apply_facilitator',
         self::GESTIONAR_POSTULACIONES_FACILITADOR => 'manage_facilitator_applications',
         self::VER_ESTADISTICAS => 'view_statistics',
+        self::REPORTE_SATISFACCION => 'export_satisfaction',
+        self::SUPERVISAR_CURSOS => 'supervise_courses',
     ];
 
     /** Slug de la acción, o '' si no existe. */

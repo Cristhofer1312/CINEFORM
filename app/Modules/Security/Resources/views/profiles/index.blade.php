@@ -111,8 +111,8 @@
                     showCancelButton: true,
                     confirmButtonText: deact ? "{{__('Yes, deactivate')}}" : "{{__('Yes, activate')}}",
                     cancelButtonText: "{{__('Cancel')}}",
-                    confirmButtonColor: deact ? '#F25961' : '#31CE36',
-                    cancelButtonColor: '#6861CE'
+                    confirmButtonColor: deact ? '#dc2626' : '#198754',
+                    cancelButtonColor: '#64748b'
                 }).then(function (result) {
                     if (result.isConfirmed) {
                         window.location.href = url;

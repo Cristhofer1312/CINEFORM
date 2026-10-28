@@ -15,11 +15,11 @@
         padding: 25px 20px;
         text-align: center;
         background-color: #ffffff;
-        color: #555555;
+        color: var(--cf-text);
         text-decoration: none;
         display: block;
         margin-bottom: 15px;
-        border: 1px solid #ebedf2;
+        border: 1px solid var(--cf-border);
         box-shadow: 0 4px 6px rgba(0,0,0,0.04);
     }
     .profile-card:hover, .profile-card:focus {
@@ -51,7 +51,7 @@
         gap: 6px;
         background: rgba(40, 208, 148, 0.12);
         border: 1px solid rgba(40, 208, 148, 0.35);
-        color: #555;
+        color: var(--cf-text);
         font-size: 13px;
         padding: 4px 12px;
         border-radius: 20px;
@@ -81,13 +81,13 @@
         @if ($withinSession && $perfilActual)
             <div class="text-center mb-1">
                 <span class="current-profile-pill">
-                    <i class="fas fa-circle" style="font-size:7px; color:#28d094;"></i>
+                    <i class="fas fa-circle" style="font-size:7px; color: var(--cf-success);"></i>
                     {{ __('Perfil activo') }}: <strong>{{ __($perfilActual->name) }}</strong>
                 </span>
             </div>
         @endif
 
-        <p class="text-center mb-4" style="color: #777; font-size: 15px;">
+        <p class="text-center mb-4" style="color: var(--cf-muted); font-size: 15px;">
             {{ __('Seleccione el perfil con el que desea trabajar') }}
         </p>
 

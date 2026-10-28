@@ -42,6 +42,7 @@ class User extends Authenticatable
         'password',       // Ocultar siempre en serialización (toArray, toJson, API)
         'remember_token', // Token de sesión persistente nunca debe exponerse
         'token',          // Token de recuperación de contraseña (contiene hash sensible)
+        'session_token',  // Permite cerrar sesiones de forma remota; nunca debe exponerse
     ];
 
     /**
@@ -179,8 +180,9 @@ class User extends Authenticatable
     // ========================================================================
     public function captureMenu()
     {
-        $profileId = session()->get('profile_id');
-        if (!$profileId) return [];
+        // Los permisos son la suma de los perfiles activos: el menú también.
+        $perfiles = app(\App\Services\Security\Autorizacion::class)->perfilesActivosPara($this);
+        if ($perfiles === []) return [];
 
         $Menu = \Modules\Security\Entities\Menu::orderBy('order')
             ->where('active', true)
@@ -194,7 +196,7 @@ class User extends Authenticatable
         foreach ($Menu as $key => $value) {
             foreach ($value['processes'] as $key2 => $value2) {
                 $allowedProfiles = $value2['profile_array'] ?? [];
-                if (!in_array($profileId, $allowedProfiles)) {
+                if (array_intersect($perfiles, array_map('intval', $allowedProfiles)) === []) {
                     unset($Menu[$key]['processes'][$key2]);
                 }
             }

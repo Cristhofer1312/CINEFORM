@@ -197,7 +197,9 @@
 
             $("#frm1").validate({
                 errorPlacement: function (error, element) {
-                    element.parent().after(error);
+                    // Dentro de la columna: fuera de ella el mensaje ocupa una fila del grid y apila los campos.
+                    var col = element.closest('[class*="col-"]');
+                    col.length ? col.append(error) : element.parent().after(error);
                 }
             });
 

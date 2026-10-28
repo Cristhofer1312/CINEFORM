@@ -14,7 +14,7 @@ class ProfilePermissionsSeeder extends Seeder
                 1 => ['view', 'create', 'edit', 'permissions'],
                 2 => ['view', 'create', 'edit', 'security'],
                 3 => ['view'],
-                4 => ['view', 'create_course', 'manage_course', 'approve_course', 'edit_course_e', 'grade_course', 'view_participants', 'cancel_enrollment', 'manage_attendance'],
+                4 => ['view', 'create_course', 'manage_course', 'supervise_courses', 'approve_course', 'edit_course_e', 'grade_course', 'view_participants', 'cancel_enrollment', 'manage_attendance', 'export_satisfaction'],
                 5 => ['view'],
                 6 => ['view', 'assign'],
                 7 => ['view', 'create', 'edit'],
@@ -22,7 +22,7 @@ class ProfilePermissionsSeeder extends Seeder
             4 => [
                 1 => ['view', 'create', 'edit'],
                 3 => ['view'],
-                4 => ['view', 'create_course', 'manage_course', 'approve_course', 'edit_course_e', 'view_participants', 'cancel_enrollment', 'manage_attendance'],
+                4 => ['view', 'create_course', 'manage_course', 'supervise_courses', 'approve_course', 'edit_course_e', 'view_participants', 'cancel_enrollment', 'manage_attendance', 'export_satisfaction'],
                 6 => ['view', 'assign'],
                 7 => ['view', 'create', 'edit'],
             ],

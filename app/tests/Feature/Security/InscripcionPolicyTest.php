@@ -67,28 +67,23 @@ class InscripcionPolicyTest extends TestCase
         $this->assertNotNull($idPersonaFacilitador, 'facilitadorDuenio debe tener personalData.');
         $this->assertNotNull($idPersonaTitular, 'participanteTitular debe tener personalData.');
 
-        $cursoExistente = Curso::first();
-        if (! $cursoExistente) {
-            $this->curso = Curso::withoutEvents(function () use ($idPersonaFacilitador) {
-                $c = new Curso;
-                $c->nombre = 'Curso Inscripcion Policy';
-                $c->codigo = 'LAB-I1001-A-O-G-2026';
-                $c->id_persona = $idPersonaFacilitador;
-                $c->id_actividad_formativa = 1;
-                $c->id_aspecto = 1;
-                $c->id_modalidad = 1;
-                $c->id_modalidad_especial = 1;
-                $c->fecha_inicio = now();
-                $c->fecha_fin = now()->addMonths(1);
-                $c->save();
+        // Curso propio: reutilizar Curso::first() chocaba con inscripciones reales
+        // del titular en ese curso (unique id_curso + id_persona).
+        $this->curso = Curso::withoutEvents(function () use ($idPersonaFacilitador) {
+            $c = new Curso;
+            $c->nombre = 'Curso Inscripcion Policy';
+            $c->codigo = 'LAB-I'.random_int(1000, 9999).'-A-O-G-2026';
+            $c->id_persona = $idPersonaFacilitador;
+            $c->id_actividad_formativa = 1;
+            $c->id_aspecto = 1;
+            $c->id_modalidad = 1;
+            $c->id_modalidad_especial = 1;
+            $c->fecha_inicio = now();
+            $c->fecha_fin = now()->addMonths(1);
+            $c->save();
 
-                return $c;
-            });
-        } else {
-            $this->curso = $cursoExistente;
-            $this->curso->id_persona = $idPersonaFacilitador;
-            $this->curso->saveQuietly();
-        }
+            return $c;
+        });
 
         $this->inscripcion = new Inscripcion;
         $this->inscripcion->id_curso = $this->curso->id_curso;

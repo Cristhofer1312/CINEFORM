@@ -1,16 +1,10 @@
 @extends('layouts.kaiadmin-login')
 @section('content')
 <style>
-    input[type=text]:focus, input[type=password]:focus, select:focus {
-        background-color: #f7faff !important;
-        border-color: #3f67f0 !important;
-        box-shadow: 0 0 0 0.25rem rgba(63, 103, 240, 0.15) !important;
-        outline: none;
-    }
-    .form-floating-custom .form-control:focus+label,
+.form-floating-custom .form-control:focus+label,
     .form-floating-custom .form-control:not(:placeholder-shown)+label {
         font-weight: 700;
-        color: #3f67f0;
+        color: var(--cf-blue);
     }
     .container-login {
         max-width: 500px !important;

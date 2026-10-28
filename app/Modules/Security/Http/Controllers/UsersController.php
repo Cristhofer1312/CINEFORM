@@ -142,7 +142,8 @@ class UsersController extends Controller
         if (! \Request::ajax()) {
             if (\Request::isMethod('get')) {
                 $typeDoc = \Modules\Security\Entities\DocumentType::get()->pluck('code', 'crypt_id');
-                $profiles = \Modules\Security\Entities\Profile::where('active', true)->get()->pluck('name', 'crypt_id');
+                // D8: solo se ofrecen los perfiles que el actor puede asignar.
+                $profiles = \Modules\Security\Entities\Profile::whereIn('id', $this->perfilesAsignables())->get()->pluck('name', 'crypt_id');
 
                 return view('security::users.create', compact('typeDoc', 'profiles'));
             } else {
@@ -157,6 +158,11 @@ class UsersController extends Controller
                 // No se puede asignar un perfil desactivado
                 if (! \Modules\Security\Entities\Profile::where('id', (int) $request->profile_id)->where('active', true)->exists()) {
                     return back()->withInput()->withErrors(['error-message' => __('Cannot assign an inactive profile')]);
+                }
+
+                // D8: solo perfiles que el actor posee (evita crear un Administrador).
+                if (! in_array((int) $request->profile_id, $this->perfilesAsignables(), true)) {
+                    abort(403, 'No puedes asignar un perfil que no tienes.');
                 }
 
                 // Crear usuario
@@ -236,6 +242,12 @@ class UsersController extends Controller
             return to_route('users')->withErrors(['error-message' => __('System Administrator cannot be modified')]);
         }
 
+        // Nadie se edita a sí mismo desde administración (perfil, estado): para
+        // los datos propios está "Configuración de cuenta".
+        if ($userId === (int) Auth::id()) {
+            return to_route('users')->withErrors(['error-message' => 'No puedes modificar tu propio usuario desde administración. Usa la configuración de tu cuenta.']);
+        }
+
         if (! \Request::ajax()) {
             if (\Request::isMethod('get')) {
                 $user = User::find($userId);
@@ -243,7 +255,7 @@ class UsersController extends Controller
                     abort(404, 'Usuario no encontrado');
                 }
                 $typeDoc = \Modules\Security\Entities\DocumentType::get()->pluck('code', 'crypt_id');
-                $profiles = \Modules\Security\Entities\Profile::where('active', true)->get()->pluck('name', 'crypt_id');
+                $profiles = \Modules\Security\Entities\Profile::whereIn('id', $this->perfilesAsignables())->get()->pluck('name', 'crypt_id');
 
                 return view('security::users.update', ['id' => Encryptor::encrypt($userId), 'user' => $user, 'typeDoc' => $typeDoc, 'profiles' => $profiles]);
             } else {
@@ -262,7 +274,12 @@ class UsersController extends Controller
                     return back()->withInput()->withErrors(['error-message' => __('Cannot assign an inactive profile')]);
                 }
 
-                $Country = \Modules\Security\Entities\Countries::where('iso2', $request->country_iso2)->first();
+                // D8: solo perfiles que el actor posee.
+                if (! in_array((int) $request->profile_id, $this->perfilesAsignables(), true)) {
+                    abort(403, 'No puedes asignar un perfil que no tienes.');
+                }
+
+                $Country =\Modules\Security\Entities\Countries::where('iso2', $request->country_iso2)->first();
 
                 $User = User::find($userId);
                 // El middleware DecryptIds ya desencriptó los valores post (document_type_id, profile_id)
@@ -298,6 +315,8 @@ class UsersController extends Controller
                     ]);
                 }
 
+                app(\App\Services\Security\Autorizacion::class)->invalidar();
+
                 return to_route('users')->withSuccess(__('User Updated Successfully'));
             }
         }
@@ -311,6 +330,11 @@ class UsersController extends Controller
         // Bloquear cambio de contraseña del usuario Admin (ID 1) desde este panel
         if ($userId == 1) {
             return to_route('users')->withErrors(['error-message' => __('System Administrator password cannot be changed from here')]);
+        }
+
+        // La contraseña propia se cambia en "Configuración de cuenta", que pide la actual.
+        if ($userId === (int) Auth::id()) {
+            return to_route('users')->withErrors(['error-message' => 'Cambia tu propia contraseña desde la configuración de tu cuenta.']);
         }
 
         if (! \Request::ajax()) {
@@ -328,12 +352,17 @@ class UsersController extends Controller
                     're_password' => 'required',
                 ]);
 
-                if (Hash::check($request->new_password, Auth::user()->password)) {
+                // Se compara con la contraseña del usuario afectado (antes, con la del actor).
+                $afectado = User::findOrFail($userId);
+                if (Hash::check($request->new_password, $afectado->password)) {
                     return to_route('users.password', Encryptor::encrypt($userId))->withErrors(['error-message' => __('New Password cannot be same as your current password.')]);
                 }
+                // Nueva contraseña y nuevo session_token: se cierran las sesiones
+                // abiertas del usuario (Authenticate compara el token).
                 User::whereId($userId)->update([
                     'password' => Hash::make($request->new_password),
                 ]);
+                DB::table('security.users')->where('id', $userId)->update(['session_token' => \Illuminate\Support\Str::random(40)]);
 
                 return to_route('users')->withSuccess(__('User Updated Successfully'));
             }
@@ -357,5 +386,11 @@ class UsersController extends Controller
 
             return to_route('users')->withSuccess(__('Profile Deactivated Successfully'));
         }
+    }
+
+    /** D8: perfiles que el actor puede asignar (los suyos; la raíz, todos). */
+    private function perfilesAsignables(): array
+    {
+        return app(\App\Services\Security\Autorizacion::class)->perfilesAsignables();
     }
 }

@@ -14,24 +14,13 @@
          contaminar el CSS global con reglas exclusivas del formulario.
     ──────────────────────────────────────────────────────────────── --}}
     <style>
-        /* Resalta el borde y fondo al enfocar cualquier campo de texto */
-        input[type=text]:focus,
-        input[type=password]:focus,
-        input[type=email]:focus,
-        select:focus {
-            background-color: #f7faff !important;
-            border-color: #3f67f0 !important;
-            box-shadow: 0 0 0 0.25rem rgba(63, 103, 240, 0.15) !important;
-            outline: none;
-        }
-
         /* Hace que el label flote en negrita y azul cuando el campo está activo o lleno */
         .form-floating-custom .form-control:focus+label,
         .form-floating-custom .form-control:not(:placeholder-shown)+label,
         .form-floating-custom .form-select:focus+label,
         .form-floating-custom .form-select:not(:placeholder-shown)+label {
             font-weight: 700;
-            color: #3f67f0;
+            color: var(--cf-blue);
         }
 
         /* Contenedor principal del formulario: centrado y ancho máximo */
@@ -355,16 +344,18 @@
          jQuery es necesario para inputmask y las llamadas AJAX.
          inputmask aplica la máscara telefónica (9999) 999-9999.
     ──────────────────────────────────────────────────────────────── --}}
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.8/jquery.inputmask.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{-- Build sin jQuery: el layout vuelve a cargar jQuery después y borraría $.fn.inputmask. --}}
+    <script src="https://cdn.jsdelivr.net/npm/inputmask@5.0.10/dist/inputmask.min.js"></script>
 
     <script type="text/javascript">
         $(document).ready(function () {
 
             // ── Máscara de teléfono ────────────────────────────────────
             // Aplica formato (0424) 123-4567 a ambos campos de teléfono.
-            if ($.fn.inputmask) {
-                $('#telefono, #telefono_opcional').inputmask('(9999) 999-9999');
+            if (window.Inputmask) {
+                // removeMaskOnSubmit: se guardan solo dígitos, como el resto de teléfonos en comun.personas.
+                Inputmask('(9999) 999-9999', { removeMaskOnSubmit: true }).mask(document.querySelectorAll('#telefono, #telefono_opcional'));
             }
 
             // ── RIF: solo dígitos ──────────────────────────────────────

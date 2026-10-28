@@ -37,6 +37,7 @@ class PostulacionFacilitadorSeguridadTest extends TestCase
         $this->coordinadorUser = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::COORDINADOR);
         })->first() ?? User::findOrFail(1);
+        // Con sesión abierta en la BD, Authenticate exige el session_token (si no, 302 al login).
     }
 
     public function test_participante_no_puede_acceder_al_panel_admin_de_facilitadores(): void
@@ -69,7 +70,7 @@ class PostulacionFacilitadorSeguridadTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->coordinadorUser)
-            ->withSession(['profile_id' => Perfil::COORDINADOR])
+            ->withSession(['profile_id' => Perfil::COORDINADOR, 'session_token' => $this->coordinadorUser->session_token])
             ->post(route('taller.postulacion-facilitador.aprobar', ['postulacion' => $postulacion->crypt_id]));
 
         $response->assertStatus(403);
@@ -86,7 +87,7 @@ class PostulacionFacilitadorSeguridadTest extends TestCase
         ]);
 
         $response = $this->actingAs($this->coordinadorUser)
-            ->withSession(['profile_id' => Perfil::COORDINADOR])
+            ->withSession(['profile_id' => Perfil::COORDINADOR, 'session_token' => $this->coordinadorUser->session_token])
             ->post(route('taller.postulacion-facilitador.rechazar', ['postulacion' => $postulacion->crypt_id]), [
                 'motivo_rechazo' => 'Motivo de prueba',
             ]);

@@ -13,14 +13,6 @@
         @endforeach --}}
     </div>
 </body>
-<style>
-    input[type=text]:focus,  input[type=password]:focus{
-        background-color: #FFFF99 !important;
-    }
-    .form-floating-custom .form-control:focus+label,.form-floating-custom .form-control:not(:placeholder-shown)+label,.form-floating-custom .form-select:focus+label,.form-floating-custom .form-select:not(:placeholder-shown)+label {
-        font-weight: bold;
-    }
-
      <style>
         /* Solo afecta esta página, nada más */
         .custom-profile-select,
@@ -29,7 +21,7 @@
             min-height: 100vh !important;
             margin: 0 !important;
             padding: 0 !important;
-            background: #f8f9fc;
+            background: var(--cf-app-bg);
         }
 
         .custom-profile-select-panel {
@@ -56,7 +48,6 @@
             bottom: 0 !important;
         }
     </style>
-</style>
 
 
 <script type="text/javascript">

@@ -69,7 +69,9 @@ class SecurityController extends Controller
     public function file_admin($id = null)
     {
 
+        abort_unless(preg_match('/^[A-Za-z0-9_-]+$/', (string) $id) === 1, 404);
         $pdfFile = storage_path($id.'.pdf');
+        abort_unless(is_file($pdfFile), 404);
         $FILE_PDF = new \Smalot\PdfParser\Parser;
 
         $documento = $FILE_PDF->parseFile($pdfFile);
@@ -107,7 +109,12 @@ class SecurityController extends Controller
         // $draw->annotation(100, 100, $text); // Ajusta la posición según sea necesario
         $draw->setGravity(\Imagick::GRAVITY_CENTER);
 
+        // La ruta restringe {pdf} a [A-Za-z0-9_-]+; se repite aquí porque el valor
+        // llega a una ruta de disco y al nombre de archivo de Imagick.
+        abort_unless(preg_match('/^[A-Za-z0-9_-]+$/', (string) $pdf) === 1, 404);
+        $page = (int) $page;
         $pdfFile = storage_path($pdf.'.pdf');
+        abort_unless(is_file($pdfFile), 404);
 
         $FILE_PDF = new \Smalot\PdfParser\Parser;
 
@@ -185,7 +192,9 @@ class SecurityController extends Controller
 
         // place each character in a random position
         // putenv('GDFONTPATH=' . realpath('.'));
-        $font = 'fonts/arial.ttf';
+        // Ruta absoluta: desde PHP 8.5 imagettftext() no resuelve rutas relativas
+        // al directorio actual (antes funcionaba porque FPM corre en public/).
+        $font = public_path('fonts/arial.ttf');
         for ($i = 0; $i < 5; $i++) {
             $color = rand(0, 32);
             if (file_exists($font)) {
@@ -205,10 +214,16 @@ class SecurityController extends Controller
         $matrix = [[1, 1, 1], [1.0, 7, 1.0], [1, 1, 1]];
         imageconvolution($captcha, $matrix, 16, 32);
 
-        $response = Response::make(imagejpeg($captcha), 200);
-        $response->header('Content-Type', 'image/jpeg');
+        // imagejpeg() escribe directo a la salida y Laravel enviaba text/html;
+        // se captura para que la respuesta lleve el cuerpo y el tipo correctos.
+        ob_start();
+        imagejpeg($captcha);
+        $jpeg = ob_get_clean();
 
-        return $response;
+        return Response::make($jpeg, 200, [
+            'Content-Type' => 'image/jpeg',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        ]);
 
         // avoids catching
         header('Expires: 0');
@@ -566,22 +581,10 @@ class SecurityController extends Controller
                             'date_change_password' => null,
                         ]); // Si el login es exitoso, actualiza el usuario logueado para quitar flags temporales relacionados con el cambio de contraseña y limpiar tokens.
 
-                        // Solo perfiles activos pueden elegirse/seleccionarse
-                        $perfiles = Auth::user()->perfiles()->where('security.profiles.active', true)->get(); // $user->profiles; // Ya gracias a la relación
-                        // dd($perfiles);
-                        if ($perfiles->count() <= 1) {
-                            // Obtener el primer perfil si existe, usando método first()
-                            $perfil = $perfiles->first();
-
-                            if ($perfil) {
-                                session()->put('profile_id', $perfil->id);
-                            }
-                        } else {
-                            /* Mostrar selección porque hay más de un perfil */
-                            $layout = 'layouts.kaiadmin-login';
-                            $withinSession = false;
-
-                            return view('security::users.select_profile', compact('perfiles', 'layout', 'withinSession'));
+                        // Sin selección de perfil: los permisos suman todos los perfiles
+                        // activos. El principal se guarda solo como dato informativo.
+                        if ($principal = app(\App\Services\Security\Autorizacion::class)->perfilPrincipalPara($fresh)) {
+                            session()->put('profile_id', $principal);
                         }
 
                         // COMENTADO 2026-04-24: Lógica de módulos eliminada del sidebar
@@ -600,56 +603,19 @@ class SecurityController extends Controller
         }
     }
 
+    /**
+     * Desde el 26/10 no se elige perfil: los permisos suman todos los perfiles
+     * activos. Las rutas antiguas de selección/cambio quedan como redirección
+     * al inicio para no romper enlaces guardados.
+     */
     public function seleccionarPerfil($id_rol)
     {
-        // El id_rol puede venir encriptado o ya descifrado por DecryptIds
-        if (! is_numeric($id_rol)) {
-            $id_rol = Encryptor::decrypt($id_rol);
-        }
-
-        // Seguridad: Verificar que el usuario realmente tiene asignado este perfil
-        $tienePerfil = Auth::user()->perfiles()->where('security.profiles.id', $id_rol)->exists();
-
-        if (! $tienePerfil) {
-            Log::warning('Intento de acceso a perfil no autorizado', [
-                'user_id' => Auth::id(),
-                'requested_profile' => $id_rol,
-            ]);
-
-            return to_route('home')->withErrors(['error-message' => __('Unauthorized profile selection.')]);
-        }
-
-        // El perfil debe estar activo para poder seleccionarse
-        $perfil = \Modules\Security\Entities\Profile::where('id', $id_rol)->where('active', true)->first();
-        if (! $perfil) {
-            return to_route('home')->withErrors(['error-message' => __('Cannot select an inactive profile')]);
-        }
-
-        // Guarda el perfil seleccionado en sesión con la clave 'profile_id'
-        session()->put('profile_id', $id_rol);
-
-        // COMENTADO 2026-04-24: Lógica de módulos eliminada del sidebar
-        // session()->forget('MODULE');
-        // $modules = auth()->user()->getModules();
-        // if ($modules->count() == 1) {
-        //     session()->put('MODULE', $modules[0]->id);
-        // }
-
         return redirect()->intended(route('home'));
     }
 
     public function showSwitchProfile()
     {
-        $perfiles = Auth::user()->perfiles()->where('security.profiles.active', true)->get();
-
-        if ($perfiles->count() <= 1) {
-            return to_route('home')->withErrors(['error-message' => __('You only have one profile assigned.')]);
-        }
-
-        $layout = 'layouts.kaiadmin-login';
-        $withinSession = true;
-
-        return view('security::users.select_profile', compact('perfiles', 'layout', 'withinSession'));
+        return to_route('home');
     }
 
     public function home()
@@ -658,10 +624,10 @@ class SecurityController extends Controller
         return view('security::users.home');
     }
 
+    /** /home y /security/usuario/perfil/seleccionar: ya no hay selección de perfil. */
     public function registroHome()
     {
-        // dd(Auth::user()->getMenu());
-        return view('registro::personas.home');
+        return to_route('home');
     }
 
     // COMENTADO 2026-04-24: Lógica de módulos eliminada del sidebar
@@ -732,9 +698,18 @@ class SecurityController extends Controller
                     $findCodeExists = \Modules\Security\Entities\Codes::where('email', $email)
                         ->where('code', $request->code)
                         ->where('processed', false)
+                        // El código caduca a los 15 minutos (mismo plazo que su reenvío).
+                        ->where('date', '>=', now()->subMinutes(15))
                         ->first();
                     if (! $findCodeExists) {
                         return to_route('update_profile')->withErrors(['error-message' => __('Your verification code is wrong')]);
+                    }
+
+                    // Cambiar el correo cambia la identidad de acceso y de recuperación:
+                    // se exige reautenticación con la contraseña actual.
+                    $cambiaCorreo = $email !== strtolower((string) Auth::user()->email);
+                    if ($cambiaCorreo && ! Hash::check((string) $request->current_password, Auth::user()->password)) {
+                        return to_route('update_profile')->withErrors(['current_password' => __("Old Password Doesn't match!")]);
                     }
 
                     $Country = \Modules\Security\Entities\Countries::where('iso2', $request->country_iso2)->first();
@@ -772,6 +747,10 @@ class SecurityController extends Controller
                     $findCodeExists->processed = true;
                     $findCodeExists->save();
 
+                    if ($cambiaCorreo) {
+                        $this->rotarSesiones($request, $Usuario);
+                    }
+
                     return to_route('update_profile')->withSuccess(__('Correctly Updated Data'));
 
                     break;
@@ -792,6 +771,8 @@ class SecurityController extends Controller
                     User::whereId(auth()->user()->id)->update([
                         'password' => Hash::make($request->new_password),
                     ]);
+
+                    $this->rotarSesiones($request, User::find(Auth::id()));
 
                     return to_route('update_profile')->withSuccess(__('Password changed successfully!'));
                     // dd($request->all());
@@ -851,10 +832,28 @@ class SecurityController extends Controller
                 $email->to($for);
             });
         } catch (\Exception $e) {
-            return response()->json(['type' => 'danger', 'message' => __('Error sending email: ').$e->getMessage(), 'status' => '0']);
+            // El detalle (servidor SMTP, credenciales) va al log, no al cliente.
+            Log::error('Error al enviar código de verificación', ['user_id' => Auth::id(), 'error' => $e->getMessage()]);
+
+            return response()->json(['type' => 'danger', 'message' => __('Error sending email: ').__('please try again later'), 'status' => '0']);
         }
 
         return response()->json(['type' => 'success', 'message' => __('A code has been sent to your email'), 'status' => '1']);
+    }
+
+    /**
+     * Tras cambiar contraseña o correo: nuevo ID de sesión y nuevo session_token.
+     * Authenticate cierra las demás sesiones del usuario (su token ya no coincide);
+     * la sesión actual conserva el acceso con el token nuevo.
+     */
+    private function rotarSesiones(Request $request, User $usuario): void
+    {
+        $token = \Illuminate\Support\Str::random(40);
+        \Illuminate\Support\Facades\DB::table('security.users')->where('id', $usuario->id)->update(['session_token' => $token]);
+
+        $request->session()->regenerate();
+        $request->session()->put('session_token', $token);
+        Auth::user()->session_token = $token;
     }
 
     /**

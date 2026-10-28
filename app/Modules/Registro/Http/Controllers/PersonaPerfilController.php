@@ -13,7 +13,19 @@ class PersonaPerfilController extends Controller
     public function index()
     {
         $perfiles = Profile::all();
-        return view('registro::asignar_perfil', compact('perfiles'));
+        $asignables = $this->perfilesAsignables();
+
+        return view('registro::asignar_perfil', compact('perfiles', 'asignables'));
+    }
+
+    /**
+     * D8: perfiles activos que el actor posee con asignación activa; el raíz, todos.
+     *
+     * @return array<int, int>
+     */
+    private function perfilesAsignables(): array
+    {
+        return app(\App\Services\Security\Autorizacion::class)->perfilesAsignables();
     }
 
     public function searchByDni($dni)
@@ -62,13 +74,14 @@ class PersonaPerfilController extends Controller
             ]);
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Error en searchByDni', [
-                'dni'   => $dni,
+                // Documento enmascarado: el log no guarda PII completa.
+                'dni'   => str_repeat('*', max(strlen((string) $dni) - 3, 0)).substr((string) $dni, -3),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Error interno al buscar la persona: ' . $e->getMessage()
+                'message' => 'Error interno al buscar la persona: ' . (config('app.debug') ? $e->getMessage() : 'intente nuevamente o contacte al administrador.')
             ], 500);
         }
     }
@@ -129,16 +142,28 @@ class PersonaPerfilController extends Controller
             ], 422);
         }
 
-        // 5. Quien tiene ASIGNAR_PERFIL (middleware de la ruta) puede asignar cualquier
-        // perfil activo, igual que el administrador. No hay jerarquía fija de perfiles:
-        // el alcance lo decide qué perfiles reciben este permiso.
+        // 5. D8: quien tiene ASIGNAR_PERFIL (middleware de la ruta) solo asigna o quita
+        // los perfiles que él mismo posee. Los demás perfiles del usuario se conservan.
         $actuales = DB::table('security.profiles_users')
             ->where('id_users', $user->id)
             ->pluck('id_rol')
             ->map(fn ($id) => (int) $id)
             ->all();
 
-        $finales = $perfilesIds;
+        $asignables = $this->perfilesAsignables();
+
+        $noPermitidos = array_values(array_diff($perfilesIds, $asignables, $actuales));
+        if (! empty($noPermitidos)) {
+            $nombres = DB::table('security.profiles')->whereIn('id', $noPermitidos)->orderBy('id')->pluck('name')->implode(', ');
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Solo puede asignar perfiles que usted posee. No puede asignar: '.$nombres.'.',
+            ], 403);
+        }
+
+        $finales = array_values(array_unique(array_merge(array_diff($actuales, $asignables), $perfilesIds)));
+        sort($finales);
 
         // 3. El usuario debe conservar al menos un perfil
         if (empty($finales)) {
@@ -198,8 +223,9 @@ class PersonaPerfilController extends Controller
             app(\App\Services\Security\Autorizacion::class)->invalidar();
             return response()->json(['success' => true, 'message' => 'Perfiles actualizados correctamente para ' . $persona->nombre_completo]);
         } catch (\Exception $e) {
+            report($e);
             DB::rollBack();
-            return response()->json(['success' => false, 'message' => 'Error al asignar perfiles: ' . $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Error al asignar perfiles: ' . (config('app.debug') ? $e->getMessage() : 'intente nuevamente o contacte al administrador.')], 500);
         }
     }
 }

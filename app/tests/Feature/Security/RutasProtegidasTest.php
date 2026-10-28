@@ -76,6 +76,11 @@ class RutasProtegidasTest extends TestCase
     private const AUTORIZADAS_EN_CONTROLADOR = [
         'taller.cursos.update',
         'taller.cursos.updateStatus',
+        // D6: 'gestionar' para una denegación, 'rehabilitar' para un retiro.
+        'taller.inscripciones.revertir',
+        // D3: 'gestionarAsistencia', la misma regla que el resto de la asistencia.
+        'taller.asistencia.justificar',
+        'taller.asistencia.quitar-justificacion',
     ];
 
     public function test_toda_ruta_mutante_autenticada_esta_protegida_o_listada(): void

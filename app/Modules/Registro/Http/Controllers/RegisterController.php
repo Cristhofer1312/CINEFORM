@@ -76,7 +76,8 @@ class RegisterController extends Controller
                     $email->to($for);
                 });
             } catch (\Exception $e) {
-                return response()->json(['type' => 'danger', 'message' => __('Error sending email: ').$e->getMessage(), 'status' => '0']);
+                report($e);
+                return response()->json(['type' => 'danger', 'message' => __('Error sending email: ').(config('app.debug') ? $e->getMessage() : 'intente nuevamente o contacte al administrador.'), 'status' => '0']);
             }
 
             return response()->json(['type' => 'success', 'message' => __('A code has been sent to your email'), 'status' => '1']);

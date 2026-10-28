@@ -27,6 +27,8 @@ class ProfilesSecurityTest extends TestCase
         $this->coordinador = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::COORDINADOR);
         })->where('id', '>', 1)->first() ?? User::findOrFail(2);
+        // Los permisos suman perfiles: se aísla el de Coordinador.
+        $this->soloConPerfiles($this->coordinador, Perfil::COORDINADOR);
 
         // Participante puro (distinto del coordinador)
         $this->participante = User::findOrFail(7);
@@ -101,13 +103,18 @@ class ProfilesSecurityTest extends TestCase
     }
 
     /**
-     * RF-82 (decisión 1b): quien tiene ASIGNAR_PERFIL puede otorgar cualquier
-     * perfil, igual que el administrador. No hay jerarquía fija de perfiles.
+     * D8 (26/10), reemplaza la decisión 1b: quien tiene ASIGNAR_PERFIL solo
+     * otorga los perfiles que él mismo posee.
      */
-    public function test_quien_tiene_permiso_de_asignar_puede_otorgar_cualquier_perfil(): void
+    public function test_quien_tiene_permiso_de_asignar_no_otorga_un_perfil_que_no_posee(): void
     {
         $idPersonaTarget = $this->participante->personalData?->id_persona;
         $this->assertNotNull($idPersonaTarget, 'Target debe tener personalData.');
+
+        DB::table('security.profiles_users')
+            ->where('id_users', $this->coordinador->id)
+            ->where('id_rol', Perfil::ADMINISTRADOR)
+            ->delete();
 
         $response = $this->actingAs($this->coordinador)
             ->withSession(['profile_id' => Perfil::COORDINADOR, 'session_token' => $this->coordinador->session_token])
@@ -116,8 +123,8 @@ class ProfilesSecurityTest extends TestCase
                 'perfiles' => [Perfil::ADMINISTRADOR, Perfil::PARTICIPANTE],
             ]);
 
-        $response->assertJson(['success' => true]);
-        $this->assertTrue(
+        $response->assertForbidden();
+        $this->assertFalse(
             DB::table('security.profiles_users')
                 ->where('id_users', $this->participante->id)
                 ->where('id_rol', Perfil::ADMINISTRADOR)
@@ -141,6 +148,15 @@ class ProfilesSecurityTest extends TestCase
     {
         $idPersonaTarget = $this->participante->personalData?->id_persona;
         $this->assertNotNull($idPersonaTarget, 'Target debe tener personalData.');
+
+        // D8: solo otorga perfiles que posee; en una instalación limpia el
+        // coordinador sembrado no tiene Facilitador, así que se le asegura aquí.
+        DB::table('security.profiles_users')->where('id_users', $this->coordinador->id)
+            ->whereIn('id_rol', [Perfil::FACILITADOR, Perfil::PARTICIPANTE])->delete();
+        DB::table('security.profiles_users')->insert(array_map(fn ($idRol) => [
+            'id_rol' => $idRol, 'id_users' => $this->coordinador->id, 'status' => 1,
+            'creado_por' => 1, 'creado_en' => now(), 'actualizado_por' => 1, 'actualizado_en' => now(),
+        ], [Perfil::FACILITADOR, Perfil::PARTICIPANTE]));
 
         $response = $this->actingAs($this->coordinador)
             ->withSession(['profile_id' => Perfil::COORDINADOR])

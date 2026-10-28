@@ -30,6 +30,10 @@ class ValidarPerfilActivo
 
     public function handle(Request $request, Closure $next)
     {
+        // El servicio es singleton: en workers de larga vida (y en pruebas) no
+        // debe arrastrar los perfiles memorizados de la petición anterior.
+        app(\App\Services\Security\Autorizacion::class)->olvidarPerfiles();
+
         if (!Auth::check() || app(\App\Services\Security\Autorizacion::class)->esRaiz()) {
             return $next($request);
         }
@@ -57,30 +61,12 @@ class ValidarPerfilActivo
             ]);
         }
 
-        $perfilEnSesion = session('profile_id');
+        // Los permisos son la suma de los perfiles activos: no hay perfil que
+        // elegir. Basta con tener al menos uno; el principal queda en sesión
+        // solo como dato informativo.
+        $principal = app(\App\Services\Security\Autorizacion::class)->perfilPrincipalPara($user);
 
-        if ($perfilEnSesion) {
-            $esValido = $user->perfiles()
-                ->where('security.profiles.id', (int) $perfilEnSesion)
-                ->where('security.profiles.active', true)
-                ->where('security.profiles_users.status', 1)
-                ->exists();
-
-            if ($esValido) {
-                return $next($request);
-            }
-
-            // Perfil revocado o desactivado
-            session()->forget('profile_id');
-        }
-
-        // Si no tiene perfil en sesión o el anterior fue invalidado, consultar perfiles activos del usuario
-        $perfilesActivos = $user->perfiles()
-            ->where('security.profiles.active', true)
-            ->where('security.profiles_users.status', 1)
-            ->pluck('security.profiles.id');
-
-        if ($perfilesActivos->isEmpty()) {
+        if ($principal === null) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -94,18 +80,10 @@ class ValidarPerfilActivo
             ]);
         }
 
-        if ($perfilesActivos->count() === 1) {
-            session()->put('profile_id', (int) $perfilesActivos->first());
-            return $next($request);
+        if ((int) session('profile_id') !== $principal) {
+            session()->put('profile_id', $principal);
         }
 
-        // Múltiples perfiles: exigir selección
-        if ($request->expectsJson()) {
-            return response()->json(['message' => 'Por favor selecciona un perfil activo para continuar.'], 403);
-        }
-
-        return redirect()->route('usuario.cambiar_perfil')->withErrors([
-            'error-message' => 'Tu perfil anterior ya no está disponible. Selecciona un perfil activo para continuar.'
-        ]);
+        return $next($request);
     }
 }

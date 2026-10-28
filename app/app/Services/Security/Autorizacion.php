@@ -44,7 +44,55 @@ class Autorizacion
         return Auth::check() && (int) Auth::id() === 1;
     }
 
-    /** ID del perfil activo en sesión, o null si aún no se eligió uno. */
+    /** @var array<int, int[]> perfiles activos memoizados por id de usuario */
+    private array $memoPerfiles = [];
+
+    /**
+     * Perfiles activos del usuario (asignación con status 1 y perfil activo).
+     *
+     * Desde el 26/10 los permisos de un usuario son la suma de todos sus
+     * perfiles activos: ya no se elige un perfil al entrar. Se consulta la BD
+     * y no la sesión, así que desactivar un perfil surte efecto en la
+     * siguiente petición.
+     *
+     * @return int[]
+     */
+    public function perfilesActivosPara($user = null): array
+    {
+        $user ??= Auth::user();
+        if ($user === null || ! isset($user->id)) {
+            return [];
+        }
+
+        return $this->memoPerfiles[(int) $user->id] ??= DB::table('security.profiles_users as pu')
+            ->join('security.profiles as p', 'p.id', '=', 'pu.id_rol')
+            ->where('pu.id_users', $user->id)
+            ->where('pu.status', 1)
+            ->where('p.active', true)
+            ->orderBy('pu.id_rol')
+            ->pluck('pu.id_rol')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Perfil de mayor jerarquía entre los activos (Administrador > Coordinador >
+     * Facilitador > Participante > personalizados por id). Solo se guarda en
+     * sesión como dato informativo (auditoría, `profile_id` heredado); no decide
+     * permisos.
+     */
+    public function perfilPrincipalPara($user = null): ?int
+    {
+        $orden = [1 => 0, 4 => 1, 2 => 2, 3 => 3];
+        $perfiles = $this->perfilesActivosPara($user);
+        usort($perfiles, fn ($a, $b) => [$orden[$a] ?? 4, -$a] <=> [$orden[$b] ?? 4, -$b]);
+
+        return $perfiles[0] ?? null;
+    }
+
+    /** ID del perfil guardado en sesión (solo informativo, p. ej. auditoría). */
     public function perfilActivo(): ?int
     {
         $perfil = session()->get('profile_id');
@@ -113,9 +161,13 @@ class Autorizacion
             return true;
         }
 
-        $perfil = $this->perfilActivoPara($user);
+        foreach ($this->perfilesActivosPara($user) as $perfil) {
+            if ($this->puedeComoPerfil($perfil, $procesoCodigo, $accionId)) {
+                return true;
+            }
+        }
 
-        return $this->puedeComoPerfil($perfil, $procesoCodigo, $accionId);
+        return false;
     }
 
     /** Variante por ID de proceso (compatibilidad con `hasPermission()`). */
@@ -125,9 +177,13 @@ class Autorizacion
             return true;
         }
 
-        $perfil = $this->perfilActivoPara($user);
+        foreach ($this->perfilesActivosPara($user) as $perfil) {
+            if ($this->puedeEnProcesoComoPerfil($perfil, $procesoId, $accionId)) {
+                return true;
+            }
+        }
 
-        return $perfil !== null && $this->puedeEnProcesoComoPerfil($perfil, $procesoId, $accionId);
+        return false;
     }
 
     /** Sin bypass: evalúa un perfil concreto contra un proceso identificado por ID. */
@@ -192,9 +248,34 @@ class Autorizacion
             'process' => $proceso,
             'action_id' => $accionId,
             'ip' => $request->ip(),
-            'url' => $request->fullUrl(),
+            // Solo la ruta: el query string puede llevar búsquedas o tokens.
+            'url' => $request->path(),
             'method' => $request->method(),
         ]);
+    }
+
+    /**
+     * D8: perfiles activos que el usuario puede asignar a otros, que son solo los
+     * que él mismo posee (la raíz, todos). Única regla para la asignación de
+     * perfiles y para la creación/edición de usuarios.
+     *
+     * @return int[]
+     */
+    public function perfilesAsignables($user = null): array
+    {
+        $user ??= Auth::user();
+        if ($this->esRaiz($user)) {
+            return DB::table('security.profiles')->where('active', true)
+                ->pluck('id')->map(fn ($id) => (int) $id)->all();
+        }
+
+        return $this->perfilesActivosPara($user);
+    }
+
+    /** Olvida los perfiles memorizados (inicio de cada petición). */
+    public function olvidarPerfiles(): void
+    {
+        $this->memoPerfiles = [];
     }
 
     /** Invalida la caché de todos los perfiles (llamar al cambiar `profile_permissions`). */
@@ -203,6 +284,7 @@ class Autorizacion
         Cache::add(self::VERSION_KEY, 1);
         Cache::increment(self::VERSION_KEY);
         $this->memo = [];
+        $this->memoPerfiles = [];
     }
 
     /**

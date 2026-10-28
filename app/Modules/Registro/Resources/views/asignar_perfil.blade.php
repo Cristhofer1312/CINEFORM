@@ -51,7 +51,7 @@
                                             </span>
                                         </div>
                                         <h3 class="name fw-bold" id="display_nombre"
-                                            style="color: #2a2f5b; line-height: 1.2;">-</h3>
+                                            style="color: var(--cf-ink); line-height: 1.2;">-</h3>
                                         <p class="desc text-muted mb-4" style="font-size: 0.95rem;">Usuario Registrado</p>
 
                                         <div class="border-top pt-3">
@@ -85,22 +85,30 @@
                                             <div class="row"
                                                 style="max-height: min(400px, 60vh); overflow-y: auto;">
                                                 @forelse($perfiles as $perfil)
+                                                    @php $asignable = in_array((int) $perfil->id, $asignables, true); @endphp
                                                     <div class="col-12 mb-3">
-                                                        <label class="card perfil-card mb-0 cursor-pointer d-block p-3">
+                                                        <label class="card perfil-card mb-0 d-block p-3 {{ $asignable ? 'cursor-pointer' : 'opacity-50' }}">
                                                             <div class="d-flex align-items-center">
                                                                 <div
                                                                     class="form-check form-switch ps-0 m-0 d-flex align-items-center">
+                                                                    {{-- D8: solo se asignan perfiles que el actor posee; los deshabilitados no se envían y se conservan --}}
                                                                     <input
                                                                         class="form-check-input profile-checkbox ms-0 me-4 mt-0"
                                                                         type="checkbox" role="switch" name="perfiles[]"
                                                                         value="{{ $perfil->id }}" id="profile_{{ $perfil->id }}"
-                                                                        style="width: 3rem; height: 1.5rem; cursor: pointer;">
+                                                                        @disabled(! $asignable)
+                                                                        style="width: 3rem; height: 1.5rem; cursor: {{ $asignable ? 'pointer' : 'not-allowed' }};">
                                                                 </div>
                                                                 <div class="flex-grow-1">
                                                                     <h5 class="mb-1 text-dark fw-bold">{{ $perfil->name }}</h5>
                                                                     <p class="mb-0 text-muted" style="font-size: 0.9rem;">
                                                                         {{ $perfil->description ?? 'Acceso al sistema como ' . $perfil->name }}
                                                                     </p>
+                                                                    @unless($asignable)
+                                                                        <p class="mb-0 small text-warning-emphasis fw-bold mt-1">
+                                                                            <i class="fas fa-lock me-1"></i> No puede asignarlo ni quitarlo: usted no tiene este perfil.
+                                                                        </p>
+                                                                    @endunless
                                                                 </div>
                                                             </div>
                                                         </label>
@@ -144,10 +152,6 @@
     </div>
 
     <style>
-        .cursor-pointer {
-            cursor: pointer;
-        }
-
         .perfil-card {
             transition: all 0.2s ease-in-out;
             border: 2px solid transparent !important;
@@ -156,17 +160,17 @@
 
         .perfil-card:hover {
             border-color: rgba(21, 114, 232, 0.2) !important;
-            background-color: #f8fbff;
+            background-color: var(--cf-surface-subtle);
             transform: translateY(-2px);
         }
 
         .form-check-input:checked {
-            background-color: #1572E8;
-            border-color: #1572E8;
+            background-color: var(--cf-blue);
+            border-color: var(--cf-blue);
         }
 
         .bg-success-subtle {
-            background-color: #d1e7dd;
+            background-color: var(--cf-success-soft);
         }
 
         .animated {
@@ -331,8 +335,8 @@
                         text: "Se actualizarán los perfiles de acceso para este usuario.",
                         icon: "warning",
                         showCancelButton: true,
-                        confirmButtonColor: '#28a745',
-                        cancelButtonColor: '#d33',
+                        confirmButtonColor: '#198754',
+                        cancelButtonColor: '#64748b',
                         confirmButtonText: 'Sí, asignar',
                         cancelButtonText: 'Cancelar'
                     }).then((result) => {

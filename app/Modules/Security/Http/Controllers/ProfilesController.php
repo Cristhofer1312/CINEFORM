@@ -131,10 +131,9 @@ class ProfilesController extends Controller {
 
         $autorizacion = app(Autorizacion::class);
 
-        // Bloquear autopromoción: no permitir modificar el perfil activo propio
-        if (session('profile_id') == $profileId && ! $autorizacion->esRaiz()) {
-            return to_route('profiles')->withErrors(['error-message' => __('You cannot modify the permissions of your currently active profile')]);
-        }
+        // Los permisos del usuario son la suma de sus perfiles: editar un perfil
+        // propio equivale a editarse a sí mismo (ver la guarda antes de guardar).
+        $esPerfilPropio = ! $autorizacion->esRaiz() && in_array($profileId, $autorizacion->perfilesActivosPara(), true);
 
         if (!\Request::ajax()) {
             if (\Request::isMethod('get')) {
@@ -190,6 +189,21 @@ class ProfilesController extends Controller {
 
                 $aQuitar = array_values(array_diff($actuales, $finales));
                 $aAgregar = array_values(array_diff($finales, $actuales));
+
+                // Anti-autopromoción: a un perfil propio solo se le puede dar lo que
+                // el usuario ya tiene por la suma de sus perfiles, y no se puede
+                // desactivar desde aquí.
+                if ($esPerfilPropio) {
+                    $nuevosParaMi = array_filter($aAgregar, fn ($id) => ! $autorizacion->puedeEnProceso(
+                        $catalogo[$id]->process_id,
+                        SecurityAction::stringToId($catalogo[$id]->slug)
+                    ));
+                    $desactiva = $request->has('active') && ! filter_var($request->active, FILTER_VALIDATE_BOOLEAN);
+
+                    if ($nuevosParaMi !== [] || $desactiva) {
+                        return to_route('profiles')->withErrors(['error-message' => __('You cannot grant yourself permissions you do not already have')]);
+                    }
+                }
                 $describir = fn (array $ids) => collect($ids)
                     ->filter(fn ($id) => isset($catalogo[$id]))
                     ->map(fn ($id) => $catalogo[$id]->codigo.':'.$catalogo[$id]->slug)
@@ -292,8 +306,8 @@ class ProfilesController extends Controller {
         // cierra la sesión de todos sus usuarios y queda auditado.
         $esRaiz = app(Autorizacion::class)->esRaiz();
 
-        // Bloquear desactivación del perfil activo propio (no-admin)
-        if (session('profile_id') == $profileId && ! $esRaiz) {
+        // Bloquear desactivación de un perfil propio (no-admin)
+        if (! $esRaiz && in_array($profileId, app(Autorizacion::class)->perfilesActivosPara(), true)) {
             return to_route('profiles')->withErrors(['error-message' => __('You cannot deactivate your currently active profile')]);
         }
 

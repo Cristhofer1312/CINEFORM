@@ -4,19 +4,19 @@
 
     <style>
         .profile-header-bg {
-            background: linear-gradient(90deg, #008be3 0%, #00c6ff 100%);
-            border-radius: 16px 16px 0 0;
+            background: var(--cf-gradient-brand);
+            border-radius: var(--cf-radius-card) var(--cf-radius-card) 0 0;
         }
 
         .info-card {
-            background-color: #f3f6f9;
+            background-color: var(--cf-app-bg);
             border-radius: 12px;
         }
 
         .info-icon {
             width: 36px;
             height: 36px;
-            background-color: #3b82f6;
+            background-color: var(--cf-blue);
             color: white;
             border-radius: 8px;
             display: flex;
@@ -26,42 +26,42 @@
         }
 
         .badge-status-top {
-            background-color: #c7f9cc;
-            color: #127c56;
+            background-color: var(--cf-success-soft);
+            color: var(--cf-success-ink);
             font-weight: 500;
             padding: 6px 14px;
             border-radius: 20px;
         }
 
         .badge-outline-blue {
-            border: 1px solid #3b82f6;
-            color: #1d4ed8;
-            background-color: #eff6ff;
+            border: 1px solid var(--cf-blue);
+            color: var(--cf-navy);
+            background-color: var(--cf-navy-soft);
             border-radius: 20px;
             padding: 4px 12px;
             font-size: 0.85rem;
         }
 
         .btn-custom-cyan {
-            background-color: #38b6ff;
+            background-color: var(--cf-cyan-ink);
             color: white;
             border: none;
         }
-        .btn-custom-cyan:hover { background-color: #2ca0e2; color: white; }
+        .btn-custom-cyan:hover { background-color: #0b5f75; color: white; }
 
         .btn-custom-blue {
-            background-color: #0066ff;
+            background-color: var(--cf-blue);
             color: white;
             border: none;
         }
-        .btn-custom-blue:hover { background-color: #0052cc; color: white; }
+        .btn-custom-blue:hover { background-color: var(--cf-blue-hover); color: white; }
 
         .btn-custom-purple {
-            background-color: #6f42c1;
+            background-color: #6861ce;
             color: white;
             border: none;
         }
-        .btn-custom-purple:hover { background-color: #59339d; color: white; }
+        .btn-custom-purple:hover { background-color: #574fb8; color: white; }
     </style>
 
     {{-- Alertas --}}
@@ -85,7 +85,7 @@
         <div class="row justify-content-center">
             <div class="col-12 col-lg-9">
 
-                <div class="card border-0 shadow-sm mx-auto" style="max-width: 850px; border-radius: 16px; overflow: hidden;">
+                <div class="card border-0 shadow-sm mx-auto" style="max-width: 850px; border-radius: var(--cf-radius-card); overflow: hidden;">
 
                     {{-- Encabezado --}}
                     <div class="profile-header-bg text-white p-3 px-4 d-flex align-items-center">
@@ -111,7 +111,7 @@
                             </div>
                             <div>
                                 <span class="badge-status-top d-inline-flex align-items-center gap-2">
-                                    <span class="rounded-circle" style="width: 8px; height: 8px; background-color: #10b981;"></span>
+                                    <span class="rounded-circle" style="width: 8px; height: 8px; background-color: var(--cf-success);"></span>
                                     {{__('Status')}}: {{ Auth::user()->active ? __('Active') : __('Inactive') }}
                                 </span>
                             </div>
@@ -315,6 +315,17 @@
                                             </div>
                                             @error('email')
                                                 <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                            @enderror
+                                        </div>
+
+                                        <div class="col-12 col-md-6">
+                                            <div class="form-floating form-floating-custom">
+                                                <input id="profile_current_password" name="current_password" type="password" class="form-control" maxlength="64" placeholder="{{__('Current Password')}}" autocomplete="current-password">
+                                                <label for="profile_current_password">{{__('Current Password')}}</label>
+                                            </div>
+                                            <small class="text-muted d-block mt-1">Solo se pide si cambias el correo.</small>
+                                            @error('current_password')
+                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                             @enderror
                                         </div>
 

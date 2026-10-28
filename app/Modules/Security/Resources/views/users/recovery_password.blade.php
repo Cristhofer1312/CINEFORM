@@ -1,13 +1,5 @@
 @extends('layouts.kaiadmin-login')
 @section('content')
-<style>
-    input[type=text]:focus,  input[type=password]:focus{
-        background-color: #FFFF99 !important;
-    }
-    .form-floating-custom .form-control:focus+label,.form-floating-custom .form-control:not(:placeholder-shown)+label,.form-floating-custom .form-select:focus+label,.form-floating-custom .form-select:not(:placeholder-shown)+label {
-        font-weight: bold;
-    }
-</style>
 
 <div class="wrapper wrapper-login">
     <div class="container container-login animated fadeIn">

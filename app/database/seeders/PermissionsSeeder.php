@@ -28,7 +28,8 @@ class PermissionsSeeder extends Seeder
             4 => [
                 ['slug' => 'view', 'name' => 'Ver catálogo de cursos'],
                 ['slug' => 'create_course', 'name' => 'Planificar nuevos cursos'],
-                ['slug' => 'manage_course', 'name' => 'Gestor o Coordinador del curso'],
+                ['slug' => 'manage_course', 'name' => 'Gestionar cursos'],
+                ['slug' => 'supervise_courses', 'name' => 'Supervisar todos los cursos'],
                 ['slug' => 'edit_course', 'name' => 'Dictar curso (Facilitador)'],
                 ['slug' => 'edit_course_e', 'name' => 'Editar curso finalizado'],
                 ['slug' => 'grade_course', 'name' => 'Calificar participantes'],
@@ -39,6 +40,7 @@ class PermissionsSeeder extends Seeder
                 ['slug' => 'cancel_enrollment', 'name' => 'Cancelar inscripciones de participantes'],
                 ['slug' => 'mark_attendance', 'name' => 'Marcar asistencia propia'],
                 ['slug' => 'manage_attendance', 'name' => 'Gestionar asistencia de cursos'],
+                ['slug' => 'export_satisfaction', 'name' => 'Generar reporte de satisfacción'],
             ],
             5 => [
                 ['slug' => 'view', 'name' => 'Ver mis cursos inscritos'],

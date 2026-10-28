@@ -13,9 +13,10 @@ return [
     'edit' => 'Permite modificar, activar o desactivar registros de esta sección.',
     'permissions' => 'Permite asignar o quitar permisos a cualquier perfil.',
     'security' => 'Permite cambiar la contraseña de otros usuarios.',
-    'assign' => 'Permite asignar o quitar perfiles a cualquier usuario.',
+    'assign' => 'Permite asignar o quitar a otros usuarios los perfiles que uno mismo posee.',
     'create_course' => 'Permite planificar cursos nuevos con el asistente.',
-    'manage_course' => 'Permite gestionar cualquier curso sin ser su facilitador.',
+    'manage_course' => 'Acciones de gestión de un curso: editarlo, cambiar su estado, sus requisitos y reasignar el facilitador. Se ejerce sobre todos los cursos junto con «Supervisar todos los cursos».',
+    'supervise_courses' => 'Extiende a todos los cursos, sin ser su facilitador, las acciones de cursos que el usuario ya tiene (ver participantes, asistencia, gestión, etc.).',
     'edit_course' => 'Hace al usuario seleccionable como facilitador y le permite editar sus cursos asignados.',
     'edit_course_e' => 'Permite alterar datos fundamentales de un curso en progreso o con inscripciones cerradas.',
     'grade_course' => 'Permite registrar calificaciones en los cursos asignados.',
@@ -29,4 +30,5 @@ return [
     'apply_facilitator' => 'Permite postularse como facilitador entregando los recaudos.',
     'manage_facilitator_applications' => 'Permite gestionar los requisitos y aprobar o rechazar postulaciones de facilitador.',
     'view_statistics' => 'Permite consultar los indicadores y gráficos de cursos.',
+    'export_satisfaction' => 'Permite descargar en Excel el reporte de la encuesta de satisfacción de los cursos que puede consultar.',
 ];
