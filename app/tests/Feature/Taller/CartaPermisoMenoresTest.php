@@ -153,15 +153,15 @@ class CartaPermisoMenoresTest extends TestCase
     public function test_inscripcion_bloquea_curso_de_menores_sin_carta(): void
     {
         $cursoId = $this->crearCurso($this->menorId);
-        $this->crearCarta($cursoId, true);
+        $cartaId = $this->crearCarta($cursoId, true);
 
         $response = $this->actingAs($this->admin)
             ->withSession($this->sesionBase())
             ->post(route('taller.inscripciones.procesar', $cursoId));
 
         $response->assertRedirect();
-        $response->assertSessionHas('error');
-        $this->assertStringContainsString('Carta de permiso', (string) session('error'));
+        $response->assertSessionHasErrors('req_'.$cartaId);
+        $this->assertStringContainsString('Carta de permiso', session('errors')->first('req_'.$cartaId));
 
         $this->assertDatabaseMissing('taller.inscripciones', [
             'id_curso' => $cursoId,

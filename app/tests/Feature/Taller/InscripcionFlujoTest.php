@@ -235,7 +235,8 @@ class InscripcionFlujoTest extends TestCase
                 'req_'.$reqDoc->id_requisito => $archivoPhp,
             ]);
 
-        $respPeligroso->assertSessionHas('error');
+        // Validación del requisito (RNF-03): error en el campo, sin guardar nada.
+        $respPeligroso->assertSessionHasErrors('req_'.$reqDoc->id_requisito);
         $this->assertDatabaseMissing('taller.inscripcion_respuestas', [
             'id_requisito' => $reqDoc->id_requisito,
         ]);
@@ -253,7 +254,7 @@ class InscripcionFlujoTest extends TestCase
                 'req_'.$reqDoc->id_requisito => $archivoPesado,
             ]);
 
-        $respPesado->assertSessionHas('error');
+        $respPesado->assertSessionHasErrors('req_'.$reqDoc->id_requisito);
     }
 
     /**
