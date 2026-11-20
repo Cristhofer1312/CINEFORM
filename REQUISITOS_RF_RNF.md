@@ -142,11 +142,11 @@ P0 abiertos: **RNF-04** (secretos: la contraseña de aplicación de Gmail sigue 
 
 | Estado | Cantidad |
 |---|---:|
-| Cerrados | 24 |
+| Cerrados | 26 |
 | Abiertos | 8 |
-| **Total** | **32** |
+| **Total** | **34** |
 
-UX-32 y UX-33 estaban marcados "Cerrado" pero contados y listados como abiertos; se movieron a §5.1 tras verificarlos con prueba. Abiertos: UX-25, UX-26, UX-27, UX-29, UX-30, UX-31, UX-34 y UX-35.
+UX-32 y UX-33 estaban marcados "Cerrado" pero contados y listados como abiertos; se movieron a §5.1 tras verificarlos con prueba. Abiertos: UX-25, UX-26, UX-27, UX-29, UX-30, UX-31, UX-34 y UX-35. UX-36 y UX-37 se añadieron y cerraron el 2026-11-20 (§5.1).
 
 ### 2.5 Lectura operativa
 
@@ -369,6 +369,8 @@ RNF-01 sale de esta tabla (resuelto). RNF-03 baja a P1: tipo y tamaño ya están
 | UX-23 | Acciones irreversibles sin confirmación/loader | `CursoDetalle.blade.php`; `public/js/menu.js` |
 | UX-24 | Fallo de red bloqueaba la UI | `public/js/menu.js` (`peticionConFeedback`) |
 | UX-28 | Claves `@error` equivocadas | `recovery_password.blade.php`; `users/create.blade.php` |
+| UX-36 | Mensaje de error fijo "Este campo es obligatorio" en lugar del motivo real | `@error` imprimía `__('This field is required')`; ahora `{{ $message }}` en `users/password.blade.php` (2), `update_profile.blade.php` (6) y `login.blade.php` (3). `resources/lang/es/validation.php` traduce `password.letters/mixed/numbers/symbols/uncompromised` (salían en inglés). Verificado el 2026-11-20: login con envío real al servidor; password y perfil renderizando la vista con errores |
+| UX-37 | Login en blanco (solo fondo y título) al volver atrás desde el registro | Los enlaces conservaban `id="show-signup"` de la plantilla y `kaiadmin.js:383` ponía `.container-login` en `display:none` al pulsarlos; la bfcache restauraba la página oculta. Se quitó el `id` en `users/login.blade.php`, `recovery.blade.php` y `recovery_password.blade.php`. Además la animación de entrada de login y registro ya no parte de `opacity:0`. Verificado en navegador (2026-11-20) |
 | UX-32 | IDOR en anulación/restauración de asistencia | `AsistenciaController.php:279,305` (`whereHas('actividad', …id_curso)`); `HuecosFlujoTest::test_no_se_puede_anular_ni_restaurar_asistencia_de_otro_curso` (`R`) |
 | UX-33 | `CalificacionController::store` no validaba contenido↔curso/inscrito | `CalificacionController.php:77-102`; `HuecosFlujoTest::test_calificacion_rechaza_persona_no_inscrita_y_contenido_de_otro_curso` (`R`) |
 
@@ -417,6 +419,7 @@ RNF-01 sale de esta tabla (resuelto). RNF-03 baja a P1: tipo y tamaño ya están
 
 - **Evidencia:** `<div class="show-password">` no focusable en `users/login.blade.php`, `recovery_password.blade.php`, `update_profile.blade.php`, `password.blade.php`.
 - **Acción:** `<button type="button" aria-label="Mostrar contraseña">`.
+- **Avance 2026-11-20:** el registro (`Registro/.../register.blade.php`) no tenía ningún ojo y en el celular no se podía revisar la contraseña. Se añadió el botón accesible en *Contraseña* y *Repite la contraseña*: 49×49 px, `aria-label` que alterna Mostrar/Ocultar, conserva el foco y el cursor (el teclado del celular no se cierra, también en Safari), oculta el ojo nativo de Edge y vuelve a `type="password"` al enviar. Verificado en navegador (Chrome/Pixel 7, Safari/iPhone 13, Firefox con teclado). **Sigue abierto** para las cuatro vistas de la evidencia; reutilizar este mismo patrón.
 
 ### 5.3 Métricas UX (medición del 2026-10-22, no repetida)
 

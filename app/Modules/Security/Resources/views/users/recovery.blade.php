@@ -88,7 +88,7 @@
                     </button>
                 </div>
                 <div class="login-account text-center">
-                    <a href="{{route('login')}}" id="show-signup" class="text-muted small" style="text-decoration: none;">
+                    <a href="{{route('login')}}" class="text-muted small" style="text-decoration: none;">
                         <i class="fas fa-arrow-left me-1"></i> {{__("Volver al Inicio de Sesión")}}
                     </a>
                 </div>

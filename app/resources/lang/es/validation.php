@@ -93,7 +93,17 @@ return [
     'not_in'               => 'El campo :attribute seleccionado es inválido.',
     'not_regex'            => 'El formato del campo :attribute es inválido.',
     'numeric'              => 'El campo :attribute debe ser un número.',
-    'password'             => 'La contraseña es incorrecta.',
+    // Mensajes de la regla Password (Password::defaults en AppServiceProvider).
+    // Antes era un texto suelto de la regla "password" antigua (ya no existe en
+    // Laravel) y estos mensajes salían en inglés.
+    'password'             => [
+        'letters'       => 'El campo :attribute debe contener al menos una letra.',
+        'mixed'         => 'El campo :attribute debe contener al menos una letra mayúscula y una minúscula.',
+        'numbers'       => 'El campo :attribute debe contener al menos un número.',
+        'symbols'       => 'El campo :attribute debe contener al menos un símbolo.',
+        'uncompromised' => 'El valor de :attribute aparece en una filtración de datos. Elija otro.',
+    ],
+    'current_password'     => 'La contraseña es incorrecta.',
     'present'              => 'El campo :attribute debe estar presente.',
     'regex'                => 'El formato del campo :attribute es inválido.',
     'required'             => 'El campo :attribute es obligatorio.',

@@ -126,7 +126,7 @@
                 </div>
                 <div class="login-account">
                     
-                    <a href="{{route('login')}}" id="show-signup" class="link">{{__("Sign In")}}</a>
+                    <a href="{{route('login')}}" class="link">{{__("Sign In")}}</a>
                 </div>
             </div>
         </form>

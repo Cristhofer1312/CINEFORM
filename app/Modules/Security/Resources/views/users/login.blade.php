@@ -48,9 +48,12 @@
             animation: cf-login-entrada 520ms var(--cf-ease) both;
         }
 
+        /* Solo desplaza, sin opacidad: al volver atrás desde el registro algunos
+           navegadores no arrancaban la animación y la tarjeta se quedaba en
+           opacity: 0 (solo se veía el fondo). Así, si no arranca, sigue visible. */
         @keyframes cf-login-entrada {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: none; }
+            from { transform: translateY(12px); }
+            to { transform: none; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -241,7 +244,7 @@
                         <label for="username">{{ __('Username') }}</label>
                     </div>
                     @error('username')
-                        <label id="username-error" class="error" for="username">{{ __('This field is required') }}</label>
+                        <label id="username-error" class="error" for="username">{{ $message }}</label>
                     @enderror
 
                     <div class="form-floating mb-2">
@@ -253,7 +256,7 @@
                         </div>
                     </div>
                     @error('password')
-                        <label id="password-error" class="error" for="password">{{ __('This field is required') }}</label>
+                        <label id="password-error" class="error" for="password">{{ $message }}</label>
                     @enderror
 
                     <a href="{{ route('recovery') }}" id="show-recovery" class="cf-login__olvido">{{ __('Recover Password') }}</a>
@@ -275,7 +278,7 @@
                         <label for="captcha">{{ __('Captcha') }}</label>
                     </div>
                     @error('captcha')
-                        <label id="captcha-error" class="error" for="captcha">{{ __('This field is required') }}</label>
+                        <label id="captcha-error" class="error" for="captcha">{{ $message }}</label>
                     @enderror
 
                     <button id="checkUser" type="button" class="btn btn-primary btn-lg w-100 cf-login__entrar">
@@ -284,7 +287,7 @@
 
                     <p class="cf-login__registro">
                         ¿No tienes cuenta todavía?
-                        <a href="{{ route('registro.usuario') }}" id="show-signup">Regístrate aquí</a>
+                        <a href="{{ route('registro.usuario') }}">Regístrate aquí</a>
                     </p>
                 </div>
             </form>

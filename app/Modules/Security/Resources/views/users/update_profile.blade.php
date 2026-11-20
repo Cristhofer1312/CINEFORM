@@ -304,7 +304,7 @@
                                             </label>
                                             <input id="phone" name="phone" type="text" class="form-control phone" maxlength="20" value="{{ Auth::user()->phone }}" required>
                                             @error('phone')
-                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                             @enderror
                                         </div>
 
@@ -314,7 +314,7 @@
                                                 <label for="email">{{__('Email')}} *</label>
                                             </div>
                                             @error('email')
-                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                             @enderror
                                         </div>
 
@@ -337,7 +337,7 @@
                                                     </label>
                                                     <input id="code" name="code" type="text" class="form-control" maxlength="6" inputmode="numeric" placeholder="••••••" autocomplete="one-time-code" required>
                                                     @error('code')
-                                                        <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                                        <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                                     @enderror
                                                 </div>
                                                 <div>
@@ -382,7 +382,7 @@
                                                 <div class="show-password position-absolute top-50 end-0 translate-middle-y me-2"><i class="icon-eye"></i></div>
                                             </div>
                                             @error('current_password')
-                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                             @enderror
                                         </div>
                                         <div class="col-12 col-md-4">
@@ -392,7 +392,7 @@
                                                 <div class="show-password position-absolute top-50 end-0 translate-middle-y me-2"><i class="icon-eye"></i></div>
                                             </div>
                                             @error('new_password')
-                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                             @enderror
                                         </div>
                                         <div class="col-12 col-md-4">
@@ -402,7 +402,7 @@
                                                 <div class="show-password position-absolute top-50 end-0 translate-middle-y me-2"><i class="icon-eye"></i></div>
                                             </div>
                                             @error('re_password')
-                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                             @enderror
                                         </div>
                                     </div>

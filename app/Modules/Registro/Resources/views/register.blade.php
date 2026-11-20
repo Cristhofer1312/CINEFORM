@@ -72,9 +72,11 @@
             animation: cf-registro-entrada 520ms var(--cf-ease) both;
         }
 
+        /* Solo desplaza, sin opacidad: si el navegador no arranca la animación
+           (pasaba en el login al volver atrás), la tarjeta sigue visible. */
         @keyframes cf-registro-entrada {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: none; }
+            from { transform: translateY(12px); }
+            to { transform: none; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -241,6 +243,50 @@
         .cf-registro__telefono .form-floating + .form-floating > .form-control {
             border-top-left-radius: 0;
             border-bottom-left-radius: 0;
+        }
+
+        /* Contraseña: botón "ojo" dentro del campo, a la derecha.
+           3.5rem de ancho (49 px con la letra base de 14 px) para tocarlo bien en el celular. */
+        .cf-registro__clave > .form-control {
+            padding-right: 3.75rem;
+        }
+
+        /* Con error, el icono rojo de Bootstrap se corre a la izquierda del ojo. */
+        .cf-registro__clave > .form-control.is-invalid {
+            background-position: right 3.75rem center;
+            padding-right: 5.5rem;
+        }
+
+        .cf-registro__ver-clave {
+            position: absolute;
+            top: 1px;
+            right: 1px;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 3.5rem;
+            height: 3.5rem;
+            padding: 0;
+            border: 0;
+            border-radius: var(--cf-radius-control);
+            background: transparent;
+            color: var(--cf-muted);
+            touch-action: manipulation;
+        }
+
+        .cf-registro__ver-clave:hover {
+            color: var(--cf-ink);
+        }
+
+        .cf-registro__ver-clave:focus-visible {
+            outline: 0;
+            box-shadow: var(--cf-focus-ring);
+        }
+
+        /* Edge añade su propio ojo: se oculta para no mostrar dos. */
+        .cf-registro__clave > .form-control::-ms-reveal {
+            display: none;
         }
 
         /* Código de verificación: campo + botón "Enviar código" en una pieza. */
@@ -567,21 +613,29 @@
                             </div>
 
                             {{-- Contraseña y confirmación (política: 10-72 caracteres, mayúscula, minúscula, número y símbolo) --}}
+                            {{-- Botón "ojo" (UX-35): un <button> real para que funcione al tocar,
+                                 con teclado y con lector de pantalla. El JS alterna el tipo del campo. --}}
                             <div class="col-md-6">
-                                <div class="form-floating">
+                                <div class="form-floating cf-registro__clave">
                                     <input id="password" name="password" type="password" maxlength="72" minlength="10" class="form-control{{ $invalido('password') }}"
                                         placeholder="Contraseña" autocomplete="new-password" aria-describedby="password_ayuda" required />
                                     <label for="password">Contraseña <span class="cf-registro__obligatorio" aria-hidden="true">*</span></label>
+                                    <button type="button" class="cf-registro__ver-clave" data-clave="password" aria-controls="password" aria-label="Mostrar contraseña">
+                                        <i class="fas fa-eye" aria-hidden="true"></i>
+                                    </button>
                                     @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
                                 <div id="password_ayuda" class="form-text">Mínimo 10 caracteres, con mayúscula, minúscula, número y símbolo.</div>
                             </div>
                             <div class="col-md-6">
-                                <div class="form-floating">
+                                <div class="form-floating cf-registro__clave">
                                     {{-- No se valida aparte: Laravel lo usa para la regla "confirmed" --}}
                                     <input id="password_confirmation" name="password_confirmation" type="password"
                                         maxlength="72" class="form-control" placeholder="Repite la contraseña" autocomplete="new-password" required />
                                     <label for="password_confirmation">Repite la contraseña <span class="cf-registro__obligatorio" aria-hidden="true">*</span></label>
+                                    <button type="button" class="cf-registro__ver-clave" data-clave="password_confirmation" aria-controls="password_confirmation" aria-label="Mostrar contraseña">
+                                        <i class="fas fa-eye" aria-hidden="true"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -635,6 +689,46 @@
                 const grupo = this;
                 $(grupo).on('input change', 'select, input', function () { armarTelefono(grupo); });
                 armarTelefono(grupo);
+            });
+
+            // ── Mostrar / ocultar contraseña ───────────────────────────
+            // Al tocar el ojo se guarda si el campo tenía el foco y dónde estaba el
+            // cursor; después del cambio se devuelven. Así en el celular no se
+            // cierra el teclado (Safari quita el foco aunque se use preventDefault).
+            $('.cf-registro__ver-clave').on('pointerdown mousedown', function (e) {
+                e.preventDefault();
+                if (e.type === 'pointerdown') {
+                    const campo = document.getElementById(this.dataset.clave);
+                    this._estado = document.activeElement === campo
+                        ? { inicio: campo.selectionStart, fin: campo.selectionEnd }
+                        : null;
+                }
+            }).on('click', function () {
+                const campo = document.getElementById(this.dataset.clave);
+                const mostrar = campo.type === 'password';
+                const estado = this._estado;
+                this._estado = null;
+
+                campo.type = mostrar ? 'text' : 'password';
+                this.setAttribute('aria-label', mostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
+                this.querySelector('i').className = mostrar ? 'fas fa-eye-slash' : 'fas fa-eye';
+
+                // Al cambiar el tipo, algunos navegadores mueven el cursor al inicio.
+                if (estado) {
+                    campo.focus();
+                    campo.setSelectionRange(estado.inicio, estado.fin);
+                }
+            });
+
+            // Al enviar se vuelven a ocultar: el navegador solo ofrece guardar la
+            // contraseña si el campo es de tipo "password".
+            $('#frm_register').on('submit', function () {
+                $('.cf-registro__ver-clave').each(function () {
+                    const campo = document.getElementById(this.dataset.clave);
+                    if (campo.type !== 'password') {
+                        $(this).trigger('click');
+                    }
+                });
             });
 
             // ── RIF y código: solo dígitos ─────────────────────────────

@@ -92,11 +92,12 @@
                                     <i class="fas fa-lock me-2 opacity-50 text-primary"></i> {{__('New Password')}} <span class="text-danger ms-1">*</span>
                                 </label>
                                 <div class="position-relative">
-                                    <input id="new_password" name="new_password" type="password" maxlength="72" minlength="10" autocomplete="new-password" class="form-control shadow-none rounded-3 border-light-2 py-2" autofocus required>
+                                    <input id="new_password" name="new_password" type="password" maxlength="72" minlength="10" autocomplete="new-password" aria-describedby="new_password_ayuda" class="form-control shadow-none rounded-3 border-light-2 py-2" autofocus required>
                                     <div class="show-password position-absolute top-50 end-0 translate-middle-y me-3"><i class="icon-eye"></i></div>
                                 </div>
+                                <small id="new_password_ayuda" class="text-muted d-block mt-1">Mínimo 10 caracteres, con mayúscula, minúscula, número y símbolo.</small>
                                 @error('new_password')
-                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                 @enderror
                             </div>
                             <div class="col-12 col-md-6 col-lg-4">
@@ -108,7 +109,7 @@
                                     <div class="show-password position-absolute top-50 end-0 translate-middle-y me-3"><i class="icon-eye"></i></div>
                                 </div>
                                 @error('re_password')
-                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{__('This field is required')}}</small>
+                                    <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                 @enderror
                             </div>
                         </div>
