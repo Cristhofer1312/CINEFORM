@@ -252,8 +252,8 @@
                                     label="PÚBLICO OBJETIVO"
                                     icon="fas fa-users"
                                     name="id_modalidad_especial"
+                                    required
                                 >
-                                    <option value="">— General —</option>
                                     @foreach($modalidadesEspeciales as $me)
                                         <option value="{{ $me->id_modalidad_especial }}" {{ old('id_modalidad_especial', $curso->id_modalidad_especial) == $me->id_modalidad_especial ? 'selected' : '' }}>
                                             {{ $me->nombre }}

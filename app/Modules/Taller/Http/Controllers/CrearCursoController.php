@@ -1407,7 +1407,7 @@ class CrearCursoController extends BaseController
     private function copiarArchivo($origen, $destino)
     {
         if (! @copy($origen, $destino)) {
-            throw new \RuntimeException('No se pudo guardar el archivo del certificado en '.basename($destino).'. Revisa los permisos de escritura.');
+            throw new \RuntimeException('No se pudo guardar '.$destino.'. Revisa que la carpeta exista y sea escribible por www-data.');
         }
 
         clearstatcache();

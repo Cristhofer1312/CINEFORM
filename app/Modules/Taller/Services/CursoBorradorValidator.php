@@ -35,13 +35,15 @@ class CursoBorradorValidator
         // Paso 1: identidad y clasificación PROCINEC.
         $datosPaso1 = Validator::make(
             is_array($paso1) ? $paso1 : [],
-            (new StorePaso1Request)->rules()
+            (new StorePaso1Request)->rules(),
+            (new StorePaso1Request)->messages()
         )->validate();
 
         // Paso 2: logística. Deriva trimestre/anio igual que el Request.
         $datosPaso2 = Validator::make(
             is_array($paso2) ? $paso2 : [],
-            (new StorePaso2Request)->rules()
+            (new StorePaso2Request)->rules(),
+            (new StorePaso2Request)->messages()
         )->validate();
         $datosPaso2 = $this->derivarTrimestreAnio($datosPaso2);
 

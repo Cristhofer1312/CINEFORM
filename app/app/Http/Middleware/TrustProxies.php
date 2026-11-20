@@ -12,7 +12,9 @@ class TrustProxies extends Middleware
      *
      * @var array<int, string>|string|null
      */
-    protected $proxies;
+    // '*': el nginx del sistema hace de proxy (HTTPS) y PHP recibe desde la IP interna
+    // del contenedor nginx. Seguro porque el contenedor solo se publica en 127.0.0.1:8080.
+    protected $proxies = '*';
 
     /**
      * The headers that should be used to detect proxies.

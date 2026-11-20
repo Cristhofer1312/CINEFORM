@@ -69,7 +69,10 @@ dc() { docker_cmd compose "$@"; }
 artisan() { dc exec -T app php artisan "$@"; }
 
 permisos_storage() {
-    $SUDO chown -R "$WWW_UID:$WWW_UID" app/storage app/bootstrap/cache
+    # public/imagenes/cursos: fotos de los cursos (CrearCursoController). public/ es de
+    # root, así que si PHP intenta crearla falla en silencio y no se puede crear un curso.
+    $SUDO mkdir -p app/public/imagenes/cursos
+    $SUDO chown -R "$WWW_UID:$WWW_UID" app/storage app/bootstrap/cache app/public/imagenes
 }
 
 cachear() {

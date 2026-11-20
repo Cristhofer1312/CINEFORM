@@ -221,6 +221,7 @@
                                     label="ASPECTO CINEMATOGRÁFICO" 
                                     icon="fas fa-film" 
                                     name="id_aspecto"
+                                    required
                                     onchange="generateProcinecCode()"
                                 >
                                     @foreach($aspectos as $asp)
@@ -235,6 +236,7 @@
                                     label="PÚBLICO OBJETIVO" 
                                     icon="fas fa-users" 
                                     name="id_modalidad_especial"
+                                    required
                                     onchange="generateProcinecCode()"
                                 >
                                     @foreach($modalidadesEspeciales as $me)
@@ -266,6 +268,7 @@
                                     label="NIVEL" 
                                     icon="fas fa-layer-group" 
                                     name="nivel"
+                                    required
                                 >
                                     <option value="Básico" {{ old('nivel') == 'Básico' ? 'selected' : '' }}>Básico</option>
                                     <option value="Medio" {{ old('nivel') == 'Medio' ? 'selected' : '' }}>Medio</option>

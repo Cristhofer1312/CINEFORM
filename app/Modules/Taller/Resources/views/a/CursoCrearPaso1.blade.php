@@ -67,7 +67,7 @@
                                     placeholder="Ej: Especialización en Guion Cinematográfico" required />
                             </div>
                             <div class="col-md-4">
-                                <x-taller.select label="NIVEL" icon="fas fa-layer-group" name="nivel">
+                                <x-taller.select label="NIVEL" icon="fas fa-layer-group" name="nivel" required>
                                     @foreach(['Básico', 'Medio', 'Avanzado'] as $nivel)
                                         <option value="{{ $nivel }}" {{ old('nivel', $paso1['nivel'] ?? '') == $nivel ? 'selected' : '' }}>{{ $nivel }}</option>
                                     @endforeach
@@ -127,8 +127,7 @@
                                 </x-taller.select>
                             </div>
                             <div class="col-md-6">
-                                <x-taller.select label="ASPECTO CINEMATOGRÁFICO" icon="fas fa-film" name="id_aspecto">
-                                    <option value="">— Sin aspecto —</option>
+                                <x-taller.select label="ASPECTO CINEMATOGRÁFICO" icon="fas fa-film" name="id_aspecto" required>
                                     @foreach($aspectos as $asp)
                                         <option value="{{ $asp->id_aspecto }}" data-abreviatura="{{ $asp->abreviatura }}" {{ (string) old('id_aspecto', $paso1['id_aspecto'] ?? '') === (string) $asp->id_aspecto ? 'selected' : '' }}>
                                             {{ $asp->nombre }}
@@ -137,8 +136,7 @@
                                 </x-taller.select>
                             </div>
                             <div class="col-md-6">
-                                <x-taller.select label="PÚBLICO OBJETIVO" icon="fas fa-users" name="id_modalidad_especial">
-                                    <option value="">— General —</option>
+                                <x-taller.select label="PÚBLICO OBJETIVO" icon="fas fa-users" name="id_modalidad_especial" required>
                                     @foreach($modalidadesEspeciales as $me)
                                         <option value="{{ $me->id_modalidad_especial }}" data-abreviatura="{{ $me->abreviatura }}" data-es-menor="{{ $me->es_menor ? '1' : '0' }}" {{ (string) old('id_modalidad_especial', $paso1['id_modalidad_especial'] ?? '') === (string) $me->id_modalidad_especial ? 'selected' : '' }}>
                                             {{ $me->nombre }}
