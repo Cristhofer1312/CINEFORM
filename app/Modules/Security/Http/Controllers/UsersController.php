@@ -116,7 +116,6 @@ class UsersController extends Controller
                     $actionBtn = '<div class="d-flex justify-content-center gap-1">';
 
                     if ((int) $row->active === 1) {
-                        $actionBtn .= '<a title="'.__('Edit').'" href="'.route('users.update', $row->crypt_id).'" class="btn btn-circle btn-light border"><span class="fa fa-edit"></span></a> ';
                         $actionBtn .= '<a title="'.__('Change Password').'" href="'.route('users.password', $row->crypt_id).'" class="btn btn-circle btn-light border"><span class="fa fa-lock"></span></a> ';
                     } else {
                         $actionBtn .= '<span class="badge badge-soft-secondary rounded-pill px-3">'.__('Inactive User').'</span>';
@@ -248,78 +247,9 @@ class UsersController extends Controller
             return to_route('users')->withErrors(['error-message' => 'No puedes modificar tu propio usuario desde administración. Usa la configuración de tu cuenta.']);
         }
 
-        if (! \Request::ajax()) {
-            if (\Request::isMethod('get')) {
-                $user = User::find($userId);
-                if (! $user) {
-                    abort(404, 'Usuario no encontrado');
-                }
-                $typeDoc = \Modules\Security\Entities\DocumentType::get()->pluck('code', 'crypt_id');
-                $profiles = \Modules\Security\Entities\Profile::whereIn('id', $this->perfilesAsignables())->get()->pluck('name', 'crypt_id');
-
-                return view('security::users.update', ['id' => Encryptor::encrypt($userId), 'user' => $user, 'typeDoc' => $typeDoc, 'profiles' => $profiles]);
-            } else {
-                $request->validate([
-                    'document_type_id' => 'required',
-                    'document' => 'required',
-                    'full_name' => 'required',
-                    'email' => 'required|email',
-                    'phone' => 'required',
-                    'active' => 'required',
-                    'profile_id' => 'required',
-                ]);
-
-                // No se puede asignar un perfil desactivado
-                if (! \Modules\Security\Entities\Profile::where('id', (int) $request->profile_id)->where('active', true)->exists()) {
-                    return back()->withInput()->withErrors(['error-message' => __('Cannot assign an inactive profile')]);
-                }
-
-                // D8: solo perfiles que el actor posee.
-                if (! in_array((int) $request->profile_id, $this->perfilesAsignables(), true)) {
-                    abort(403, 'No puedes asignar un perfil que no tienes.');
-                }
-
-                $Country =\Modules\Security\Entities\Countries::where('iso2', $request->country_iso2)->first();
-
-                $User = User::find($userId);
-                // El middleware DecryptIds ya desencriptó los valores post (document_type_id, profile_id)
-                $User->document_type_id = $request->document_type_id;
-                $User->document = $request->document;
-                $User->full_name = Upper($request->full_name);
-                $User->email = $request->email;
-
-                $User->phone = $request->phone;
-                $User->country_id = $Country->id;
-                $User->profile_id = $request->profile_id;
-
-                $User->active = $request->active;
-
-                $User->save();
-
-                // Fix #11: Sincronizar también la tabla pivote security_profiles_users
-                $newProfileId = (int) $request->profile_id;
-                $pivotExists = DB::table('security.profiles_users')
-                    ->where('id_users', $User->id)
-                    ->where('id_rol', $newProfileId)
-                    ->exists();
-
-                if (! $pivotExists) {
-                    DB::table('security.profiles_users')->insert([
-                        'id_rol' => $newProfileId,
-                        'id_users' => $User->id,
-                        'status' => 1,
-                        'creado_por' => Auth::user()->id,
-                        'creado_en' => now(),
-                        'actualizado_por' => Auth::user()->id,
-                        'actualizado_en' => now(),
-                    ]);
-                }
-
-                app(\App\Services\Security\Autorizacion::class)->invalidar();
-
-                return to_route('users')->withSuccess(__('User Updated Successfully'));
-            }
-        }
+        // Desde administración solo se cambia la contraseña de otro usuario
+        // (users.password). Los datos personales los cambia cada usuario en su cuenta.
+        return to_route('users.password', Encryptor::encrypt($userId));
     }
 
     public function password($id, Request $request)

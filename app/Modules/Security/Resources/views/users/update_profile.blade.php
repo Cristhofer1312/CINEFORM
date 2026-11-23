@@ -13,6 +13,16 @@
             border-radius: 12px;
         }
 
+        /* Teléfono: mismo ancho que el correo (el plugin envuelve el input en .iti) */
+        #phone,
+        #email {
+            width: 100%;
+        }
+        .iti {
+            display: block;
+            width: 100%;
+        }
+
         .info-icon {
             width: 36px;
             height: 36px;
@@ -117,87 +127,41 @@
                             </div>
                         </div>
 
-                        {{-- Bloques de Información --}}
-                        <div class="row g-3 mb-4">
-
-                            {{-- Columna Izquierda --}}
-                            <div class="col-md-6">
-                                <div class="info-card p-3">
-                                    <div class="d-flex align-items-center gap-3 mb-3">
-                                        <div class="info-icon"><i class="fa fa-user"></i></div>
-                                        <div>
-                                            <small class="text-muted d-block">{{__('Username')}}</small>
-                                            <span class="fw-bold text-dark">{{ Auth::user()->username ?: '-' }}</span>
+                        {{-- Datos del perfil: dos filas de tres --}}
+                        @php
+                            $datosPerfil = [
+                                ['icon' => 'fa-user-circle', 'label' => __('Full Name'), 'valor' => Auth::user()->full_name],
+                                ['icon' => 'fa-id-card', 'label' => __('Document'), 'valor' => Auth::user()->full_document],
+                                ['icon' => 'fa-phone', 'label' => __('Cell Phone'), 'valor' => Auth::user()->cellPhone],
+                                ['icon' => 'fa-envelope', 'label' => __('Email'), 'valor' => Auth::user()->email],
+                                ['icon' => 'fa-globe', 'label' => __('Country'), 'valor' => Auth::user()->country?->name],
+                                ['icon' => 'fa-calendar-alt', 'label' => __('Register Date'), 'valor' => Auth::user()->register_date ? date('d/m/Y', strtotime(Auth::user()->register_date)) : null],
+                            ];
+                        @endphp
+                        <div class="info-card p-3 mb-4">
+                            <div class="row g-3">
+                                @foreach($datosPerfil as $dato)
+                                    <div class="col-12 col-md-4">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="info-icon"><i class="fa {{ $dato['icon'] }}"></i></div>
+                                            <div>
+                                                <small class="text-muted d-block">{{ $dato['label'] }}</small>
+                                                <span class="fw-bold text-dark text-break">{{ $dato['valor'] ?: '-' }}</span>
+                                            </div>
                                         </div>
                                     </div>
-
-                                    <div class="d-flex align-items-center gap-3 mb-3">
-                                        <div class="info-icon"><i class="fa fa-user-circle"></i></div>
-                                        <div>
-                                            <small class="text-muted d-block">{{__('Full Name')}}</small>
-                                            <span class="fw-bold text-dark">{{ Auth::user()->full_name ?: '-' }}</span>
-                                        </div>
-                                    </div>
-
-                                    <div class="d-flex align-items-center gap-3 mb-3">
-                                        <div class="info-icon"><i class="fa fa-id-card"></i></div>
-                                        <div>
-                                            <small class="text-muted d-block">{{__('Document')}}</small>
-                                            <span class="fw-bold text-dark">{{ Auth::user()->full_document ?: '-' }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Columna Derecha --}}
-                            <div class="col-md-6">
-                                <div class="info-card p-3">
-                                    <div class="d-flex align-items-center gap-3 mb-3">
-                                        <div class="info-icon"><i class="fa fa-phone"></i></div>
-                                        <div>
-                                            <small class="text-muted d-block">{{__('Cell Phone')}}</small>
-                                            <span class="fw-bold text-dark">{{ Auth::user()->cellPhone ?: '-' }}</span>
-                                        </div>
-                                    </div>
-
-                                    <div class="d-flex align-items-center gap-3 mb-3">
-                                        <div class="info-icon"><i class="fa fa-globe"></i></div>
-                                        <div>
-                                            <small class="text-muted d-block">{{__('Country')}}</small>
-                                            <span class="fw-bold text-dark">{{ Auth::user()->country?->name ?: '-' }}</span>
-                                        </div>
-                                    </div>
-
-                                    <div class="d-flex align-items-center gap-3 mb-3">
-                                        <div class="info-icon"><i class="fa fa-envelope"></i></div>
-                                        <div>
-                                            <small class="text-muted d-block">{{__('Email')}}</small>
-                                            <span class="fw-bold text-dark">{{ Auth::user()->email ?: '-' }}</span>
-                                        </div>
-                                    </div>
-
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="info-icon"><i class="fa fa-calendar-alt"></i></div>
-                                        <div>
-                                            <small class="text-muted d-block">{{__('Register Date')}}</small>
-                                            <span class="fw-bold text-dark">{{ Auth::user()->register_date ? date('d/m/Y', strtotime(Auth::user()->register_date)) : '-' }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Dirección --}}
-                            <div class="col-12">
-                                <div class="info-card p-3 d-flex align-items-center gap-3">
-                                    <div class="info-icon"><i class="fa fa-map-marker-alt"></i></div>
-                                    <div>
-                                        <small class="text-muted d-block">{{__('Address')}}</small>
-                                        <span class="fw-bold text-dark">{{ Auth::user()->address ?: '-' }}</span>
-                                    </div>
-                                </div>
+                                @endforeach
                             </div>
                         </div>
 
+                        {{-- Dirección --}}
+                        <div class="info-card p-3 mb-4 d-flex align-items-center gap-3">
+                            <div class="info-icon"><i class="fa fa-map-marker-alt"></i></div>
+                            <div>
+                                <small class="text-muted d-block">{{__('Address')}}</small>
+                                <span class="fw-bold text-dark">{{ Auth::user()->address ?: '-' }}</span>
+                            </div>
+                        </div>
                         {{-- Perfiles Asignados --}}
                         <div class="info-card p-3 mb-4">
                             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -309,28 +273,26 @@
                                         </div>
 
                                         <div class="col-12 col-md-6">
-                                            <div class="form-floating form-floating-custom">
-                                                <input id="email" name="email" type="email" class="form-control" maxlength="100" placeholder="{{__('Email')}}" value="{{ Auth::user()->email }}" required>
-                                                <label for="email">{{__('Email')}} *</label>
-                                            </div>
+                                            <label for="email" class="text-muted small fw-bold mb-2 d-flex align-items-center">
+                                                <i class="fas fa-envelope me-2 opacity-50 text-primary"></i> {{__('Email')}} <span class="text-danger ms-1">*</span>
+                                            </label>
+                                            <input id="email" name="email" type="email" class="form-control" maxlength="100" value="{{ Auth::user()->email }}" required>
                                             @error('email')
-                                                <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
-                                            @enderror
-                                        </div>
-
-                                        <div class="col-12 col-md-6">
-                                            <div class="form-floating form-floating-custom">
-                                                <input id="profile_current_password" name="current_password" type="password" class="form-control" maxlength="64" placeholder="{{__('Current Password')}}" autocomplete="current-password">
-                                                <label for="profile_current_password">{{__('Current Password')}}</label>
-                                            </div>
-                                            <small class="text-muted d-block mt-1">Solo se pide si cambias el correo.</small>
-                                            @error('current_password')
                                                 <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
                                             @enderror
                                         </div>
 
                                         <div class="col-12">
                                             <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 mb-0 rounded-3">
+                                                <div class="w-100">
+                                                    <label for="profile_current_password" class="text-muted small fw-bold d-flex align-items-center mb-2">
+                                                        <i class="fas fa-lock me-2 opacity-50 text-primary"></i> {{__('Current Password')}} <span class="text-danger ms-1">*</span>
+                                                    </label>
+                                                    <input id="profile_current_password" name="current_password" type="password" class="form-control" maxlength="64" placeholder="{{__('Current Password')}}" autocomplete="current-password" required>
+                                                    @error('current_password')
+                                                        <small class="text-danger fw-bold d-block mt-1"><i class="fas fa-exclamation-circle me-1"></i>{{ $message }}</small>
+                                                    @enderror
+                                                </div>
                                                 <div class="flex-grow-1">
                                                     <label for="code" class="text-muted small fw-bold d-flex align-items-center mb-2">
                                                         <i class="fas fa-shield-alt me-2 opacity-50 text-primary"></i> {{__('Verification Code')}} <span class="text-danger ms-1">*</span>
@@ -377,7 +339,7 @@
                                     <div class="row g-3">
                                         <div class="col-12 col-md-4">
                                             <div class="form-floating form-floating-custom position-relative">
-                                                <input id="current_password" name="current_password" type="password" maxlength="16" class="form-control" placeholder="{{__('Current Password')}}" required>
+                                                <input id="current_password" name="current_password" type="password" maxlength="72" class="form-control" placeholder="{{__('Current Password')}}" required>
                                                 <label for="current_password">{{__('Current Password')}} *</label>
                                                 <div class="show-password position-absolute top-50 end-0 translate-middle-y me-2"><i class="icon-eye"></i></div>
                                             </div>
@@ -530,6 +492,7 @@
                 rules: {
                     email: { required: true, email: true },
                     phone: { required: true },
+                    current_password: { required: true },
                     code: { required: true, digits: true, minlength: 6, maxlength: 6 }
                 },
                 errorPlacement: function (error, element) {

@@ -638,6 +638,7 @@ class SecurityController extends Controller
                         'phone' => 'required',
                         'email' => 'required|email|max:100',
                         'code' => 'required',
+                        'current_password' => 'required',
                     ]);
 
                     $email = strtolower(trim($request->email));
@@ -666,12 +667,12 @@ class SecurityController extends Controller
                         return to_route('update_profile')->withErrors(['error-message' => __('Your verification code is wrong')]);
                     }
 
-                    // Cambiar el correo cambia la identidad de acceso y de recuperación:
-                    // se exige reautenticación con la contraseña actual.
-                    $cambiaCorreo = $email !== strtolower((string) Auth::user()->email);
-                    if ($cambiaCorreo && ! Hash::check((string) $request->current_password, Auth::user()->password)) {
+                    // Cualquier actualización de datos exige reautenticación con la contraseña actual.
+                    if (! Hash::check((string) $request->current_password, Auth::user()->password)) {
                         return to_route('update_profile')->withErrors(['current_password' => __("Old Password Doesn't match!")]);
                     }
+
+                    $cambiaCorreo = $email !== strtolower((string) Auth::user()->email);
 
                     $Country = \Modules\Security\Entities\Countries::where('iso2', $request->country_iso2)->first();
 
@@ -768,7 +769,8 @@ class SecurityController extends Controller
         if ($code != null) {
             $date = Carbon::parse($code->date);
             $minutesSinceLastRequest = $date->diffInMinutes(Carbon::now());
-            if ($minutesSinceLastRequest > 15) {
+            // Un código ya canjeado no bloquea el reenvío: el contador se reinicia.
+            if ($code->processed || $minutesSinceLastRequest > 15) {
                 $code->date = now();
                 $code->code = $generateCode;
                 $code->processed = false;

@@ -8,6 +8,7 @@ use App\Services\Security\Autorizacion;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Modules\Security\Entities\User;
 use Tests\TestCase;
@@ -93,6 +94,27 @@ class SeguridadCuentaTest extends TestCase
         $this->como($this->usuario)->post(route('update_profile'), $this->datos($nuevo, self::CLAVE))
             ->assertSessionHasErrors(['error-message' => __('Your verification code is wrong')]);
         $this->assertSame($this->usuario->email, User::find($this->usuario->id)->email);
+    }
+
+    public function test_actualizar_datos_sin_cambiar_el_correo_tambien_exige_la_contrasena(): void
+    {
+        $this->codigoPara($this->usuario->email, now());
+        $datos = $this->datos($this->usuario->email, self::CLAVE);
+        unset($datos['current_password']);
+
+        $this->como($this->usuario)->post(route('update_profile'), $datos)
+            ->assertSessionHasErrors('current_password');
+    }
+
+    public function test_canjear_el_codigo_reinicia_el_contador_para_pedir_otro(): void
+    {
+        Mail::fake();
+        $this->codigoPara($this->usuario->email, now());
+        DB::table('security.codes')->where('email', $this->usuario->email)->update(['processed' => true]);
+
+        $this->como($this->usuario)->postJson(route('update_profile.send_code'), ['email' => $this->usuario->email])
+            ->assertOk()
+            ->assertJson(['status' => '1']);
     }
 
     public function test_no_se_crea_un_usuario_con_un_perfil_que_el_actor_no_tiene(): void
