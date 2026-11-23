@@ -26,7 +26,7 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                         <p class="mb-0 small opacity-75 text-white">{{ $curso->nombre }}</p>
                     </div>
                     <div class="card-body p-3 bg-light">
-                        <div class="list-group list-group-flush rounded-3 overflow-hidden shadow-sm" style="max-height: min(600px, 60vh); overflow-y: auto;">
+                        <div class="list-group list-group-flush rounded-3 overflow-hidden shadow-sm lista-actividades">
                             @forelse($curso->contenidos as $index => $contenido)
                                 @php
                                     $esActivo = $contenidoActual && $contenido->id_contenido_curso == $contenidoActual->id_contenido_curso;
@@ -46,8 +46,8 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                         {{ $index + 1 }}
                                     </div>
                                     <div class="flex-grow-1">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <span class="mb-0 fw-bold text-dark" style="font-size: 0.95rem; line-height: 1.2;">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-1">
+                                            <span class="mb-0 fw-bold text-dark actividad-titulo" style="font-size: 0.95rem; line-height: 1.2;">
                                                 {{ $contenido->titulo }}
                                             </span>
                                             @if($contenido->es_evaluacion)
@@ -64,12 +64,6 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
                                                     @endif
                                                 </span>
                                             @endif
-                                        </div>
-                                        <div class="d-flex align-items-center mt-1">
-                                            <i class="fas {{ $icono }} me-2 text-primary opacity-75" style="font-size: 0.8rem;"></i>
-                                            <small class="text-secondary text-truncate" style="max-width: 180px; font-size: 0.8rem;">
-                                                {{ $contenido->descripcion_breve ?? 'Lección académica' }}
-                                            </small>
                                         </div>
                                     </div>
                                 </a>
@@ -257,6 +251,15 @@ Incluye una barra lateral de navegación entre lecciones y un área principal pa
         </div>
     </div>
 
+    @push('styles')
+    <style>
+        /* Celular: sin scroll interno y sin cortar títulos ni descripciones */
+        @media (max-width: 991.98px) {
+            .lista-actividades { max-height: none !important; overflow: visible !important; }
+            .actividad-titulo { white-space: normal; overflow-wrap: anywhere; }
+        }
+    </style>
+    @endpush
     @push('styles')
         <style>
             .card {

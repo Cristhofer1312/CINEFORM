@@ -13,10 +13,10 @@
                         <li class="breadcrumb-item active text-info fw-bold">Requisitos Entregados</li>
                     </ol>
                 </nav>
-                <h2 class="fw-bold text-dark mb-0">Requisitos del Participante</h2>
+                <h2 class="fw-bold text-dark mb-0 fs-3">Requisitos del Participante</h2>
                 <p class="text-muted small mb-0"><i class="fas fa-user text-info me-1"></i> Participante: <strong>{{ $inscripcion->persona->primer_nombre }} {{ $inscripcion->persona->primer_apellido }}</strong></p>
             </div>
-            <div class="text-end">
+            <div class="text-md-end">
                 <a href="{{ route('taller.cursos.participantes', $curso->id_curso) }}"
                     class="btn btn-white shadow-sm border rounded-pill px-4 btn-sm fw-bold">
                     <i class="fas fa-arrow-left me-2 text-primary"></i> Volver a Participantes
@@ -26,9 +26,9 @@
 
         <div class="card border-0 shadow-card rounded-4 mb-5 overflow-hidden">
             <div class="card-header text-white border-bottom py-3" style="background: var(--cf-gradient-brand);">
-                <h5 class="mb-0 fw-bold"><i class="fas fa-tasks text-white me-2"></i> Requisitos Presentados para: {{ $curso->nombre }}</h5>
+                <h5 class="mb-0 fw-bold text-break"><i class="fas fa-tasks text-white me-2"></i> Requisitos Presentados para: {{ $curso->nombre }}</h5>
             </div>
-            <div class="card-body bg-light bg-opacity-50 p-4">
+            <div class="card-body bg-light bg-opacity-50 p-3 p-md-4">
                 
                 @if($inscripcion->respuestas->isEmpty())
                     <div class="text-center py-5">
@@ -37,25 +37,25 @@
                         <p class="text-muted">Este participante no ha entregado respuestas o documentos adicionales.</p>
                     </div>
                 @else
-                    <div class="row g-4">
+                    <div class="row g-3 g-md-4">
                         @foreach($inscripcion->respuestas as $resp)
                             @php $req = $resp->requisito; @endphp
                             @if($req)
                                 <div class="col-12">
                                     <div class="card border border-light-2 shadow-sm rounded-4 bg-white">
-                                        <div class="card-body p-4">
-                                            <div class="d-flex align-items-center mb-3">
+                                        <div class="card-body p-3 p-md-4">
+                                            <div class="d-flex align-items-start mb-3">
                                                 @if($req->tipo === 'pregunta')
-                                                    <i class="fas fa-question-circle text-info fs-4 me-3"></i>
+                                                    <i class="fas fa-question-circle text-info fs-4 me-3 flex-shrink-0"></i>
                                                 @elseif($req->tipo === 'documento')
-                                                    <i class="fas fa-file-alt text-warning fs-4 me-3"></i>
+                                                    <i class="fas fa-file-alt text-warning fs-4 me-3 flex-shrink-0"></i>
                                                 @endif
-                                                <h5 class="fw-bold text-dark mb-0">{{ $req->titulo }}</h5>
+                                                <h5 class="fw-bold text-dark mb-0 text-break" style="min-width: 0;">{{ $req->titulo }}</h5>
                                             </div>
                                             
-                                            <div class="bg-light p-4 rounded-3 mt-3 border">
+                                            <div class="bg-light p-3 p-md-4 rounded-3 mt-3 border">
                                                 @if($req->tipo === 'pregunta')
-                                                    <p class="mb-0 text-secondary fs-6" style="white-space: pre-wrap;">{{ $resp->respuesta_texto ?: 'No respondió' }}</p>
+                                                    <p class="mb-0 text-secondary fs-6" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ $resp->respuesta_texto ?: 'No respondió' }}</p>
                                                 @elseif($req->tipo === 'documento')
                                                     @if($resp->ruta_archivo)
                                                         @php
@@ -71,7 +71,7 @@
                                                                     <span class="text-muted small">Cargado exitosamente · {{ strtoupper($ext) }}</span>
                                                                 </div>
                                                             </div>
-                                                            <div class="d-flex gap-2 flex-wrap">
+                                                            <div class="acciones-archivo d-flex gap-2 flex-wrap">
                                                                 <button type="button"
                                                                     class="btn btn-outline-primary rounded-pill hvr-push px-4 fw-bold shadow-sm"
                                                                     onclick="abrirPreview('{{ $urlArchivo }}', '{{ $esImagen ? 'imagen' : 'pdf' }}', '{{ $req->titulo }}')"
@@ -129,6 +129,10 @@
 <style>
     #previewModal .modal-body {
         background: #1a1a2e;
+    }
+    @media (max-width: 575.98px) {
+        .acciones-archivo { width: 100%; }
+        .acciones-archivo .btn { flex: 1 1 100%; }
     }
     #preview-container iframe,
     #preview-container img {

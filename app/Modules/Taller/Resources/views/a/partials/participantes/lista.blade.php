@@ -1,34 +1,36 @@
-<div class="overflow-auto pe-2" style="max-height: min(600px, 60vh);">
+<div class="lista-participantes">
     @if($items->count() > 0)
         @foreach($items as $insc)
             @php $p = $insc->persona; @endphp
             @if($p)
-            <div class="participante-item d-flex align-items-center p-3 mb-3 rounded-4 border bg-white transition-all shadow-xs">
-                <div class="me-4 flex-shrink-0">
-                    {!! renderAvatar($p, 'avatar-md') !!}
-                </div>
-                <div class="flex-grow-1 overflow-hidden">
-                    <h5 class="mb-1 fw-bold text-dark text-truncate">
-                        {{ $p->primer_nombre }} {{ $p->primer_apellido }}
-                    </h5>
-                    <div class="d-flex align-items-center flex-wrap gap-3 mt-2">
-                        <span class="badge bg-light text-secondary border">
-                            <i class="fas fa-id-card me-1 opacity-50"></i> {{ $p->dni }}
-                        </span>
-                        <span class="badge bg-light text-secondary border">
-                            <i class="far fa-calendar me-1 opacity-50"></i> 
-                            {{ $tipo === 'postulado' ? 'Postulado el' : 'Inscrito el' }} {{ $insc->fecha_inscripcion ? $insc->fecha_inscripcion->format('d/m/Y') : 'N/A' }}
-                        </span>
+            <div class="participante-item d-flex flex-column flex-md-row align-items-md-center gap-3 p-3 mb-3 rounded-4 border bg-white transition-all shadow-xs">
+                <div class="d-flex align-items-start align-items-md-center flex-grow-1" style="min-width: 0;">
+                    <div class="me-3 me-md-4 flex-shrink-0">
+                        {!! renderAvatar($p, 'avatar-md') !!}
                     </div>
-                    
-                    @if($insc->motivo_estado)
-                        <div class="mt-2 p-2 bg-light rounded-3 border-start border-3 {{ $tipo === 'rechazado' ? 'border-warning' : 'border-danger' }} small">
-                            <strong>Razón:</strong> {{ $insc->motivo_estado }}
+                    <div class="flex-grow-1" style="min-width: 0;">
+                        <h5 class="mb-1 fw-bold text-dark text-break">
+                            {{ $p->primer_nombre }} {{ $p->primer_apellido }}
+                        </h5>
+                        <div class="d-flex align-items-center flex-wrap gap-2 mt-2">
+                            <span class="badge bg-light text-secondary border ms-0">
+                                <i class="fas fa-id-card me-1 opacity-50"></i> {{ $p->dni }}
+                            </span>
+                            <span class="badge bg-light text-secondary border ms-0 text-wrap text-start">
+                                <i class="far fa-calendar me-1 opacity-50"></i> 
+                                {{ $tipo === 'postulado' ? 'Postulado el' : 'Inscrito el' }} {{ $insc->fecha_inscripcion ? $insc->fecha_inscripcion->format('d/m/Y') : 'N/A' }}
+                            </span>
                         </div>
-                    @endif
+                        
+                        @if($insc->motivo_estado)
+                            <div class="mt-2 p-2 bg-light rounded-3 border-start border-3 {{ $tipo === 'rechazado' ? 'border-warning' : 'border-danger' }} small text-break">
+                                <strong>Razón:</strong> {{ $insc->motivo_estado }}
+                            </div>
+                        @endif
+                    </div>
                 </div>
 
-                <div class="d-flex flex-column align-items-end gap-2 ms-3 flex-shrink-0">
+                <div class="participante-acciones d-flex flex-column gap-2 flex-shrink-0">
                     @if($curso->requisitos->count() > 0)
                         <a href="{{ route('taller.inscripciones.respuestas', ['curso' => $curso->id_curso, 'inscripcion' => $insc->id_inscripcion]) }}" 
                            class="btn btn-outline-info btn-sm rounded-pill px-3 py-1 fw-bold w-100">

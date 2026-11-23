@@ -6,7 +6,7 @@
         <div class="col-xl-10 col-lg-12">
             <!-- Hero Header -->
             <div class="card border-0 shadow-card rounded-4 mb-4 overflow-hidden border-top border-4 border-warning">
-                <div class="card-header bg-white py-4 px-4 border-bottom">
+                <div class="card-header bg-white py-4 px-3 px-md-4 border-bottom">
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                         <div class="d-flex align-items-center">
                             <a href="{{ route('taller.cursos.show', $curso->crypt_id) }}" 
@@ -23,7 +23,7 @@
                                         <li class="breadcrumb-item active text-warning fw-bold" aria-current="page">Postulados y Participantes</li>
                                     </ol>
                                 </nav>
-                                <h2 class="fw-bold text-dark mb-0">{{ $curso->nombre }}</h2>
+                                <h2 class="fw-bold text-dark mb-0 text-break">{{ $curso->nombre }}</h2>
                             </div>
                         </div>
                         <div class="d-flex align-items-center gap-2">
@@ -41,7 +41,7 @@
                 
                 <div class="card-body p-0">
                     {{-- Nav Tabs --}}
-                    <ul class="nav nav-tabs nav-line nav-color-primary px-4 border-0 mt-3 scrollable-tabs" id="postulacionTabs" role="tablist">
+                    <ul class="nav nav-tabs nav-line nav-color-primary px-3 px-md-4 border-0 mt-3 scrollable-tabs" id="postulacionTabs" role="tablist">
                         <li class="nav-item">
                             <a class="nav-link active fw-bold" id="postulados-tab" data-bs-toggle="tab" href="#postulados" role="tab">
                                 <i class="fas fa-hourglass-half me-2"></i> Postulados 
@@ -74,7 +74,7 @@
                         </li>
                     </ul>
 
-                    <div class="tab-content mt-4 px-4 pb-4" id="postulacionTabsContent">
+                    <div class="tab-content mt-4 px-3 px-md-4 pb-4" id="postulacionTabsContent">
                         {{-- Tab Postulados --}}
                         <div class="tab-pane fade show active" id="postulados" role="tabpanel">
                             @include('taller::a.partials.participantes.lista', ['items' => $postulados, 'tipo' => 'postulado'])
@@ -131,6 +131,26 @@
     .scrollable-tabs::-webkit-scrollbar { height: 4px; }
     .scrollable-tabs::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
     .scrollable-tabs .nav-item { flex-shrink: 0; }
+
+    /* Lista de participantes: scroll interno solo en pantallas medianas y grandes.
+       En el celular la página hace scroll normal para no esconder tarjetas. */
+    @media (min-width: 768px) {
+        .lista-participantes {
+            max-height: min(600px, 60vh);
+            overflow-y: auto;
+            padding-right: .5rem;
+        }
+    }
+
+    /* En el celular los botones se acomodan en 2 columnas y su texto puede bajar de línea */
+    @media (max-width: 767.98px) {
+        .participante-acciones {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+        }
+        .participante-acciones .btn { white-space: normal; }
+        .participante-acciones > :only-child { grid-column: 1 / -1; }
+    }
 </style>
 @endpush
 

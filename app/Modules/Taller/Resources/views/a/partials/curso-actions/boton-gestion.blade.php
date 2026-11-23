@@ -44,7 +44,7 @@
             <a href="{{ route('taller.cursos.edit', $curso->crypt_id) }}" class="btn btn-white btn-sm py-2 fw-bold border shadow-xs rounded-pill">
                 <i class="fas fa-edit me-1 text-primary"></i> Editar Programa
             </a>
-            <a href="{{ route('taller.cursos.requisitos.edit', $curso->id_curso) }}" class="btn btn-white btn-sm py-2 fw-bold border shadow-xs rounded-pill mt-2">
+            <a href="{{ route('taller.cursos.requisitos.edit', $curso->id_curso) }}" class="btn btn-white btn-sm py-2 fw-bold border shadow-xs rounded-pill">
                 <i class="fas fa-list-check me-1 text-info"></i> Editar Requisitos
             </a>
         @endcan
