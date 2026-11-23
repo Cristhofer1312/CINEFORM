@@ -6,6 +6,7 @@ use App;
 use App\Helpers\Encryptor;
 use App\Helpers\LockDB;
 use App\Http\Controllers\Controller;
+use App\Services\Security\RegistroAccesos;
 // use Illuminate\Routing\Controller;
 use Carbon\Carbon;
 use Config;
@@ -493,6 +494,7 @@ class SecurityController extends Controller
                 : (RateLimiter::tooManyAttempts($claveIp, self::INTENTOS_LOGIN_IP) ? $claveIp : null);
             if ($bloqueada) {
                 $minutos = (int) ceil(RateLimiter::availableIn($bloqueada) / 60);
+                app(RegistroAccesos::class)->registrar(RegistroAccesos::BLOQUEADO, null, $usernameNormalized);
 
                 return back()->withErrors(['error-message' => "Demasiados intentos fallidos. Intente de nuevo en {$minutos} minuto(s)."])->withInput();
             }
@@ -506,6 +508,7 @@ class SecurityController extends Controller
                 Hash::check((string) $request->password, self::HASH_RELLENO);
                 RateLimiter::hit($claveIntentos, self::BLOQUEO_LOGIN_SEGUNDOS);
                 RateLimiter::hit($claveIp, self::BLOQUEO_LOGIN_SEGUNDOS);
+                app(RegistroAccesos::class)->registrar(RegistroAccesos::USUARIO_INEXISTENTE, null, $usernameNormalized);
 
                 return back()->withErrors(['error-message' => __('Wrong Data')]);
             } elseif (! Hash::check($request->password, $user->password)) {
@@ -513,15 +516,19 @@ class SecurityController extends Controller
                 // muestra a quien ya demostró conocer la contraseña de la cuenta.
                 RateLimiter::hit($claveIntentos, self::BLOQUEO_LOGIN_SEGUNDOS);
                 RateLimiter::hit($claveIp, self::BLOQUEO_LOGIN_SEGUNDOS);
+                app(RegistroAccesos::class)->registrar(RegistroAccesos::FALLIDO, $user);
 
                 return back()->withErrors(['error-message' => __('Wrong Data')])->withInput();
             } elseif ($user->active != 1) {
+                app(RegistroAccesos::class)->registrar(RegistroAccesos::USUARIO_INACTIVO, $user);
+
                 return back()->withErrors(['error-message' => __('User blocked')])->withInput(); // Si el usuario no está activo (bloqueado), muestra error específico.
             } else {
                 RateLimiter::clear($claveIntentos);
                 Auth::login($user); // Autentica directamente con el modelo recuperado (case-insensitive).
 
                 session()->regenerate(); // Previene session fixation: genera nuevo ID de sesión tras autenticación exitosa
+                app(RegistroAccesos::class)->registrar(RegistroAccesos::LOGIN, $user);
 
                 // Token de sesión: se guarda en sesión para permitir invalidación remota
                 // cuando el status de un perfil asignado cambia (driver de sesión es File).
@@ -590,6 +597,9 @@ class SecurityController extends Controller
 
     public function logout(Request $request)
     {
+        if ($saliente = Auth::user()) {
+            app(RegistroAccesos::class)->registrar(RegistroAccesos::LOGOUT, $saliente);
+        }
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
