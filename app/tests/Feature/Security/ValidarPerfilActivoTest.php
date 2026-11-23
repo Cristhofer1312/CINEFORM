@@ -75,14 +75,11 @@ class ValidarPerfilActivoTest extends TestCase
 
         $perfilesActivos = $user->perfiles()->where('security.profiles.active', true)->count();
 
-        if ($perfilesActivos === 1) {
-            // Auto-asigna el único perfil y pasa a 200
+        if ($perfilesActivos > 0) {
+            // Los permisos son la suma de los perfiles activos: no hay selección de perfil.
             $response->assertStatus(200);
-        } elseif ($perfilesActivos > 1) {
-            // Redirige a selección de perfil
-            $response->assertRedirect(route('usuario.cambiar_perfil'));
         } else {
-            // Sin perfiles: desautentica a login
+            // Sin perfiles activos: desautentica a login
             $response->assertRedirect(route('login'));
         }
     }

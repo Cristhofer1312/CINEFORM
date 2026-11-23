@@ -50,8 +50,9 @@ class CursoPolicy
     }
 
     /**
-     * Responder a una asignación de curso (Aceptar o declinar).
-     * Requiere permiso formal RESPONDER_CURSO y pertenencia si es facilitador.
+     * Responder a una asignación de curso (aceptar o declinar).
+     * Requiere permiso RESPONDER_CURSO y ser el facilitador asignado a ESTE curso.
+     * Un gestor no responde por otro facilitador: solo puede aceptar lo que le corresponde.
      */
     public function responderAsignacion(User $user, Curso $curso): bool
     {
@@ -59,7 +60,7 @@ class CursoPolicy
             return false;
         }
 
-        return $this->esGestor($user) || ($this->esFacilitador($user) && $this->esFacilitadorDe($user, $curso));
+        return $this->esFacilitador($user) && $this->esFacilitadorDe($user, $curso);
     }
 
     /**

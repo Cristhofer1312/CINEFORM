@@ -41,9 +41,9 @@ class CursoDetalleController extends BaseController
         $puedeCancelarInscripciones = hasPermissionRoute('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION);
         $puedeVerParticipantes = $user ? $user->can('verParticipantes', $curso) : false;
 
-        // El administrador (gestor) NO actúa como participante. Sí conserva las
-        // acciones de facilitador en los cursos donde es el facilitador asignado:
-        // antes se anulaban y no podía aceptar ni rechazar su propia asignación.
+        // Los permisos son la suma de los perfiles: un usuario puede ser gestor y
+        // participante a la vez. La condición de participante sale de su inscripción,
+        // sin anularla por ser gestor.
         $inscripcion = $datosCurso['inscripcion'];
         $esParticipante = $inscripcion !== null && (
             ($curso->estado_actual->id_estado ?? 0) === \App\Enums\EstadoCurso::INSCRIPCION->value
@@ -51,11 +51,6 @@ class CursoDetalleController extends BaseController
                 : $inscripcion->esAprobado()
         );
         $esOperativo = $datosCurso['esFacilitador'];
-
-        if ($datosUsuario['esGestor']) {
-            $esParticipante = false;
-            $puedeInscribirse = false;
-        }
 
         $estadoId = $curso->estado_actual->id_estado ?? 0;
         $capacidades = $condicional->obtenerCapacidades(

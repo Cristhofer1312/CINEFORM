@@ -162,9 +162,9 @@ class CursoController extends BaseController
         $query = Curso::with(['modalidad', 'inscripciones', 'estados', 'persona'])
             ->withCount(['contenidos', 'inscripciones']);
 
-        // Si NO es gestor, ni facilitador, ni coordinador (Participante Base)
-        if (! supervisaTodosLosCursos() &&
-            ! hasPermissionRoute('taller.cursos.index', \App\Constants\SecurityAction::EDITAR_CURSO)) {
+        // Sin alcance global (SUPERVISAR_CURSOS) solo se ven los cursos propios, los
+        // públicos en fase de inscripción y aquellos en los que el usuario está inscrito.
+        if (! supervisaTodosLosCursos()) {
 
             $personalData = Auth::user()->personalData;
             $idEstadoUsuario = $personalData->id_estado ?? null;
@@ -202,6 +202,11 @@ class CursoController extends BaseController
                         }
                     });
                 });
+
+                // El facilitador siempre ve los cursos que él mismo dicta.
+                if ($idPersonaActual) {
+                    $q->orWhere('taller.cursos.id_persona', $idPersonaActual);
+                }
 
                 // REGLA: Si el participante ya está inscrito en un curso de otra localidad (antes del cambio o por excepción), permitir que lo siga viendo
                 if ($idPersonaActual) {

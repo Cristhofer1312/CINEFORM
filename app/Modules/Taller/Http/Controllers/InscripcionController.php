@@ -247,7 +247,11 @@ class InscripcionController extends BaseController
         $estadoActual = $curso->estado_actual->id_estado ?? null;
 
         // ── Rama Administrativa: gestor con permiso de cancelar/rehabilitar inscripciones ──
-        $puedeCancelarInscripciones = $user->can('rehabilitar', $inscripcion);
+        // Con permisos sumados, un gestor que también es participante cancela SU propia
+        // inscripción por la rama normal; la administrativa aplica solo a terceros.
+        $esDuenio = $user->personalData !== null
+            && (int) $inscripcion->id_persona === (int) $user->personalData->id_persona;
+        $puedeCancelarInscripciones = ! $esDuenio && $user->can('rehabilitar', $inscripcion);
 
         if ($puedeCancelarInscripciones) {
             $estadosPermitidos = [

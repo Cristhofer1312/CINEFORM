@@ -32,9 +32,10 @@ class RetiroGestorMotivoTest extends TestCase
             $q->where('security.profiles.id', Perfil::COORDINADOR);
         })->where('id', '>', 1)->first() ?? User::find(2);
 
+        // Un tercero: el gestor retira a otra persona (si fuera él mismo, retiraría su propia inscripción).
         $this->participante = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::PARTICIPANTE);
-        })->where('id', '>', 1)->first() ?? User::findOrFail(7);
+        })->where('id', '>', 1)->where('id', '!=', $this->coordinador->id)->first() ?? User::findOrFail(7);
 
         $facilitador = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::FACILITADOR);

@@ -48,7 +48,12 @@ class CumplimientoAsistenciaTest extends TestCase
 
         $this->participante = User::whereHas('perfiles', function ($q) {
             $q->where('security.profiles.id', Perfil::PARTICIPANTE);
-        })->where('id', '>', 1)->first() ?? User::findOrFail(7);
+        })
+        // Solo participante: un gestor (p. ej. Coordinador) cambia el comportamiento de la vista y de la policy.
+        ->whereDoesntHave('perfiles', function ($q) {
+            $q->where('security.profiles.id', '!=', Perfil::PARTICIPANTE);
+        })
+        ->where('id', '>', 1)->first() ?? User::findOrFail(7);
 
         $this->curso = Curso::withoutEvents(function () {
             $c = new Curso;
