@@ -270,6 +270,7 @@ class CartaPermisoMenoresTest extends TestCase
                     'id_actividad_formativa' => 1,
                     'id_aspecto' => 1,
                     'id_modalidad_especial' => $modalidadEspecialId,
+                    'nivel' => 'Básico',
                 ],
                 'paso2' => [
                     'id_persona' => 1,

@@ -53,7 +53,7 @@ class WizardBorradorTest extends TestCase
             'id_aspecto' => 1,
             'id_modalidad' => 1,
             'id_modalidad_especial' => 1,
-            'nivel' => 'BASICO',
+            'nivel' => 'Básico',
             'descripcion' => 'Descripción de prueba para resiliencia.',
         ];
 
@@ -96,6 +96,7 @@ class WizardBorradorTest extends TestCase
             'id_aspecto' => 1,
             'id_modalidad' => 1,
             'id_modalidad_especial' => 1,
+            'nivel' => 'Básico',
         ], 2);
 
         // Guardar parcialmente paso 2 (solo fecha_inicio y accion = salir)
@@ -201,6 +202,7 @@ class WizardBorradorTest extends TestCase
             'id_aspecto' => 1,
             'id_modalidad' => 1,
             'id_modalidad_especial' => 1,
+            'nivel' => 'Básico',
             'foto' => $foto,
         ]);
         $respPaso1->assertRedirect(route('taller.cursos.wizard.paso2.create'));
@@ -228,6 +230,7 @@ class WizardBorradorTest extends TestCase
             'id_aspecto' => 1,
             'id_modalidad' => 1,
             'id_modalidad_especial' => 1,
+            'nivel' => 'Básico',
         ]);
         $respPaso1Re->assertRedirect(route('taller.cursos.wizard.paso2.create'));
         $borradorRe = $this->servicio->actual($this->admin->id);
@@ -241,6 +244,7 @@ class WizardBorradorTest extends TestCase
             'id_aspecto' => 1,
             'id_modalidad' => 1,
             'id_modalidad_especial' => 1,
+            'nivel' => 'Básico',
             'foto' => $nuevaFoto,
         ]);
         $respReemplazo->assertRedirect(route('taller.cursos.wizard.paso2.create'));
@@ -254,6 +258,7 @@ class WizardBorradorTest extends TestCase
             'id_aspecto' => 1,
             'id_modalidad' => 1,
             'id_modalidad_especial' => 1,
+            'nivel' => 'Básico',
             'eliminar_foto' => 1,
         ]);
         $respEliminar->assertRedirect(route('taller.cursos.wizard.paso2.create'));
