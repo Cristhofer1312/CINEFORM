@@ -151,8 +151,8 @@ class ProfilesController extends Controller {
                 }
 
                 // ----- LÓGICA DE RBAC: GUARDADO DE PERMISOS -----
-                // Quien llega aquí tiene GESTIONAR_PERMISOS (middleware de la ruta) y puede
-                // configurar cualquier perfil salvo el Administrador y su propio perfil activo.
+                // Quien llega aquí tiene GESTIONAR_PERMISOS (middleware de la ruta) y solo puede
+                // otorgar permisos que él mismo posee (salvo el usuario raíz).
                 // Catálogo de permisos existentes: [permission_id => (proceso, slug)].
                 // Los permisos se definen en migraciones/seeders; aquí nunca se crean.
                 $catalogo = DB::table('security.permissions as p')
@@ -190,18 +190,22 @@ class ProfilesController extends Controller {
                 $aQuitar = array_values(array_diff($actuales, $finales));
                 $aAgregar = array_values(array_diff($finales, $actuales));
 
-                // Anti-autopromoción: a un perfil propio solo se le puede dar lo que
-                // el usuario ya tiene por la suma de sus perfiles, y no se puede
-                // desactivar desde aquí.
-                if ($esPerfilPropio) {
-                    $nuevosParaMi = array_filter($aAgregar, fn ($id) => ! $autorizacion->puedeEnProceso(
+                // Ningún actor no-raíz puede otorgar permisos que no posee a ningún
+                // perfil; en un perfil propio además se impide desactivarlo desde aquí.
+                if (! $autorizacion->esRaiz()) {
+                    $noPoseidos = array_filter($aAgregar, fn ($id) => ! $autorizacion->puedeEnProceso(
                         $catalogo[$id]->process_id,
                         SecurityAction::stringToId($catalogo[$id]->slug)
                     ));
-                    $desactiva = $request->has('active') && ! filter_var($request->active, FILTER_VALIDATE_BOOLEAN);
 
-                    if ($nuevosParaMi !== [] || $desactiva) {
-                        return to_route('profiles')->withErrors(['error-message' => __('You cannot grant yourself permissions you do not already have')]);
+                    if ($esPerfilPropio) {
+                        $desactiva = $request->has('active') && ! filter_var($request->active, FILTER_VALIDATE_BOOLEAN);
+
+                        if ($noPoseidos !== [] || $desactiva) {
+                            return to_route('profiles')->withErrors(['error-message' => __('You cannot grant yourself permissions you do not already have')]);
+                        }
+                    } elseif ($noPoseidos !== []) {
+                        abort(403, 'No puedes otorgar permisos que no posees.');
                     }
                 }
                 $describir = fn (array $ids) => collect($ids)

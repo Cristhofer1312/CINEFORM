@@ -16,9 +16,9 @@ class UpdateCursoRequest extends FormRequest
         $param = $this->route('curso');
         $curso = $param instanceof \Modules\Taller\Entities\Curso
             ? $param
-            : \Modules\Taller\Entities\Curso::find($param);
+            : \Modules\Taller\Entities\Curso::with('estados')->find($param);
 
-        return $curso ? $this->user()->can('editar', $curso) : false;
+        return $curso ? $this->user()->can('editarEnEstadoActual', $curso) : false;
     }
 
     /**

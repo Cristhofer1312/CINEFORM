@@ -12,6 +12,7 @@ use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\ContenidoCurso;
 use Modules\Taller\Entities\CursoRequisito;
 use Modules\Taller\Http\Requests\UpdateCursoRequest;
+use Modules\Taller\Policies\CursoPolicy;
 
 class EditarCursoController extends BaseController
 {
@@ -30,15 +31,15 @@ class EditarCursoController extends BaseController
 
         $esCoordinador = Auth::user()->can('gestionar', $curso);
 
-        // VALIDACIÓN DE ESTADOS EDITABLES
-        $estadoActual = $curso->estado_actual->id_estado ?? null;
-        $estadosEditablesFacilitador = [EstadoCurso::DECLINADO->value, EstadoCurso::EDICION->value]; 
-        $estadosEditablesCoordinador = [EstadoCurso::RECHAZADO->value, EstadoCurso::DECLINADO->value, EstadoCurso::EDICION->value, EstadoCurso::EN_CURSO->value];
+        // VALIDACIÓN DE ESTADOS EDITABLES (fuente única en CursoPolicy)
+        $estadoActual = $curso->estado_actual ? (int) $curso->estado_actual->id_estado : null;
+        $estadosPermitidos = $esCoordinador
+            ? CursoPolicy::ESTADOS_EDITABLES_COORDINADOR
+            : CursoPolicy::ESTADOS_EDITABLES_FACILITADOR;
 
-        $estadosPermitidos = $esCoordinador ? $estadosEditablesCoordinador : $estadosEditablesFacilitador;
-
-        if (!in_array($estadoActual, $estadosPermitidos)) {
+        if (! in_array($estadoActual, $estadosPermitidos, true)) {
             $nombreEstado = $this->obtenerNombreEstado($estadoActual);
+
             return redirect()
                 ->route('taller.cursos.show', $curso->id_curso)
                 ->with('warning', "No se puede editar el curso en estado '$nombreEstado'.");
@@ -84,8 +85,8 @@ class EditarCursoController extends BaseController
         // 403/404 de Laravel no se convierte en un redirect con el mensaje de
         // la excepción, y no se intenta rollback sin transacción abierta.
         $validatedData = $request->validated();
-        $curso = Curso::findOrFail($id);
-        $this->authorize('editar', $curso);
+        $curso = Curso::with('estados')->findOrFail($id);
+        $this->authorize('editarEnEstadoActual', $curso);
         $esCoordinador = $request->user()->can('gestionar', $curso);
 
         try {

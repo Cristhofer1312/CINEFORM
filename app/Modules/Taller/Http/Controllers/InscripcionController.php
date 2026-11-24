@@ -602,7 +602,10 @@ class InscripcionController extends BaseController
     public function verRespuestas($id_curso, $id_inscripcion)
     {
         $curso = Curso::findOrFail($id_curso);
-        $inscripcion = Inscripcion::with(['respuestas.requisito', 'persona'])->findOrFail($id_inscripcion);
+        $inscripcion = Inscripcion::with(['respuestas.requisito', 'persona', 'curso'])
+            ->where('id_inscripcion', $id_inscripcion)
+            ->where('id_curso', $curso->id_curso)
+            ->firstOrFail();
 
         $this->authorize('ver', $inscripcion);
 

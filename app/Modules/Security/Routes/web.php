@@ -58,7 +58,9 @@ Route::prefix('security')->group(function () {
         Route::match(['get', 'post'], 'update-profile', [Modules\Security\Http\Controllers\SecurityController::class, 'update_profile'])->name('update_profile');
         Route::match(['get', 'post'], 'update-profile/send-code', [Modules\Security\Http\Controllers\SecurityController::class, 'update_profile_send_code'])->name('update_profile.send_code')->middleware('throttle:codigo-correo');
 
-        Route::get('show-avatar/{img}', [Modules\Security\Http\Controllers\SecurityController::class, 'show_avatar'])->name('show_avatar');
+        Route::get('show-avatar/{img}', [Modules\Security\Http\Controllers\SecurityController::class, 'show_avatar'])
+            ->name('show_avatar')
+            ->withoutMiddleware(\App\Http\Middleware\DecryptIds::class);
 
         Route::get('show-pdf/{pdf}/{page?}', [Modules\Security\Http\Controllers\SecurityController::class, 'show_pdf'])->name('show_pdf')->where(['pdf' => '[A-Za-z0-9_-]+', 'page' => '[0-9]+']);
 

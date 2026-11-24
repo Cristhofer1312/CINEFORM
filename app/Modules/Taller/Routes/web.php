@@ -329,6 +329,7 @@ Route::prefix('taller')->middleware(['decrypt_id'])->group(function () {
     // ruta genérica /asistencia/{curso}/{token} capturaría la URL con {curso}='qr'.
     Route::get('/asistencia/qr/{token}', [AsistenciaController::class, 'qrImage'])
         ->name('taller.asistencia.qr-image')
+        ->middleware('throttle:30,1')
         ->withoutMiddleware('decrypt_id');
     Route::get('/asistencia/{curso}/{token}', [AsistenciaController::class, 'mostrarConfirmacion'])
         ->name('taller.asistencia.confirmar')

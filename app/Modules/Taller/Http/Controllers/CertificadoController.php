@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\Inscripcion;
 use Modules\Comun\Entities\PersonalData;
+use Modules\Taller\Services\BorradorWizardService;
 use Modules\Taller\Services\CertificadoService;
 use App\Constants\SecurityAction;
 use Illuminate\Support\Facades\Auth;
@@ -96,23 +97,59 @@ class CertificadoController extends BaseController
     /**
      * Sirve la plantilla del certificado de un curso o de un wizard en curso.
      *
-     * @param string $tipo  'curso' (id del curso) o 'wizard' (token del wizard)
-     * @param string $ref   id del curso o token del wizard
+     * @param  string  $tipo  'curso' (id del curso) o 'wizard' (token del wizard)
+     * @param  string  $ref  id del curso o token del wizard
      */
     public function verPlantilla($tipo, $ref)
     {
-        return $this->servirImagen($this->rutaPlantilla($tipo, $ref));
+        $this->autorizarRecursoCertificado((string) $tipo, (string) $ref);
+
+        return $this->servirImagen($this->rutaPlantilla($tipo, $ref), true);
     }
 
     /**
      * Sirve la firma del certificado de un curso o de un wizard en curso.
      *
-     * @param string $tipo  'curso' (id del curso) o 'wizard' (token del wizard)
-     * @param string $ref   id del curso o token del wizard
+     * @param  string  $tipo  'curso' (id del curso) o 'wizard' (token del wizard)
+     * @param  string  $ref  id del curso o token del wizard
      */
     public function verFirma($tipo, $ref)
     {
-        return $this->servirImagen($this->rutaFirma($tipo, $ref));
+        $this->autorizarRecursoCertificado((string) $tipo, (string) $ref);
+
+        return $this->servirImagen($this->rutaFirma($tipo, $ref), true);
+    }
+
+    /**
+     * Autoriza el acceso a plantillas o firmas de un curso o borrador del wizard.
+     */
+    private function autorizarRecursoCertificado(string $tipo, string $ref): void
+    {
+        if ($tipo === 'curso') {
+            if (! ctype_digit($ref)) {
+                abort(404);
+            }
+
+            $curso = Curso::findOrFail((int) $ref);
+            $this->authorize('previsualizarCertificado', $curso);
+
+            return;
+        }
+
+        if ($tipo === 'wizard') {
+            if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+                abort(403, 'No tienes permiso para planificar cursos.');
+            }
+
+            $borrador = app(BorradorWizardService::class)->porToken((int) Auth::id(), $ref);
+            if (! $borrador) {
+                abort(403, 'No tienes permiso para acceder a este borrador.');
+            }
+
+            return;
+        }
+
+        abort(404);
     }
 
     /**
@@ -159,7 +196,7 @@ class CertificadoController extends BaseController
      * extensión, y la ruta se valida con realpath para que no se pueda salir
      * del directorio.
      */
-    private function servirImagen($ruta)
+    private function servirImagen($ruta, bool $esPrivado = false)
     {
         if (!$ruta) {
             abort(404);
@@ -181,7 +218,7 @@ class CertificadoController extends BaseController
         $file = File::get($path);
         $etag = '"' . md5($file) . '"';
         $lastModified = File::lastModified($path);
-        $cacheControl = 'public, max-age=86400';
+        $cacheControl = $esPrivado ? 'private, max-age=86400' : 'public, max-age=86400';
 
         if (trim((string) request()->header('If-None-Match')) === $etag) {
             return response(null, 304)
@@ -206,30 +243,30 @@ class CertificadoController extends BaseController
 
     /**
      * Permite probar la emisión del certificado (Vista Previa).
-     * 
-     * @param int|string $id_curso
+     *
+     * @param  int|string  $id_curso
      */
     public function probar($id_curso)
     {
         $curso = Curso::findOrFail($id_curso);
-        $this->autorizarVistaPrevia($curso);
+        $this->authorize('previsualizarCertificado', $curso);
 
         $user = Auth::user();
         $persona = $user->personalData;
 
-        if (!$persona) {
+        if (! $persona) {
             return redirect()->back()->with('error', 'Necesitas datos personales asociados a tu cuenta para previsualizar el certificado.');
         }
 
-        // Creamos una inscripción dummy para la prueba
+        // Creamos una inscripción dummy para la prueba (sin validez oficial)
         $inscripcion = new Inscripcion([
             'id_curso' => $curso->id_curso,
-            'estado' => Inscripcion::ESTADO_APROBADO
+            'estado' => Inscripcion::ESTADO_APROBADO,
         ]);
         $inscripcion->setRelation('persona', $persona);
 
         try {
-            $pdfContent = $this->certificadoService->generarPdf($curso, $inscripcion);
+            $pdfContent = $this->certificadoService->generarPdf($curso, $inscripcion, true);
 
             return response($pdfContent)
                 ->header('Content-Type', 'application/pdf')
@@ -328,7 +365,7 @@ class CertificadoController extends BaseController
 
         $nombreCurso = (string) (session('wizard_curso.datos.nombre') ?? 'Curso de muestra');
         $curso = new Curso(['nombre' => $nombreCurso, 'codigo' => 'LAB-MUESTRA']);
-        $code = \Modules\Taller\Services\CertificadoCodigo::emitir($curso, $persona);
+        $code = CertificadoService::CODIGO_VISTA_PREVIA;
 
         try {
             $pdf = $this->certificadoService->generarPdfCon(
@@ -338,7 +375,8 @@ class CertificadoController extends BaseController
                 $coords ?? $config::coordsBase(),
                 $plantillaPath,
                 $firmaPath,
-                $hayPlantilla
+                $hayPlantilla,
+                true
             );
 
             return response($pdf)
@@ -350,26 +388,6 @@ class CertificadoController extends BaseController
             ]);
 
             return response()->json(['ok' => false, 'error' => 'No se pudo generar la vista previa.'], 500);
-        }
-    }
-
-    /**
-     * Solo el facilitador del curso, gestión o un inscrito aprobado
-     * pueden previsualizar el certificado (evita abuso/DoS anónimo).
-     */
-    private function autorizarVistaPrevia(Curso $curso): void
-    {
-        $user = Auth::user();
-        $esGestor = supervisaTodosLosCursos();
-        $personaId = $user->personalData->id_persona ?? null;
-        $esFacilitador = $personaId !== null && (int) $curso->id_persona === (int) $personaId;
-        $esInscrito = $personaId !== null && Inscripcion::where('id_curso', $curso->id_curso)
-            ->where('id_persona', $personaId)
-            ->where('estado', Inscripcion::ESTADO_APROBADO)
-            ->exists();
-
-        if (!$esGestor && !$esFacilitador && !$esInscrito) {
-            abort(403, 'No tienes permiso para previsualizar el certificado de este curso.');
         }
     }
 

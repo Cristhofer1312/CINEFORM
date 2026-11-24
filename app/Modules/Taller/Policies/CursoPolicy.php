@@ -3,6 +3,7 @@
 namespace Modules\Taller\Policies;
 
 use App\Constants\SecurityAction;
+use App\Enums\EstadoCurso;
 use Modules\Security\Entities\User;
 use Modules\Taller\Entities\Curso;
 use Modules\Taller\Entities\Inscripcion;
@@ -14,6 +15,87 @@ use Modules\Taller\Policies\Traits\ResuelveRolesTaller;
 class CursoPolicy
 {
     use ResuelveRolesTaller;
+
+    /** Estados en los que el facilitador asignado puede editar el curso. */
+    public const ESTADOS_EDITABLES_FACILITADOR = [
+        EstadoCurso::DECLINADO->value,
+        EstadoCurso::EDICION->value,
+    ];
+
+    /** Estados en los que coordinación (gestor) puede editar el curso. */
+    public const ESTADOS_EDITABLES_COORDINADOR = [
+        EstadoCurso::RECHAZADO->value,
+        EstadoCurso::DECLINADO->value,
+        EstadoCurso::EDICION->value,
+        EstadoCurso::EN_CURSO->value,
+    ];
+
+    /**
+     * Visibilidad de la ficha de detalle de un curso.
+     *
+     * Aplica la misma regla que el listado de cursos:
+     * - Quien supervisa todos los cursos ve cualquiera en cualquier estado.
+     * - El facilitador asignado y los participantes con inscripción ven el curso en cualquier estado.
+     * - El resto solo ve cursos públicos en estado INSCRIPCION acordes a su ámbito geográfico.
+     * - Excepción de recarga post-rechazo: el facilitador que rechazó la asignación de un curso
+     *   aún sin reasignar (RECHAZADO con id_persona nulo) mantiene lectura básica sin acciones.
+     */
+    public function ver(User $user, Curso $curso): bool
+    {
+        if ($this->supervisaCursos($user)) {
+            return true;
+        }
+
+        if ($this->esFacilitadorDe($user, $curso)) {
+            return true;
+        }
+
+        $persona = $user->personalData;
+        $idPersona = $persona?->id_persona;
+
+        if ($idPersona !== null) {
+            $tieneInscripcion = $curso->relationLoaded('inscripciones')
+                ? $curso->inscripciones->contains(fn ($inscripcion) => (int) $inscripcion->id_persona === (int) $idPersona)
+                : $curso->inscripciones()->where('id_persona', $idPersona)->exists();
+
+            if ($tieneInscripcion) {
+                return true;
+            }
+        }
+
+        $estadoActual = (int) ($curso->estado_actual?->id_estado ?? 0);
+
+        if ($estadoActual === EstadoCurso::INSCRIPCION->value) {
+            if ((bool) $curso->es_nacional) {
+                return true;
+            }
+
+            $tieneLocalidades = $curso->relationLoaded('localidades')
+                ? $curso->localidades->isNotEmpty()
+                : $curso->localidades()->exists();
+
+            if (! $tieneLocalidades) {
+                return true;
+            }
+
+            $idEstadoUsuario = $persona?->id_estado;
+            if ($idEstadoUsuario === null) {
+                return false;
+            }
+
+            return $curso->relationLoaded('localidades')
+                ? $curso->localidades->contains(fn ($loc) => (int) $loc->id === (int) $idEstadoUsuario)
+                : $curso->localidades()->where('comun.estados.id', $idEstadoUsuario)->exists();
+        }
+
+        if ($estadoActual === EstadoCurso::RECHAZADO->value
+            && $curso->id_persona === null
+            && $curso->observaciones()->where('creado_por', $user->id)->exists()) {
+            return true;
+        }
+
+        return false;
+    }
 
     /**
      * Acceso al contenido formativo (temario, clases, materiales) de un curso.
@@ -47,6 +129,44 @@ class CursoPolicy
     public function editar(User $user, Curso $curso): bool
     {
         return $this->esGestor($user) || ($this->esFacilitador($user) && $this->esFacilitadorDe($user, $curso));
+    }
+
+    /**
+     * Estados del ciclo de vida en los que el usuario puede editar un curso según su rol.
+     *
+     * @return int[]
+     */
+    public function estadosEditablesPara(User $user): array
+    {
+        return $this->esGestor($user)
+            ? self::ESTADOS_EDITABLES_COORDINADOR
+            : self::ESTADOS_EDITABLES_FACILITADOR;
+    }
+
+    /**
+     * Comprueba que el usuario puede editar el curso y que este se encuentra
+     * en un estado editable para su rol.
+     */
+    public function editarEnEstadoActual(User $user, Curso $curso): bool
+    {
+        if (! $this->editar($user, $curso)) {
+            return false;
+        }
+
+        $estadoActual = (int) ($curso->estado_actual?->id_estado ?? 0);
+
+        return in_array($estadoActual, $this->estadosEditablesPara($user), true);
+    }
+
+    /**
+     * Acceder a los recursos del certificado (plantilla, firma) y a su vista previa.
+     * Permitido a gestores de cursos/certificados o al facilitador asignado; nunca a inscritos.
+     */
+    public function previsualizarCertificado(User $user, Curso $curso): bool
+    {
+        return $this->esGestor($user)
+            || $this->certificar($user, $curso)
+            || ($this->esFacilitador($user) && $this->esFacilitadorDe($user, $curso));
     }
 
     /**

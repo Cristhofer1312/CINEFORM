@@ -27,16 +27,26 @@ class CursoDetalleController extends BaseController
             'contenidos' => function ($query) {
                 $query->orderBy('fecha_contenido', 'asc')->orderBy('id_contenido_curso', 'asc');
             },
-            'inscripciones.persona',
             'persona.user',
             'estados',
-            'observaciones.autor',
-        ])->findOrFail($id);
+            'localidades',
+        ])->withCount('inscripcionesActivas')->findOrFail($id);
+
+        $this->authorize('ver', $curso);
 
         $datosUsuario = $this->obtenerDatosUsuario();
         $datosCurso = $this->calcularDatosCurso($curso, $datosUsuario);
 
         $user = auth()->user();
+        $puedeVerDatosInternos = $datosUsuario['esGestor']
+            || $datosCurso['esFacilitador']
+            || ($user && $user->can('verSatisfaccion', $curso));
+
+        if ($puedeVerDatosInternos) {
+            $curso->load('observaciones.autor');
+        } else {
+            $curso->setRelation('observaciones', collect());
+        }
         $puedeInscribirse = $user ? $user->can('inscribirse', [Inscripcion::class, $curso]) : false;
         $puedeCancelarInscripciones = hasPermissionRoute('taller.cursos.index', SecurityAction::CANCELAR_INSCRIPCION);
         $puedeVerParticipantes = $user ? $user->can('verParticipantes', $curso) : false;
@@ -166,7 +176,7 @@ class CursoDetalleController extends BaseController
             : null;
 
         $cuposDisponibles = $curso->cantidad_cupos !== null
-            ? max(0, (int) $curso->cantidad_cupos - $curso->inscripcionesActivas->count())
+            ? max(0, (int) $curso->cantidad_cupos - (int) ($curso->inscripciones_activas_count ?? $curso->inscripcionesActivas->count()))
             : null;
 
         $datosPromedio = $this->calcularPromedioEstudiante($curso, $idPersona, $inscripcion);

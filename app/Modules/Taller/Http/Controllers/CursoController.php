@@ -485,7 +485,17 @@ class CursoController extends BaseController
     {
         try {
             // Buscar el curso
-            $curso = Curso::findOrFail($id);
+            $id = $this->decryptId($id);
+            $curso = Curso::with('estados')->findOrFail($id);
+            $user = $this->getUsuarioAutenticado();
+
+            // Autorizar transición a APROBACION vía Policy además de pertenencia (id_persona)
+            if (! $user->can('cambiarEstado', [$curso, EstadoCurso::APROBACION->value])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No autorizado para finalizar la edición de este curso',
+                ], 403);
+            }
 
             // Verificar que el usuario es el propietario del curso
             if ($this->usuarioSinDatosPersonales()) {
@@ -495,9 +505,9 @@ class CursoController extends BaseController
                 ], 403);
             }
 
-            $personalData = $this->getUsuarioAutenticado()->personalData;
+            $personalData = $user->personalData;
 
-            if ($curso->id_persona != $personalData->id_persona) {
+            if ((int) $curso->id_persona !== (int) $personalData->id_persona) {
                 return response()->json([
                     'success' => false,
                     'message' => 'No autorizado para finalizar la edición de este curso',

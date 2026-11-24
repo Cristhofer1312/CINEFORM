@@ -15,12 +15,8 @@ class CursoRequisitoController extends BaseController
      */
     public function create($id_curso)
     {
-        $curso = Curso::findOrFail($id_curso);
-
-        // Validar permisos
-        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
-            abort(403, 'No tienes permiso para planificar cursos.');
-        }
+        $curso = Curso::with('estados')->findOrFail($id_curso);
+        $this->autorizarCreacionRequisitos($curso);
 
         return view('taller::a.CursoRequisitosCrear', compact('curso'))
             ->with('esWizard', false)
@@ -32,12 +28,8 @@ class CursoRequisitoController extends BaseController
      */
     public function store(Request $request, $id_curso)
     {
-        $curso = Curso::findOrFail($id_curso);
-
-        // Validar permisos
-        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
-            abort(403, 'No tienes permiso para planificar cursos.');
-        }
+        $curso = Curso::with('estados')->findOrFail($id_curso);
+        $this->autorizarCreacionRequisitos($curso);
 
         $validados = $request->validate([
             'requisitos' => 'nullable|array',
@@ -357,5 +349,18 @@ class CursoRequisitoController extends BaseController
 
         return redirect()->route('taller.cursos.show', $curso->id_curso)
             ->with('success', 'Requisitos del curso actualizados correctamente.');
+    }
+
+    /**
+     * Comprueba CREAR_CURSO, pertenencia al curso (o rol gestor) y estado editable.
+     */
+    private function autorizarCreacionRequisitos(Curso $curso): void
+    {
+        if (! hasPermissionRoute('taller.cursos.index', SecurityAction::CREAR_CURSO)) {
+            abort(403, 'No tienes permiso para planificar cursos.');
+        }
+
+        $this->authorize('gestionarRequisitos', $curso);
+        $this->authorize('editarEnEstadoActual', $curso);
     }
 }

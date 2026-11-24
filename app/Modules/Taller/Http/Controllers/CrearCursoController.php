@@ -1192,7 +1192,13 @@ class CrearCursoController extends BaseController
     {
         $this->exigirPermisoCrear();
 
-        $fotoPath = $this->resolverFotoWizardRuta($token);
+        $borrador = app(\Modules\Taller\Services\BorradorWizardService::class)
+            ->porToken((int) Auth::id(), $token);
+        if (! $borrador) {
+            abort(403, 'No tienes permiso para acceder a este borrador.');
+        }
+
+        $fotoPath = $this->resolverFotoWizardRuta($borrador->token, $borrador->foto_path);
         if (! $fotoPath || ! is_file($fotoPath)) {
             abort(404);
         }
@@ -1215,14 +1221,14 @@ class CrearCursoController extends BaseController
         if (trim((string) request()->header('If-None-Match')) === $etag) {
             return response(null, 304)
                 ->header('ETag', $etag)
-                ->header('Cache-Control', 'public, max-age=86400');
+                ->header('Cache-Control', 'private, max-age=86400');
         }
 
         return response($file, 200)
             ->header('Content-Type', $mime)
             ->header('ETag', $etag)
             ->header('Last-Modified', gmdate('D, d M Y H:i:s', $lastModified).' GMT')
-            ->header('Cache-Control', 'public, max-age=86400');
+            ->header('Cache-Control', 'private, max-age=86400');
     }
 
     /**

@@ -28,20 +28,22 @@
                                     </nav>
                                     <div class="d-flex align-items-center gap-2 flex-wrap">
                                         <h2 class="fw-bold text-dark mb-0">{{ $curso->nombre }}</h2>
-                                        {{-- Estado de la configuración del certificado.
+                                        {{-- Estado de la configuración del certificado (solo gestión / facilitador).
                                              Derivado de los archivos en disco por
                                              Curso::estadoCertificado(), no del ciclo de vida del curso. --}}
-                                        @php
-                                            $estadoCertificado = $curso->estado_certificado;
-                                        @endphp
-                                        <span class="badge rounded-pill
-                                            {{ $estadoCertificado->color() === 'success' ? 'bg-success-soft text-success border border-success' : 'bg-danger text-white' }}
-                                            px-3 py-2 fw-bold"
-                                              style="font-size: 0.75rem;"
-                                              title="{{ $estadoCertificado->detalle() }}">
-                                            <i class="fas {{ $estadoCertificado->icono() }} me-1"></i>
-                                            {{ $estadoCertificado->label() }}
-                                        </span>
+                                        @can('previsualizarCertificado', $curso)
+                                            @php
+                                                $estadoCertificado = $curso->estado_certificado;
+                                            @endphp
+                                            <span class="badge rounded-pill
+                                                {{ $estadoCertificado->color() === 'success' ? 'bg-success-soft text-success border border-success' : 'bg-danger text-white' }}
+                                                px-3 py-2 fw-bold"
+                                                  style="font-size: 0.75rem;"
+                                                  title="{{ $estadoCertificado->detalle() }}">
+                                                <i class="fas {{ $estadoCertificado->icono() }} me-1"></i>
+                                                {{ $estadoCertificado->label() }}
+                                            </span>
+                                        @endcan
                                     </div>
                                 </div>
                             </div>

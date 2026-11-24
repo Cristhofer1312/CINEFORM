@@ -252,6 +252,9 @@ class UsersController extends Controller
         return to_route('users.password', Encryptor::encrypt($userId));
     }
 
+    /**
+     * Muestra el formulario y actualiza la contraseña de otro usuario.
+     */
     public function password($id, Request $request)
     {
         // El middleware DecryptIds ya desencripta el parámetro de ruta {id}.
@@ -267,24 +270,22 @@ class UsersController extends Controller
             return to_route('users')->withErrors(['error-message' => 'Cambia tu propia contraseña desde la configuración de tu cuenta.']);
         }
 
+        $user = User::find($userId);
+        if (! $user) {
+            abort(404, 'Usuario no encontrado');
+        }
+
         if (! \Request::ajax()) {
             if (\Request::isMethod('get')) {
-                $user = User::find($userId);
-                if (! $user) {
-                    abort(404, 'Usuario no encontrado');
-                }
-
                 return view('security::users.password', ['id' => Encryptor::encrypt($userId), 'user' => $user]);
             } else {
-
                 $request->validate([
                     'new_password' => ['required', 'same:re_password', \Illuminate\Validation\Rules\Password::defaults()],
                     're_password' => 'required',
                 ]);
 
                 // Se compara con la contraseña del usuario afectado (antes, con la del actor).
-                $afectado = User::findOrFail($userId);
-                if (Hash::check($request->new_password, $afectado->password)) {
+                if (Hash::check($request->new_password, $user->password)) {
                     return to_route('users.password', Encryptor::encrypt($userId))->withErrors(['error-message' => __('New Password cannot be same as your current password.')]);
                 }
                 // Nueva contraseña y nuevo session_token: se cierran las sesiones

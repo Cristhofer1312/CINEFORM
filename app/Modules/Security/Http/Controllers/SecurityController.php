@@ -3,9 +3,11 @@
 namespace Modules\Security\Http\Controllers;
 
 use App;
+use App\Constants\SecurityAction;
 use App\Helpers\Encryptor;
 use App\Helpers\LockDB;
 use App\Http\Controllers\Controller;
+use App\Services\Security\Autorizacion;
 use App\Services\Security\RegistroAccesos;
 // use Illuminate\Routing\Controller;
 use Carbon\Carbon;
@@ -75,12 +77,65 @@ class SecurityController extends Controller
         return File::put(storage_path($file_fin), $imagenCodificada) !== false;
     }
 
+    /**
+     * Exige el permiso administrativo del módulo Security (users:view) o usuario raíz.
+     */
+    private function exigirPermisoAdministracionArchivos(): void
+    {
+        $autorizacion = app(Autorizacion::class);
+
+        if ($autorizacion->esRaiz()) {
+            $autorizacion->registrarBypass('users', SecurityAction::VER, request());
+
+            return;
+        }
+
+        if (! $autorizacion->puede('users', SecurityAction::VER)) {
+            abort(403, 'Acceso denegado: No posee el permiso necesario para ejecutar esta acción en el módulo users');
+        }
+    }
+
+    /**
+     * Valida el identificador del PDF y verifica con realpath que el archivo esté dentro de storage/.
+     */
+    private function resolverPdfSeguro(mixed $nombre): string
+    {
+        $nombre = (string) $nombre;
+
+        if (
+            $nombre === ''
+            || str_contains($nombre, '..')
+            || str_starts_with($nombre, '/')
+            || str_starts_with($nombre, '\\')
+            || preg_match('/^[A-Za-z0-9_-]+$/', $nombre) !== 1
+        ) {
+            abort(404);
+        }
+
+        $baseDir = realpath(storage_path());
+        $pdfFile = realpath(storage_path($nombre.'.pdf'));
+
+        if (
+            $baseDir === false
+            || $pdfFile === false
+            || ! is_file($pdfFile)
+            || ! str_starts_with($pdfFile, $baseDir.DIRECTORY_SEPARATOR)
+            || dirname($pdfFile) !== $baseDir
+        ) {
+            abort(404);
+        }
+
+        return $pdfFile;
+    }
+
+    /**
+     * Muestra el visor paginado de un PDF administrativo almacenado en storage/.
+     */
     public function file_admin($id = null)
     {
+        $this->exigirPermisoAdministracionArchivos();
 
-        abort_unless(preg_match('/^[A-Za-z0-9_-]+$/', (string) $id) === 1, 404);
-        $pdfFile = storage_path($id.'.pdf');
-        abort_unless(is_file($pdfFile), 404);
+        $pdfFile = $this->resolverPdfSeguro($id);
         $FILE_PDF = new \Smalot\PdfParser\Parser;
 
         $documento = $FILE_PDF->parseFile($pdfFile);
@@ -104,26 +159,18 @@ class SecurityController extends Controller
      * sudo systemctl restart apache2
      */
 
+    /**
+     * Renderiza una página de un PDF administrativo como imagen con marca de agua.
+     */
     public function show_pdf($pdf, $page = 0)
     {
-        // Ruta al archivo PDF
-        // $pdfFile = 'a.pdf';
+        // La ruta restringe {pdf} a [A-Za-z0-9_-]+; se repite aquí y se verifica
+        // con realpath antes de acceder al disco o pasar la ruta a Imagick.
+        $pdfFile = $this->resolverPdfSeguro($pdf);
+        $this->exigirPermisoAdministracionArchivos();
 
-        $draw = new \ImagickDraw;
-        $draw->setFont(public_path('fonts/arial.ttf')); // Asegúrate de que la fuente esté disponible
-        $draw->setFontSize(150);
-        $draw->setFillColor(new \ImagickPixel('rgba(128, 128, 128, 0.7)')); // Color blanco con opacidad
-        // Posicionar el texto
-        $text = Auth::user()->full_name;
-        // $draw->annotation(100, 100, $text); // Ajusta la posición según sea necesario
-        $draw->setGravity(\Imagick::GRAVITY_CENTER);
-
-        // La ruta restringe {pdf} a [A-Za-z0-9_-]+; se repite aquí porque el valor
-        // llega a una ruta de disco y al nombre de archivo de Imagick.
-        abort_unless(preg_match('/^[A-Za-z0-9_-]+$/', (string) $pdf) === 1, 404);
+        abort_unless(is_numeric($page) && (int) $page >= 0, 404);
         $page = (int) $page;
-        $pdfFile = storage_path($pdf.'.pdf');
-        abort_unless(is_file($pdfFile), 404);
 
         $FILE_PDF = new \Smalot\PdfParser\Parser;
 
@@ -134,6 +181,15 @@ class SecurityController extends Controller
         if ($page >= count($paginas)) {
             return response()->json(['error' => 'page not found'], 400);
         }
+
+        $draw = new \ImagickDraw;
+        $draw->setFont(public_path('fonts/arial.ttf')); // Asegúrate de que la fuente esté disponible
+        $draw->setFontSize(150);
+        $draw->setFillColor(new \ImagickPixel('rgba(128, 128, 128, 0.7)')); // Color blanco con opacidad
+        // Posicionar el texto
+        $text = Auth::user()->full_name;
+        // $draw->annotation(100, 100, $text); // Ajusta la posición según sea necesario
+        $draw->setGravity(\Imagick::GRAVITY_CENTER);
 
         $imagick = new \Imagick;
 
@@ -245,17 +301,25 @@ class SecurityController extends Controller
         return imagejpeg($captcha);
     }
 
+    /**
+     * Sirve el avatar de un usuario aceptando únicamente su ID cifrado.
+     */
     public function show_avatar($img)
     {
-        // El middleware DecryptIds ya descifra el parámetro {img} por lo que
-        // puede llegar como id numérico; si aún viene cifrado, lo desciframos aquí.
-        $num = is_numeric($img) ? $img : Encryptor::decrypt($img);
+        // Solo se acepta el ID cifrado (se ignora cualquier intento con ID numérico en claro).
+        $raw = request()->route()?->originalParameter('img') ?? $img;
 
-        if (! is_numeric($num) || $num < 0) {
+        if (! is_string($raw) || is_numeric($raw)) {
             abort(404);
         }
 
-        $path = storage_path('app/public/img/avatars/'.$num.'.png');
+        $num = Encryptor::decrypt($raw);
+
+        if ((! is_string($num) && ! is_int($num)) || preg_match('/^[1-9][0-9]*$/', (string) $num) !== 1) {
+            abort(404);
+        }
+
+        $path = storage_path('app/public/img/avatars/'.(int) $num.'.png');
         if (! File::exists($path)) {
             abort(404);
         }

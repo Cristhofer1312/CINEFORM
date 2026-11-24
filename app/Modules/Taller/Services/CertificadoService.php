@@ -12,6 +12,8 @@ use FPDF;
 
 class CertificadoService
 {
+    public const CODIGO_VISTA_PREVIA = 'VISTA-PREVIA-SIN-VALIDEZ';
+
     private QrGeneratorInterface $qr;
 
     public function __construct(?QrGeneratorInterface $qr = null)
@@ -204,15 +206,16 @@ class CertificadoService
      *
      * Resuelve insumos desde disco y delega en generarPdfCon().
      *
-     * @param Curso $curso
-     * @param Inscripcion $inscripcion
+     * @param  bool  $esVistaPrevia  Si es true, marca el documento como vista previa y omite el código/QR válidos
      * @return string Contenido binario del PDF
      */
-    public function generarPdf(Curso $curso, Inscripcion $inscripcion): string
+    public function generarPdf(Curso $curso, Inscripcion $inscripcion, bool $esVistaPrevia = false): string
     {
         /** @var PersonalData $persona */
         $persona = $inscripcion->persona;
-        $code = CertificadoCodigo::emitir($curso, $persona);
+        $code = $esVistaPrevia
+            ? self::CODIGO_VISTA_PREVIA
+            : CertificadoCodigo::emitir($curso, $persona);
 
         // Cargar coordenadas: base → defaults.json → {curso}.json (fuente única: CertificadoConfig).
         $coords = CertificadoConfig::coordsPara($curso->id_curso);
@@ -225,7 +228,7 @@ class CertificadoService
 
         // Sin plantilla se ignoran las coordenadas calibradas: están pensadas
         // para la imagen de fondo del curso y quedarían descolocadas.
-        if (!$hayPlantilla) {
+        if (! $hayPlantilla) {
             $coords = self::COORDS_SIN_PLANTILLA;
         }
 
@@ -236,7 +239,8 @@ class CertificadoService
             $coords,
             $plantillaPath,
             CertificadoConfig::rutaFirma($curso->id_curso),
-            $hayPlantilla
+            $hayPlantilla,
+            $esVistaPrevia
         );
     }
 
@@ -244,15 +248,16 @@ class CertificadoService
      * Núcleo de emisión con insumos explícitos (sin leer disco por curso).
      *
      * Permite la prueba en vivo del wizard, donde aún no hay curso ni
-     *.coords.json definitivo: se pasa lo que el editor tiene en pantalla.
+     * .coords.json definitivo: se pasa lo que el editor tiene en pantalla.
      *
-     * @param Curso $curso Curso (puede ser no persistido, solo nombre/código)
-     * @param PersonalData $persona Datos de muestra para nombre/DNI
-     * @param string $code Código ya emitido (firma del QR)
-     * @param array $coords Coordenadas en mm FPDF
-     * @param string|null $plantillaPath Fondo (o null para diseño propio)
-     * @param string|null $firmaPath Firma (o null para omitirla)
-     * @param bool $hayPlantilla Si es false se usa el diseño propio
+     * @param  Curso  $curso  Curso (puede ser no persistido, solo nombre/código)
+     * @param  PersonalData  $persona  Datos de muestra para nombre/DNI
+     * @param  string  $code  Código ya emitido (firma del QR)
+     * @param  array  $coords  Coordenadas en mm FPDF
+     * @param  string|null  $plantillaPath  Fondo (o null para diseño propio)
+     * @param  string|null  $firmaPath  Firma (o null para omitirla)
+     * @param  bool  $hayPlantilla  Si es false se usa el diseño propio
+     * @param  bool  $esVistaPrevia  Si es true, marca el PDF como vista previa sin código/QR válidos
      * @return string Contenido binario del PDF
      */
     public function generarPdfCon(
@@ -262,13 +267,20 @@ class CertificadoService
         array $coords,
         ?string $plantillaPath,
         ?string $firmaPath,
-        bool $hayPlantilla
+        bool $hayPlantilla,
+        bool $esVistaPrevia = false
     ): string {
+        if ($esVistaPrevia) {
+            $code = self::CODIGO_VISTA_PREVIA;
+            $qrContent = 'VISTA PREVIA - SIN VALIDEZ OFICIAL';
+        } else {
+            $qrContent = route('taller.certificados.verificar', $code);
+        }
+
         // Generar QR en local (sin servicios externos: el DNI no sale del servidor).
         // En el temporal del sistema (/tmp, siempre escribible), no en
         // storage/app: ese volumen puede quedar con dueño root y PHP-FPM
         // (www-data) se quedaría sin permiso de escritura.
-        $qrContent = route('taller.certificados.verificar', $code);
         $tempQrPath = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR)
             . DIRECTORY_SEPARATOR . 'cineform_qr_' . uniqid() . '.png';
 
@@ -345,6 +357,10 @@ class CertificadoService
             $pdf->Cell($dniW, 10, $this->latin($persona->dni), 0, 0, $coords['dni']['align'] ?? 'L');
         }
 
+        if ($esVistaPrevia) {
+            $this->dibujarMarcaVistaPrevia($pdf);
+        }
+
         $pdfContent = $pdf->Output('S');
 
         if (file_exists($tempQrPath)) {
@@ -352,5 +368,35 @@ class CertificadoService
         }
 
         return $pdfContent;
+    }
+
+    /**
+     * Marca visible de vista previa para que un PDF de prueba no pueda
+     * hacerse pasar por un certificado oficial emitido.
+     */
+    private function dibujarMarcaVistaPrevia(FPDF $pdf): void
+    {
+        // Banda superior enmarcada
+        $pdf->SetDrawColor(185, 28, 28);
+        $pdf->SetFillColor(254, 242, 242);
+        $pdf->SetLineWidth(0.6);
+        $pdf->Rect(48.5, 5, 200, 11, 'DF');
+
+        $pdf->SetTextColor(185, 28, 28);
+        $pdf->SetFont('Arial', 'B', 13);
+        $pdf->SetXY(48.5, 6.5);
+        $pdf->Cell(200, 8, $this->latin('VISTA PREVIA - DOCUMENTO SIN VALIDEZ OFICIAL'), 0, 0, 'C');
+
+        // Sello central sin relleno (permite verificar la calibración, pero impide recortar bordes)
+        $pdf->SetFont('Arial', 'B', 38);
+        $pdf->SetTextColor(220, 38, 38);
+        $pdf->SetXY(0, 56);
+        $pdf->Cell(297, 16, 'VISTA PREVIA', 0, 0, 'C');
+
+        // Banda inferior de advertencia
+        $pdf->SetFont('Arial', 'B', 11);
+        $pdf->SetTextColor(185, 28, 28);
+        $pdf->SetXY(0, 196);
+        $pdf->Cell(297, 8, $this->latin('VISTA PREVIA - NO VÁLIDO PARA VERIFICACIÓN'), 0, 0, 'C');
     }
 }
